@@ -1,5 +1,5 @@
 # TravelSync
-Collaboration Development Assignment\
+Collaboration Development Assignment
 
 ## Importnant information
 This is the document who introduce this project and teach you how to deploy and run it
