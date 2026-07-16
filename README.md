@@ -11,7 +11,7 @@ Please **install** the following items before you try to run
 2. Docker
 
 For Visual Studio Code, you will need to install the following extenstions:
- - Dev Containers [text](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+ - Dev Containers [LINK](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
 ## How to deploy (For developer)
 1. Pull it into your local pc
@@ -21,4 +21,4 @@ For Visual Studio Code, you will need to install the following extenstions:
 3. Wait until installation finish
  - **Warning** It may be error during running Docker, Copy the log and ask AI if you cannot solve it
 4. After all installation finish, run "npm run dev" in your terminal (Build inside Visual Studio Code)
-5. Open it on your browser, Default URL: [http](http://localhost:3000/)
+5. Open it on your browser, Default URL: http://localhost:3000
