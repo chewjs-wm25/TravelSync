@@ -1,0 +1,24 @@
+{
+  "name": "Next.js Dev Environment",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  // 自动转发 Next.js 的默认端口
+  "forwardPorts": [3000],
+  // 配置容器内的 VS Code 插件
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",          // ESLint 检查
+        "esbenp.prettier-vscode",         // 代码格式化
+        "bradlc.vscode-tailwindcss",      // Tailwind CSS 智能提示
+        "dsznajder.es7-react-js-snippets", // React 代码片段快捷键
+        "visualstudioexptteam.vscodeintellicode" // AI 代码补全提示
+      ]
+    }
+  },
+  // 容器创建完成后自动执行的操作
+  "postCreateCommand": "npm install", // 如果用 pnpm 请改为 pnpm install
+  // 开启非 root 用户以保证文件权限安全
+  "remoteUser": "node"
+}
