@@ -1,0 +1,39 @@
+
+> travel_sync@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.10 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://172.30.240.116:3000
+✓ Ready in 1008ms
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\chank\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\chank\Downloads\TravelSync\package-lock.json
+
+
+ GET / 200 in 462ms (next.js: 252ms, application-code: 210ms)
+ GET / 200 in 109ms (next.js: 13ms, application-code: 96ms)
+ GET / 200 in 178ms (next.js: 12ms, application-code: 167ms)
+ GET / 200 in 166ms (next.js: 9ms, application-code: 157ms)
+ GET / 200 in 89ms (next.js: 11ms, application-code: 78ms)
+ GET / 200 in 96ms (next.js: 10ms, application-code: 85ms)
+ GET / 200 in 116ms (next.js: 12ms, application-code: 104ms)
+ GET / 200 in 94ms (next.js: 8ms, application-code: 86ms)
+ GET / 200 in 228ms (next.js: 10ms, application-code: 219ms)
+ GET / 200 in 70ms (next.js: 7ms, application-code: 63ms)
+ GET /src/main.tsx?t=1778429571196 404 in 300ms (next.js: 67ms, application-code: 233ms)
+ GET /@vite-plugin-pwa/pwa-entry-point-loaded 404 in 297ms (next.js: 173ms, application-code: 124ms)
+ GET /@react-refresh 404 in 299ms (next.js: 145ms, application-code: 154ms)
+ GET /@vite/client 404 in 320ms (next.js: 141ms, application-code: 178ms)
+ GET /manifest.webmanifest 404 in 166ms (next.js: 102ms, application-code: 64ms)
+ GET /dev-sw.js?dev-sw 404 in 46ms (next.js: 13ms, application-code: 33ms)
+ GET /@vite/client 404 in 111ms (next.js: 15ms, application-code: 96ms)
+ GET /src/main.tsx?t=1778429571196 404 in 116ms (next.js: 54ms, application-code: 62ms)
+ GET /@vite-plugin-pwa/pwa-entry-point-loaded 404 in 176ms (next.js: 60ms, application-code: 117ms)
+ GET /@react-refresh 404 in 178ms (next.js: 29ms, application-code: 149ms)
+ GET /manifest.webmanifest 404 in 177ms (next.js: 113ms, application-code: 64ms)
+ GET /dev-sw.js?dev-sw 404 in 60ms (next.js: 13ms, application-code: 47ms)
+ GET / 200 in 90ms (next.js: 16ms, application-code: 74ms)

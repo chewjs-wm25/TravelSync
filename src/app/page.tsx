@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { useTestStore } from '@/src/store/useTestStore';
+import { useTestStore } from '@/store/useTestStore';
 
 // 1. 提取网络订阅逻辑，用于 useSyncExternalStore
 const subscribeOnline = (callback: () => void) => {
