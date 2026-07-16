@@ -13,12 +13,14 @@
         "esbenp.prettier-vscode",         // 代码格式化
         "bradlc.vscode-tailwindcss",      // Tailwind CSS 智能提示
         "dsznajder.es7-react-js-snippets", // React 代码片段快捷键
-        "visualstudioexptteam.vscodeintellicode" // AI 代码补全提示
+        // 💡 在这里加上你心仪的 AI 插件，例如：
+        // "Codeium.codeium" 或 "GitHub.copilot" 或 "continue.continue"
+        "GitHub.copilot"
       ]
     }
   },
   // 容器创建完成后自动执行的操作
-  "postCreateCommand": "npm install", // 如果用 pnpm 请改为 pnpm install
+  "postCreateCommand": "npm install zustand next-pwa",
   // 开启非 root 用户以保证文件权限安全
   "remoteUser": "node"
 }
