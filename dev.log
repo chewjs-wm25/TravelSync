@@ -37,3 +37,32 @@
  GET /manifest.webmanifest 404 in 177ms (next.js: 113ms, application-code: 64ms)
  GET /dev-sw.js?dev-sw 404 in 60ms (next.js: 13ms, application-code: 47ms)
  GET / 200 in 90ms (next.js: 16ms, application-code: 74ms)
+ GET /dev-sw.js?dev-sw 404 in 55ms (next.js: 17ms, application-code: 38ms)
+✓ Compiled in 85ms
+ GET / 200 in 230ms (next.js: 116ms, application-code: 115ms)
+ GET / 200 in 84ms (next.js: 6ms, application-code: 79ms)
+ GET / 200 in 48ms (next.js: 10ms, application-code: 38ms)
+✓ Compiled in 40ms
+ GET / 200 in 153ms (next.js: 82ms, application-code: 71ms)
+ GET / 200 in 24ms (next.js: 5ms, application-code: 19ms)
+ GET / 200 in 23ms (next.js: 5ms, application-code: 18ms)
+✓ Compiled in 165ms
+✓ Compiled in 1877ms
+ GET / 200 in 1950ms (next.js: 288ms, application-code: 1662ms)
+ GET / 200 in 421ms (next.js: 133ms, application-code: 289ms)
+ GET / 200 in 604ms (next.js: 12ms, application-code: 592ms)
+✓ Compiled in 483ms
+⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+▲ Next.js 16.2.10 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://172.30.240.116:3000
+✓ Ready in 755ms
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\chank\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\chank\Downloads\TravelSync\package-lock.json
+
+
+ GET / 200 in 684ms (next.js: 471ms, application-code: 213ms)
