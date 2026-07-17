@@ -66,3 +66,10 @@
 
 
  GET / 200 in 684ms (next.js: 471ms, application-code: 213ms)
+ GET /@vite/client 404 in 1508ms (next.js: 922ms, application-code: 586ms)
+ GET /src/main.tsx?t=1778429571196 404 in 1472ms (next.js: 744ms, application-code: 728ms)
+ GET /@vite-plugin-pwa/pwa-entry-point-loaded 404 in 1458ms (next.js: 272ms, application-code: 1186ms)
+ GET /@react-refresh 404 in 1474ms (next.js: 1168ms, application-code: 306ms)
+ GET /manifest.webmanifest 404 in 1490ms (next.js: 808ms, application-code: 682ms)
+ GET /dev-sw.js?dev-sw 404 in 91ms (next.js: 22ms, application-code: 69ms)
+ GET / 200 in 121ms (next.js: 12ms, application-code: 110ms)
