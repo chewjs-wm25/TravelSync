@@ -1,107 +1,134 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { useTestStore } from '@/src/store/useTestStore';
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useTestStore } from "@/src/store/useTestStore";
 
-// 1. 提取网络订阅逻辑，用于 useSyncExternalStore
+// 1. Extract network subscription logic for useSyncExternalStore
 const subscribeOnline = (callback: () => void) => {
-  if (typeof window !== 'undefined') {
-    window.addEventListener('online', callback);
-    window.addEventListener('offline', callback);
+  if (typeof window !== "undefined") {
+    window.addEventListener("online", callback);
+    window.addEventListener("offline", callback);
     return () => {
-      window.removeEventListener('online', callback);
-      window.removeEventListener('offline', callback);
+      window.removeEventListener("online", callback);
+      window.removeEventListener("offline", callback);
     };
   }
   return () => {};
 };
 
 const getOnlineSnapshot = () => {
-  if (typeof navigator !== 'undefined') {
+  if (typeof navigator !== "undefined") {
     return navigator.onLine;
   }
-  return true; 
+  return true;
 };
 
-const getServerSnapshot = () => true; // 解决 Next.js SSR 水合报错
+const getServerSnapshot = () => true; // Solve Next.js SSR hydration error
 
 export default function Home() {
   const { count, increase, decrease } = useTestStore();
-  
-  // 完美解决 useEffect 同步 setState 警告：使用 React 18 推荐的外部状态同步 Hook
-  const isOnline = useSyncExternalStore(subscribeOnline, getOnlineSnapshot, getServerSnapshot);
+
+  // Perfectly solve useEffect synchronous setState warning: Use the external state synchronization Hook recommended by React 18
+  const isOnline = useSyncExternalStore(
+    subscribeOnline,
+    getOnlineSnapshot,
+    getServerSnapshot
+  );
   const isOffline = !isOnline;
 
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
 
   useEffect(() => {
-    // 完美解决 any 报错：使用 unknown 作为中间层进行类型断言
-    // 这样既满足了 TS 严格模式，又读取了 iOS 特有的 standalone 属性
+    // Perfectly solve any error: Use unknown as an intermediary layer for type assertion
+    // This satisfies the strict mode of TS while reading the standalone property specific to iOS
     const nav = window.navigator as unknown as { standalone?: boolean };
-    
-    // 通过 Promise.resolve 将状态更新推迟到微任务队列
-    // 彻底避开 "Calling setState synchronously within an effect" 的警告
+
+    // By delaying the state update to the microtask queue using Promise.resolve
+    // We completely avoid the warning "Calling setState synchronously within an effect"
     Promise.resolve().then(() => {
-      const isPwaMode = 
-        window.matchMedia('(display-mode: standalone)').matches || 
+      const isPwaMode =
+        window.matchMedia("(display-mode: standalone)").matches ||
         nav.standalone === true;
       setIsStandalone(isPwaMode);
     });
   }, []);
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
-      <div className="bg-white shadow-xl rounded-2xl p-8 max-w-lg w-full text-center">
-        
-        <h1 className="text-3xl font-extrabold text-blue-600 mb-2">
-          架构测试面板 🚀
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-6">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-xl">
+        <h1 className="mb-2 text-3xl font-extrabold text-blue-600">
+          Architecture Test Panel 🚀
         </h1>
-        <p className="text-gray-500 font-medium mb-8">
-          Next.js + React + TypeScript 环境正常
+        <p className="mb-8 font-medium text-gray-500">
+          Next.js + React + TypeScript environment is working normally
         </p>
 
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Zustand 状态测试</h2>
+        <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-6">
+          <h2 className="mb-4 text-lg font-bold text-gray-800">
+            Zustand State Test
+          </h2>
           <div className="flex items-center justify-center space-x-6">
             <button
               onClick={decrease}
-              className="px-5 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 active:scale-95 transition-all"
+              className="rounded-lg bg-red-500 px-5 py-2 font-semibold text-white transition-all hover:bg-red-600 active:scale-95"
             >
-              减少
+              Decrease
             </button>
-            <span className="text-4xl font-black text-gray-800 w-12">{count}</span>
+            <span className="w-12 text-4xl font-black text-gray-800">
+              {count}
+            </span>
             <button
               onClick={increase}
-              className="px-5 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 active:scale-95 transition-all"
+              className="rounded-lg bg-green-500 px-5 py-2 font-semibold text-white transition-all hover:bg-green-600 active:scale-95"
             >
-              增加
+              Increase
             </button>
           </div>
         </div>
 
-        <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 text-left">
-          <h2 className="text-lg font-bold text-gray-800 mb-4 text-center">Next-PWA 测试</h2>
-          
+        <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-left">
+          <h2 className="mb-4 text-center text-lg font-bold text-gray-800">
+            Next-PWA Test
+          </h2>
+
           <ul className="space-y-3">
             <li className="flex items-center space-x-2">
-              <span className="text-xl">{isStandalone ? '✅' : '🟡'}</span>
-              <span className={isStandalone ? 'text-green-700 font-semibold' : 'text-yellow-700'}>
-                {isStandalone ? '已在 PWA 独立模式下运行' : '当前为浏览器模式 (需点击安装应用)'}
+              <span className="text-xl">{isStandalone ? "✅" : "🟡"}</span>
+              <span
+                className={
+                  isStandalone
+                    ? "font-semibold text-green-700"
+                    : "text-yellow-700"
+                }
+              >
+                {isStandalone
+                  ? "Running in PWA standalone mode"
+                  : "Currently in browser mode (Need to click to install the app)"}
               </span>
             </li>
             <li className="flex items-center space-x-2">
-              <span className="text-xl">{isOffline ? '✈️' : '🌐'}</span>
-              <span className={isOffline ? 'text-amber-600 font-semibold' : 'text-blue-600 font-semibold'}>
-                {isOffline ? '当前处于离线模式 (Service Worker 正在工作!)' : '当前网络已连接'}
+              <span className="text-xl">{isOffline ? "✈️" : "🌐"}</span>
+              <span
+                className={
+                  isOffline
+                    ? "font-semibold text-amber-600"
+                    : "font-semibold text-blue-600"
+                }
+              >
+                {isOffline
+                  ? "Currently in offline mode (Service Worker is working!)"
+                  : "Currently connected to the network"}
               </span>
             </li>
           </ul>
 
-          <div className="mt-4 text-sm text-gray-500 bg-gray-200/50 p-3 rounded-lg">
-            <strong>如何测试离线缓存：</strong> 打开浏览器开发者工具 (F12) → Network (网络) 面板 → 将网络节流设置为 "Offline" → 刷新页面。如果页面还能正常渲染，说明 next-pwa 缓存成功。
+          <div className="mt-4 rounded-lg bg-gray-200/50 p-3 text-sm text-gray-500">
+            <strong>How to test offline cache:</strong> Open browser developer
+            tools (F12) → Network (network) tab → Set network throttling to
+            "Offline" → Refresh the page. If the page still renders normally, it
+            indicates that the next-pwa cache was successful.
           </div>
         </div>
-        
       </div>
     </main>
   );
