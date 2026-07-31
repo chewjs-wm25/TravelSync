@@ -5,22 +5,41 @@
   },
   // 自动转发 Next.js 的默认端口
   "forwardPorts": [3000],
-  // 配置容器内的 VS Code 插件
+
+  // 配置容器内的 VS Code 设置与插件
   "customizations": {
     "vscode": {
+      // 💡 [新增] 自动化配置：保存时自动修复 ESLint 错误并用 Prettier 格式化代码
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": null,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "js/ts.tsdk.path": "node_modules/typescript/lib",
+
+        // 💡 [新增] 强制开启 Error Lens 实时行尾渲染
+        "errorLens.enabled": true,
+        "errorLens.followCursor": "allLines",
+        "errorLens.delay": 100
+      },
       "extensions": [
-        "dbaeumer.vscode-eslint",          // ESLint 检查
-        "esbenp.prettier-vscode",         // 代码格式化
-        "bradlc.vscode-tailwindcss",      // Tailwind CSS 智能提示
+        "dbaeumer.vscode-eslint", // ESLint 检查
+        "esbenp.prettier-vscode", // 代码格式化
+        "bradlc.vscode-tailwindcss", // Tailwind CSS 智能提示
         "dsznajder.es7-react-js-snippets", // React 代码片段快捷键
-        // 💡 在这里加上你心仪的 AI 插件，例如：
-        // "Codeium.codeium" 或 "GitHub.copilot" 或 "continue.continue"
-        "GitHub.copilot"
+        "GitHub.copilot", // AI 辅助插件
+
+        // 💡 [新增] 新手体验大幅提升插件：
+        "usernamehw.error-lens", // 在代码行末直接显示高亮报错，定位问题更快
+        "yoavbls.pretty-typescript-errors" // 将晦涩难懂的 TS 报错转为可读性强的排版
       ]
     }
   },
-  // 容器创建完成后自动执行的操作
-  "postCreateCommand": "npm install zustand next-pwa",
+
+  // 💡 [优化] 先进行全局依赖安装 npm install，确保拉取代码时所有人环境完备，再安装指定包
+  "postCreateCommand": "npm install && npm install zustand next-pwa",
+
   // 开启非 root 用户以保证文件权限安全
   "remoteUser": "node"
 }
