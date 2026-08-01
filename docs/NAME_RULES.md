@@ -1,8 +1,8 @@
 1. Module IDs (MM): 
 - 01=User & Account
 - 02=Trip & Itinerary
-- 03=Destination & Event
-- 04=Logistics
+- 03=Destination Discovery & Inspiration
+- 04=Travel Logistics & Map Route Planning
 - 05=Collaboration.
 2. Prefixes: FR (Functional Requirement), UC (Use Case), UCD (Use Case Description).
 3. Syntax Format: Group Level: `[PREFIX] [MM]-[Group#] [Title]` | Item Level: `[PREFIX] [MM]-[Group#].[Item#]: [Requirement]`

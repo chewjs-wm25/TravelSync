@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "TravelSync 系统架构",
+    "subtitle": "Cloudflare Workers 全栈 · 4 Tier · 3 Layer · 5 模块（依据 docs/design/系统架构概览.md）",
+    "output": "travelsync-architecture.html",
+    "quality_profile": "showcase",
+    "viewBox": [1540, 700],
+    "views": [
+      { "id": "request-path", "label": "主请求路径", "focus": ["client", "https", "edge", "presentation", "business", "data-access", "d1"], "note": "从用户电脑经 HTTPS 与边缘网络，到 D1 持久化的主链路。" },
+      { "id": "storage", "label": "数据存储", "focus": ["data-access", "d1", "kv"], "note": "D1 关系型主库与 KV 键值缓存的读写边界。" },
+      { "id": "third-party", "label": "第三方依赖", "focus": ["business", "api-client", "oauth-mail", "dgm", "osm", "ors", "maptiler"], "note": "第三方 API 经 Worker 代理（MapTiler 瓦片浏览器直连）。" }
+    ]
+  },
+  "components": [
+    { "id": "client", "type": "external", "label": "Client", "sublabel": "用户电脑 · 浏览器", "pos": [20, 300], "size": [130, 64] },
+    { "id": "https", "type": "cloud", "label": "HTTPS", "sublabel": "加密协议链接", "pos": [190, 300], "size": [130, 64] },
+    { "id": "edge", "type": "security", "label": "Cloudflare 边缘网络", "sublabel": "CDN · DDoS · WAF · Bot · Zero Trust", "tag": "Tier 1", "pos": [360, 300], "size": [150, 64] },
+    { "id": "presentation", "type": "frontend", "label": "Presentation 层", "sublabel": "Next.js 16 · 5 模块页面", "pos": [580, 300], "size": [150, 64] },
+    { "id": "business", "type": "backend", "label": "Business Logic 层", "sublabel": "认证/风控/行程/POI/路线/协作", "pos": [800, 300], "size": [150, 64] },
+    { "id": "api-client", "type": "backend", "label": "统一 API 客户端层", "sublabel": "src/lib/api/ · Route Handlers", "pos": [800, 470], "size": [150, 64] },
+    { "id": "data-access", "type": "backend", "label": "Data Access 层", "sublabel": "D1 仓储 · KV 访问", "pos": [1060, 300], "size": [150, 64] },
+    { "id": "d1", "type": "database", "label": "Cloudflare D1", "sublabel": "关系型 · 16 张表", "tag": "Tier 3", "pos": [1260, 300], "size": [140, 64] },
+    { "id": "kv", "type": "database", "label": "Cloudflare KV", "sublabel": "Session/Token/缓存", "tag": "Tier 4", "pos": [1260, 470], "size": [140, 64] },
+    { "id": "oauth-mail", "type": "external", "label": "Google OAuth · 邮件服务", "sublabel": "登录 / 通知邮件", "pos": [800, 70], "size": [150, 56] },
+    { "id": "maptiler", "type": "external", "label": "MapTiler", "sublabel": "地图瓦片（浏览器直连）", "pos": [580, 70], "size": [150, 56] },
+    { "id": "dgm", "type": "external", "label": "data.gov.my", "sublabel": "官方认证 / 节日数据", "pos": [800, 630], "size": [150, 56] },
+    { "id": "osm", "type": "external", "label": "OpenStreetMap", "sublabel": "POI 地理数据", "pos": [1000, 630], "size": [150, 56] },
+    { "id": "ors", "type": "external", "label": "OpenRouteService", "sublabel": "路线 / v2/matrix", "pos": [1300, 630], "size": [150, 56] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Tier 2 · Cloudflare Workers（OpenNext 全栈）", "wraps": ["presentation", "business", "api-client", "data-access"] }
+  ],
+  "connections": [
+    { "id": "client-https", "from": "client", "to": "https", "variant": "emphasis" },
+    { "id": "https-edge", "from": "https", "to": "edge" },
+    { "id": "edge-presentation", "from": "edge", "to": "presentation", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "presentation-business", "from": "presentation", "to": "business" },
+    { "id": "business-data-access", "from": "business", "to": "data-access", "label": "仓储调用" },
+    { "id": "business-api-client", "from": "business", "to": "api-client", "fromSide": "bottom", "toSide": "top" },
+    { "id": "data-access-d1", "from": "data-access", "to": "d1", "label": "SQL" },
+    { "id": "data-access-kv", "from": "data-access", "to": "kv", "label": "KV Binding", "fromSide": "bottom", "toSide": "top" },
+    { "id": "business-oauth", "from": "business", "to": "oauth-mail", "label": "Google 登录 / 邮件", "variant": "security", "fromSide": "top", "toSide": "bottom" },
+    { "id": "presentation-maptiler", "from": "presentation", "to": "maptiler", "label": "瓦片（浏览器直连）", "variant": "dashed", "fromSide": "top", "toSide": "bottom" },
+    { "id": "api-dgm", "from": "api-client", "to": "dgm", "label": "官方认证 / 节日", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "via": [[875, 582]], "labelDx": -75 },
+    { "id": "api-osm", "from": "api-client", "to": "osm", "label": "POI 查询", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "api-ors", "from": "api-client", "to": "ors", "label": "路线 / v2/matrix", "variant": "dashed", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Tier 与部署", "items": ["T1 边缘网络：CDN/DDoS/WAF/Bot/Zero Trust", "T2 Workers 全栈：@opennextjs/cloudflare，Route Handlers / Server Actions", "T3 D1 关系型主库 · T4 KV 键值缓存"] },
+    { "dot": "emerald", "title": "分层与通信", "items": ["Presentation → Business Logic → Data Access 单向依赖", "模块内经 Zustand Store / hooks 直连", "跨模块统一经 src/lib/api/ 客户端层"] },
+    { "dot": "rose", "title": "第三方 API（经 Worker 代理）", "items": ["Google OAuth · 邮件服务 · data.gov.my · OSM（POI）· ORS（路线/矩阵）", "MapTiler 瓦片浏览器直连 + 域名白名单", "PDF 由前端 @react-pdf/renderer 生成"] }
+  ]
+}
