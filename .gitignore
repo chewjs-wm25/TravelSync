@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.open-next/
 /out/
 
 # production
@@ -42,3 +43,6 @@ next-env.d.ts
 
 # agent ai
 /.reasonix/
+
+# wrangler - For cloudflare D1 and KV database
+/.wrangler/

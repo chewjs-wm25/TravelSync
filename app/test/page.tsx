@@ -20,8 +20,7 @@ type MessageRow = {
 type D1ListResponse = { ok: true; messages: MessageRow[] } | ApiError;
 type D1AddResponse = { ok: true; message: MessageRow | null } | ApiError;
 
-type KvReadResponse =
-  { ok: true; key: string; value: string | null } | ApiError;
+type KvReadResponse = { ok: true; key: string; value: string | null } | ApiError;
 type KvWriteResponse = { ok: true; key: string; value: string } | ApiError;
 type KvDeleteResponse = { ok: true; key: string } | ApiError;
 
@@ -101,7 +100,7 @@ function Card({
 }) {
   return (
     <section className="relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <span className="absolute top-4 right-4 font-mono text-xs font-bold text-slate-300 dark:text-slate-600">
+      <span className="absolute right-4 top-4 font-mono text-xs font-bold text-slate-300 dark:text-slate-600">
         {index}
       </span>
       <header className="mb-4 flex items-center gap-3">
@@ -185,14 +184,14 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 transition-colors outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
       />
     </label>
   );
@@ -218,10 +217,10 @@ function NodeInfoTable({ info }: { info: Record<string, unknown> }) {
         <tbody className="divide-y divide-slate-800/70">
           {rows.map(([key, value]) => (
             <tr key={key}>
-              <td className="px-3 py-1.5 whitespace-nowrap text-slate-500">
+              <td className="whitespace-nowrap px-3 py-1.5 text-slate-500">
                 {key}
               </td>
-              <td className="px-3 py-1.5 break-all text-green-400">
+              <td className="break-all px-3 py-1.5 text-green-400">
                 {value === null || typeof value === "object"
                   ? JSON.stringify(value)
                   : String(value)}
@@ -370,7 +369,7 @@ function Counter({ name }: { name: string }) {
   const { count, increase, decrease } = useTestStore();
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center dark:border-slate-700 dark:bg-slate-800">
-      <p className="mb-2 text-xs font-bold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {name}
       </p>
       <p className="mb-3 text-4xl font-black text-slate-800 dark:text-slate-100">
@@ -404,8 +403,8 @@ function ZustandTest() {
     >
       <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
         Both counters read from the same store (
-        <code className="font-mono text-xs">useTestStore</code>). Change one and
-        the other updates instantly — shared global state.
+        <code className="font-mono text-xs">useTestStore</code>). Change one
+        and the other updates instantly — shared global state.
       </p>
       <div className="grid grid-cols-2 gap-4">
         <Counter name="Counter A" />
@@ -475,7 +474,7 @@ function D1Test() {
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addRun()}
           placeholder="Type a message to insert..."
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 transition-colors outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
         <ActionButton onClick={addRun} loading={addLoading} tone="green">
           + Insert
@@ -552,7 +551,9 @@ function KvTest() {
   } = useAsyncAction(
     useCallback(
       () =>
-        apiFetch<KvReadResponse>(`/api/test/kv?key=${encodeURIComponent(key)}`),
+        apiFetch<KvReadResponse>(
+          `/api/test/kv?key=${encodeURIComponent(key)}`
+        ),
       [key]
     )
   );
@@ -655,18 +656,15 @@ export default function TestPage() {
             Cloudflare Stack Test Panel
           </h1>
           <p className="mt-2 font-medium text-slate-500 dark:text-slate-400">
-            Node.js · Tailwind CSS · Zustand · D1 &amp; KV (via
-            @opennextjs/cloudflare)
+            Node.js · Tailwind CSS · Zustand · D1 &amp; KV
+            (via @opennextjs/cloudflare)
           </p>
           <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400 dark:text-slate-500">
             Bindings are defined in{" "}
             <code className="rounded bg-slate-200 px-1 font-mono text-xs dark:bg-slate-800">
               wrangler.json
             </code>
-            :{" "}
-            <code className="rounded bg-slate-200 px-1 font-mono text-xs dark:bg-slate-800">
-              TEST_DB
-            </code>{" "}
+            : <code className="rounded bg-slate-200 px-1 font-mono text-xs dark:bg-slate-800">TEST_DB</code>{" "}
             (D1) and{" "}
             <code className="rounded bg-slate-200 px-1 font-mono text-xs dark:bg-slate-800">
               TEST_KV
