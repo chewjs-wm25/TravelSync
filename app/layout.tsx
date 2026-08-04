@@ -1,19 +1,38 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
+import Footer from "@/components/layout/Footer";
 
-export const metadata: Metadata = {
-  title: "TravelSync",
-  description: "Malaysia travel planning and collaboration",
-};
+import "@/app/globals.css";
 
-export default function RootLayout({
+export default function DashboardLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
-      <body className="antialiased">{children}</body>
+    <html>
+      <body>
+        {/* 最外层改为 flex-col 垂直排列 */}
+        <div className="flex h-screen flex-col overflow-hidden bg-gray-100">
+          {/* 1. Header 居顶贯穿整行 */}
+          <Header />
+
+          {/* 2. 中间主体区域（左 Sidebar，右 Main） */}
+          <div className="flex flex-1 overflow-hidden">
+            <Sidebar />
+
+            {/* 内容滚动区 */}
+            <main className="flex-1 overflow-y-auto">
+              <div className="mx-auto min-h-[calc(100vh-80px-70px)] w-full max-w-7xl px-4 py-8 md:px-6 lg:px-8">
+                {children}
+              </div>
+            </main>
+          </div>
+
+          {/* 3. Footer 居底贯穿整行 */}
+          <Footer />
+        </div>
+      </body>
     </html>
   );
 }
