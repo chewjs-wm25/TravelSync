@@ -19,8 +19,8 @@
 | :--- | :--- |
 | 01 | User & Account Management |
 | 02 | Trip Planning & Itinerary Management |
-| 03 | Destination Discovery & Event Recommendation |
-| 04 | Travel Logistics Management |
+| 03 | Destination Discovery & Inspiration |
+| 04 | Travel Logistics & Map Route Planning |
 | 05 | Collaboration & Shared Planning |
 
-> 命名规则及编号格式详见 [`NAME_RULES.md`](NAME_RULES.md) 与 [`MODULE_ID.md`](MODULE_ID.md)。
+> 命名规则及编号格式详见 [`NAME_RULES.md`](NAME_RULES.md)。

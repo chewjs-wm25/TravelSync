@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "opennext-cloudflare-app",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "TEST_DB",
+      "database_name": "test_db",
+      "database_id": "local-db-id"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "TEST_KV",
+      "id": "local-kv-id"
+    }
+  ]
+}

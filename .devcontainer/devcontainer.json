@@ -41,5 +41,11 @@
   "postCreateCommand": "npm install && npm install zustand next-pwa",
 
   // 开启非 root 用户以保证文件权限安全
-  "remoteUser": "node"
+  "remoteUser": "node",
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22" // 👈 将这里修改为 22
+    }
+  }
 }
