@@ -1,6 +1,6 @@
 'use client';
 
-import { useTripNavigationStore } from '@/src/store/useTripNavigationStore';
+import { useTripNavigationStore } from '@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
 
 export default function SavedRoutesClient() {
   const savedRoutes = useTripNavigationStore((state) => state.savedRoutes);

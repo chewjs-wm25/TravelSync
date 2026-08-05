@@ -1,7 +1,7 @@
 // app/route-analysis/page.tsx
 'use client';
 
-import { useTripNavigationStore } from '@/src/store/useTripNavigationStore';
+import { useTripNavigationStore } from '@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
 
 export default function RouteAnalysisClient() {
   const { savedRoutes } = useTripNavigationStore();

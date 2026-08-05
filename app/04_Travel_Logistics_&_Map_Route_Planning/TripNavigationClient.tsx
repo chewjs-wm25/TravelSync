@@ -6,8 +6,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMapEvents, useMap } from 'react-leaflet';
 import type { LatLngExpression } from 'leaflet';
-import { useTripNavigationStore } from '@/src/store/useTripNavigationStore';
-import type { Stop, VehicleType } from '@/src/store/useTripNavigationStore';
+import { useTripNavigationStore } from '@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
+import type { Stop, VehicleType } from '@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
 
 const defaultMarkerIcon = L.icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',

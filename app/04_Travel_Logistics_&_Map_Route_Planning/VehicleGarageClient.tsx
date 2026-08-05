@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useTripNavigationStore } from '@/src/store/useTripNavigationStore';
+import { useTripNavigationStore } from '@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
 
 interface Vehicle {
   id: string;
