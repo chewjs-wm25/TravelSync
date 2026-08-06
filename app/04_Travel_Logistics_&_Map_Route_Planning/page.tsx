@@ -1,8 +1,7 @@
-'use client';
+"use client";
+import dynamic from "next/dynamic";
 
-import dynamic from 'next/dynamic';
-
-const TripNavigationClient = dynamic(() => import('./TripNavigationClient'), {
+const TripNavigationClient = dynamic(() => import("./TripNavigationClient"), {
   ssr: false,
 });
 

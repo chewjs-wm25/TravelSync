@@ -1,8 +1,8 @@
 // app/vehicle-garage/page.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useTripNavigationStore } from '@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
+import { useState } from "react";
+import { useTripNavigationStore } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 
 interface Vehicle {
   id: string;
@@ -13,14 +13,20 @@ interface Vehicle {
 }
 
 export default function VehicleGarageClient() {
-  const { vehicles, addVehicle, editVehicle, deleteVehicle, setDefaultVehicle } = useTripNavigationStore();
+  const {
+    vehicles,
+    addVehicle,
+    editVehicle,
+    deleteVehicle,
+    setDefaultVehicle,
+  } = useTripNavigationStore();
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    fuelConsumption: '',
-    fuelType: 'Petrol',
+    name: "",
+    fuelConsumption: "",
+    fuelType: "Petrol",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -41,7 +47,7 @@ export default function VehicleGarageClient() {
         fuelType: formData.fuelType,
       });
     }
-    setFormData({ name: '', fuelConsumption: '', fuelType: 'Petrol' });
+    setFormData({ name: "", fuelConsumption: "", fuelType: "Petrol" });
     setShowForm(false);
   };
 
@@ -58,20 +64,22 @@ export default function VehicleGarageClient() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingId(null);
-    setFormData({ name: '', fuelConsumption: '', fuelType: 'Petrol' });
+    setFormData({ name: "", fuelConsumption: "", fuelType: "Petrol" });
   };
 
   return (
-    <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="shadow-base space-y-6 rounded-3xl border border-gray-200 bg-white p-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-blue-600">TravelSync</p>
-          <h1 className="text-2xl font-bold text-slate-900">Vehicle Garage</h1>
+          <p className="text-primary-500 text-sm font-semibold tracking-[0.3em] uppercase">
+            TravelSync
+          </p>
+          <h1 className="text-2xl font-bold text-gray-800">Vehicle Garage</h1>
         </div>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            className="bg-primary-500 hover:bg-primary-500 hover:shadow-hover rounded-full px-4 py-2 text-sm font-semibold text-white hover:brightness-90"
           >
             + Add Vehicle
           </button>
@@ -79,39 +87,54 @@ export default function VehicleGarageClient() {
       </div>
 
       {showForm && (
-        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {editingId ? 'Edit Vehicle' : 'Add New Vehicle'}
+        <div className="shadow-base rounded-3xl border border-gray-200 bg-gray-100 p-5">
+          <h2 className="text-lg font-semibold text-gray-800">
+            {editingId ? "Edit Vehicle" : "Add New Vehicle"}
           </h2>
-          <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-3">
+          <form
+            onSubmit={handleSubmit}
+            className="mt-4 grid gap-4 sm:grid-cols-3"
+          >
             <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Vehicle Name</label>
+              <label className="mb-1 block text-sm font-semibold text-gray-800">
+                Vehicle Name
+              </label>
               <input
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 placeholder="e.g., Myvi 1.3"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
                 required
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Fuel Consumption (km/L)</label>
+              <label className="mb-1 block text-sm font-semibold text-gray-800">
+                Fuel Consumption (km/L)
+              </label>
               <input
                 value={formData.fuelConsumption}
-                onChange={(e) => setFormData({ ...formData, fuelConsumption: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, fuelConsumption: e.target.value })
+                }
                 placeholder="e.g., 18"
                 type="number"
                 step="0.1"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
                 required
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Fuel Type</label>
+              <label className="mb-1 block text-sm font-semibold text-gray-800">
+                Fuel Type
+              </label>
               <select
                 value={formData.fuelType}
-                onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                onChange={(e) =>
+                  setFormData({ ...formData, fuelType: e.target.value })
+                }
+                className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
               >
                 <option value="Petrol">Petrol</option>
                 <option value="Diesel">Diesel</option>
@@ -122,14 +145,14 @@ export default function VehicleGarageClient() {
             <div className="flex gap-2 sm:col-span-3">
               <button
                 type="submit"
-                className="rounded-2xl bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                className="bg-primary-500 hover:bg-primary-500 hover:shadow-hover rounded-2xl px-6 py-2 text-sm font-semibold text-white hover:brightness-90"
               >
-                {editingId ? 'Update Vehicle' : 'Save Vehicle'}
+                {editingId ? "Update Vehicle" : "Save Vehicle"}
               </button>
               <button
                 type="button"
                 onClick={handleCancel}
-                className="rounded-2xl border border-slate-200 px-6 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                className="rounded-2xl border border-gray-200 px-6 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-100"
               >
                 Cancel
               </button>
@@ -138,27 +161,34 @@ export default function VehicleGarageClient() {
         </div>
       )}
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-sm text-slate-500">{vehicles.length} vehicles in garage</p>
+      <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
+        <p className="text-sm text-gray-500">
+          {vehicles.length} vehicles in garage
+        </p>
         {vehicles.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
+          <div className="mt-6 rounded-2xl border border-dashed border-gray-200 bg-gray-100 p-8 text-center text-sm text-gray-500">
             No vehicles added yet. Add your first vehicle!
           </div>
         ) : (
           <div className="mt-4 space-y-3">
             {vehicles.map((vehicle) => (
-              <div key={vehicle.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div
+                key={vehicle.id}
+                className="rounded-2xl border border-gray-200 bg-gray-100 p-4"
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="font-semibold text-slate-900">{vehicle.name}</h2>
+                      <h2 className="font-semibold text-gray-800">
+                        {vehicle.name}
+                      </h2>
                       {vehicle.isDefault && (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                        <span className="bg-success/10 text-success rounded-full px-2 py-0.5 text-xs font-semibold">
                           Default
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-gray-500">
                       ⛽ {vehicle.fuelConsumption} km/L • {vehicle.fuelType}
                     </p>
                   </div>
@@ -167,21 +197,21 @@ export default function VehicleGarageClient() {
                       onClick={() => setDefaultVehicle(vehicle.id)}
                       className={`rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${
                         vehicle.isDefault
-                          ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:bg-emerald-50'
+                          ? "border-success/20 bg-success/10 text-success"
+                          : "hover:border-success/30 hover:bg-success/10 border-gray-200 bg-white text-gray-500"
                       }`}
                     >
-                      {vehicle.isDefault ? '✓ Default' : 'Set Default'}
+                      {vehicle.isDefault ? "✓ Default" : "Set Default"}
                     </button>
                     <button
                       onClick={() => handleEdit(vehicle)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-500 hover:bg-gray-100"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => deleteVehicle(vehicle.id)}
-                      className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
+                      className="border-error/20 text-error hover:bg-error/10 rounded-xl border bg-white px-3 py-1.5 text-sm font-semibold"
                     >
                       Delete
                     </button>
