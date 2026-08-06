@@ -3,7 +3,7 @@
 import { Compass } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useAuthStore } from "@/app/authUser";
+import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
 import { useEffect, useState } from "react";
 
 export default function Header() {
@@ -37,7 +37,7 @@ export default function Header() {
         ) : isLoggedIn && user ? (
           /* 2. 已登录状态 */
           <Link
-            href="/settings"
+            href="/DEV-ACCOUNT-STATE"
             title="Account Settings"
             className="flex cursor-pointer items-center gap-4 transition-opacity duration-150 hover:opacity-80"
           >
@@ -62,12 +62,12 @@ export default function Header() {
           </Link>
         ) : (
           /* 3. 确定未登录状态：显示登录按钮 */
-          <button
-            onClick={login}
+          <Link
+            href="/01_User_&_Account_Management"
             className="bg-primary-500 hover:shadow-hover rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
           >
             Login
-          </button>
+          </Link>
         )}
       </div>
     </header>

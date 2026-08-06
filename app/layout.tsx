@@ -1,6 +1,6 @@
-import Header from "@/components/layout/Header";
-import Sidebar from "@/components/layout/Sidebar";
-import Footer from "@/components/layout/Footer";
+import Header from "@/app/Header";
+import Sidebar from "@/app/Sidebar";
+import Footer from "@/app/Footer";
 
 import "@/app/globals.css";
 

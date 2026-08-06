@@ -1,3 +1,10 @@
-export default function PlanningPage() {
-  return <div className="bg-amber-400 text-lg">Travel Logistics</div>;
+"use client";
+import dynamic from "next/dynamic";
+
+const TripNavigationClient = dynamic(() => import("./TripNavigationClient"), {
+  ssr: false,
+});
+
+export default function TravelLogisticsPage() {
+  return <TripNavigationClient />;
 }
