@@ -3,92 +3,85 @@
 import { useState } from "react";
 import Image from "next/image";
 import {
-  Mail,
-  Link2,
+  Share2,
   UserPlus,
   FileText,
   Download,
   CalendarDays,
   MessageSquare,
+  MessagesSquare,
   Paperclip,
   Smile,
   Image as ImageIcon,
-  Send,
-  MoreVertical,
-  Share2,
+  MapPin,
+  X,
+  Check,
+  ShieldCheck,
+  PanelRightOpen,
+  PanelRightClose,
 } from "lucide-react";
+import {
+  can,
+  ROLE_DESCRIPTIONS,
+} from "@/src/lib/client/collab/RolePermissions";
+import {
+  daysRemaining,
+  formatDate,
+} from "@/src/lib/client/collab/InvitationService";
+import { useCollabStore } from "@/src/store/collab/CollabStore";
 
-const MEMBERS = [
-  {
-    name: "Marcus Chen",
-    email: "marcus@travelsync.com",
-    role: "Owner",
-    avatar: "/images/collab/avatar-marcus.png",
-    online: true,
-  },
-  {
-    name: "Elena Rodriguez",
-    email: "elena.r@globetrot.co",
-    role: "Editor",
-    avatar: "/images/collab/avatar-elena.png",
-    online: true,
-  },
-  {
-    name: "Jordan Smyth",
-    email: "jsmyth.finance@org.com",
-    role: "Viewer",
-    avatar: "/images/collab/avatar-jordan.png",
-    online: false,
-  },
-];
-
-const COMMENTS = [
-  {
-    name: "Marcus",
-    avatar: "/images/collab/comment-marcus.png",
-    time: "10:42 AM",
-    text: "I've updated the train schedule for the Kyoto segment.",
-    own: false,
-  },
-  {
-    name: "Elena",
-    avatar: "/images/collab/comment-elena.png",
-    time: "10:45 AM",
-    text: "Perfect! Just checked the PDF export.",
-    own: true,
-  },
-];
-
-const ROLE_OPTIONS = ["Editor", "Viewer"] as const;
+import DemoIdentitySwitcher from "@/src/components/collab/DemoIdentitySwitcher";
+import InviteCollaboratorsPanel from "@/src/components/collab/InviteCollaboratorsPanel";
+import PendingInvitesPanel from "@/src/components/collab/PendingInvitesPanel";
+import MemberManagementPanel from "@/src/components/collab/MemberManagementPanel";
+import PermissionMatrixCard from "@/src/components/collab/PermissionMatrixCard";
+import ItineraryPermissionDemo from "@/src/components/collab/ItineraryPermissionDemo";
+import ActivityFeed from "@/src/components/collab/ActivityFeed";
 
 export default function CollaborationPage() {
+  const trip = useCollabStore((s) =>
+    s.trips.find((t) => t.id === s.activeTripId)
+  );
+  const currentUserId = useCollabStore((s) => s.currentUserId);
+  const comments = trip?.comments ?? [];
+  const addComment = useCollabStore((s) => s.addComment);
+  const acceptInvite = useCollabStore((s) => s.acceptInvite);
+  const rejectInvite = useCollabStore((s) => s.rejectInvite);
+
+  const me = trip?.members.find((m) => m.id === currentUserId);
+
   const [commentText, setCommentText] = useState("");
-  const [comments, setComments] = useState(COMMENTS);
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<string>("Editor");
+  const [chatOpen, setChatOpen] = useState(true);
+  const [inviteToken, setInviteToken] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("invite");
+  });
+
+  if (!trip || !me) return null;
+
+  const canComment = can(me.role, "comment");
+  const canInvite = can(me.role, "invite");
+  const invite = trip.invites.find((i) => i.token === inviteToken && i.status === "pending");
 
   const handleSendComment = () => {
-    if (!commentText.trim()) return;
-    setComments([
-      ...comments,
-      {
-        name: "You",
-        avatar: "",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        text: commentText,
-        own: true,
-      },
-    ]);
+    if (!commentText.trim() || !canComment) return;
+    addComment(commentText.trim());
     setCommentText("");
   };
 
-  const handleInvite = () => {
-    if (!email.trim()) return;
-    alert(`Invite sent to ${email} as ${role}`);
-    setEmail("");
+  const handleShareLink = async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      /* demo only */
+    }
+  };
+
+  const handleInviteScroll = () => {
+    document
+      .getElementById("invite-panel")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -98,153 +91,61 @@ export default function CollaborationPage() {
         {/* ─── Page Header ─── */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">
-              Collaboration Center
-            </h1>
-            <p className="mt-1 text-gray-500">
-              Japanese Alps Expedition • Oct 12-24, 2024
-            </p>
+            <div className="mb-1 flex items-center gap-2 text-xs font-medium text-gray-400">
+              <MapPin size={13} />
+              {trip.region}
+            </div>
+            <h1 className="text-2xl font-semibold text-gray-800">{trip.name}</h1>
+            <p className="mt-1 text-gray-500">{trip.dates}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-100 px-5 py-3 font-medium text-gray-700 transition hover:bg-gray-200 active:scale-[0.97]">
+            <button
+              onClick={handleShareLink}
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-100 px-5 py-3 font-medium text-gray-700 transition hover:bg-gray-200 active:scale-[0.97]"
+            >
               <Share2 size={18} />
               Share Link
             </button>
-            <button className="flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-3 font-medium text-white shadow-md transition hover:bg-primary-500/80 active:scale-[0.97]">
-              <UserPlus size={18} />
-              Invite
-            </button>
+            {canInvite && (
+              <button
+                onClick={handleInviteScroll}
+                className="flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-3 font-medium text-white shadow-md transition hover:bg-primary-500/80 active:scale-[0.97]"
+              >
+                <UserPlus size={18} />
+                Invite
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ─── Demo Identity Switcher ─── */}
+        <DemoIdentitySwitcher />
+
+        {/* ─── Role explanation strip ─── */}
+        <div className="flex items-start gap-3 rounded-2xl border border-secondary-500/30 bg-white p-4">
+          <ShieldCheck size={18} className="mt-0.5 shrink-0 text-secondary-500" />
+          <div className="text-xs leading-relaxed text-gray-600">
+            Viewing as <b className="text-gray-800">{me.name}</b> (
+            <b className="text-primary-500">{me.role}</b>):{" "}
+            {ROLE_DESCRIPTIONS[me.role]}
           </div>
         </div>
 
         {/* ─── Grid: 8-col main + 4-col sidebar ─── */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* ── Left: Invite + Members (8 cols) ── */}
-          <div className="space-y-6 lg:col-span-8">
-            {/* ── Invite Collaborators Card ── */}
-            <div className="rounded-2xl bg-white p-8 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-              <div className="mb-6 flex items-center gap-3">
-                <Mail size={20} className="text-primary-500" />
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Invite Collaborators
-                </h2>
-              </div>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="colleague@email.com"
-                    className="w-full rounded-lg border border-gray-200 bg-[#FAF8FF] px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-                  />
-                </div>
-                <div className="w-full sm:w-36">
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Role
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full appearance-none rounded-lg border border-gray-200 bg-[#FAF8FF] px-4 py-3 pr-10 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-                    >
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                      <svg
-                        className="h-4 w-4 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={handleInvite}
-                  className="rounded-lg bg-primary-500 px-8 py-3 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-
-            {/* ── Active Members Card ── */}
-            <div className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-              <div className="flex items-center justify-between border-b border-gray-100 px-8 py-5">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Active Members
-                </h2>
-                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-primary-500">
-                  4 Active Now
-                </span>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {MEMBERS.map((m) => (
-                  <div
-                    key={m.email}
-                    className="flex items-center justify-between px-8 py-5"
-                  >
-                    <div className="flex items-center gap-4">
-                      {/* Avatar */}
-                      <div className="relative h-12 w-12 shrink-0">
-                        <Image
-                          src={m.avatar}
-                          alt={m.name}
-                          fill
-                          sizes="48px"
-                          className="rounded-full object-cover"
-                        />
-                        {m.online && (
-                          <span className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
-                        )}
-                      </div>
-                      {/* Info */}
-                      <div>
-                        <p className="font-semibold text-gray-800">
-                          {m.name}
-                        </p>
-                        <p className="text-sm text-gray-500">{m.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {/* Role badge */}
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          m.role === "Owner"
-                            ? "bg-red-50 text-primary-500"
-                            : "border border-gray-200 text-gray-500"
-                        }`}
-                      >
-                        {m.role}
-                      </span>
-                      <button className="text-gray-400 transition hover:text-gray-600">
-                        <MoreVertical size={18} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* ── Left: Invite + Members + Itinerary (8 cols) ── */}
+          <div id="invite-panel" className="scroll-mt-24 space-y-6 lg:col-span-8">
+            <InviteCollaboratorsPanel />
+            <PendingInvitesPanel />
+            <MemberManagementPanel />
+            <ItineraryPermissionDemo />
           </div>
 
-          {/* ── Right: Export + Image (4 cols) ── */}
+          {/* ── Right: Permissions + Activity + Export (4 cols) ── */}
           <div className="space-y-6 lg:col-span-4">
+            <PermissionMatrixCard />
+            <ActivityFeed />
+
             {/* ── Export Itinerary Card ── */}
             <div className="rounded-2xl bg-white p-6 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
               <p className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
@@ -271,47 +172,34 @@ export default function CollaborationPage() {
                 </button>
               </div>
             </div>
-
-            {/* ── Image Card ── */}
-            <div className="relative h-48 overflow-hidden rounded-2xl">
-              <Image
-                src="/images/collab/mount-yarigatake.png"
-                alt="Mount Yarigatake Hike"
-                fill
-                sizes="(max-width: 1024px) 100vw, 25vw"
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-              <div className="absolute right-0 bottom-0 left-0 p-6">
-                <p className="text-lg font-semibold text-white">
-                  Mount Yarigatake Hike
-                </p>
-                <p className="mt-1 text-sm text-white/80">
-                  Section 4 • Day 6
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* ─── Live Comments Sidebar (320px) ─── */}
-      <div className="hidden w-80 shrink-0 border-l border-gray-200 bg-white/80 backdrop-blur-sm xl:flex xl:flex-col">
-        {/* Header */}
-        <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-5">
-          <MessageSquare size={20} className="text-primary-500" />
-          <h3 className="font-semibold text-gray-800">Live Comments</h3>
-        </div>
+      {/* ─── Live Comments Sidebar (collapsible) ─── */}
+      {chatOpen ? (
+        <div className="hidden w-80 shrink-0 flex-col border-l border-gray-200 bg-white/80 backdrop-blur-sm xl:sticky xl:top-0 xl:flex xl:h-[calc(100vh-80px-70px)] xl:self-start">
+          <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-5">
+            <MessageSquare size={20} className="text-primary-500" />
+            <h3 className="font-semibold text-gray-800">Live Comments</h3>
+            <button
+              onClick={() => setChatOpen(false)}
+              className="ml-auto rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+              aria-label="Collapse chat"
+              title="Collapse chat"
+            >
+              <PanelRightClose size={18} />
+            </button>
+          </div>
 
-        {/* Messages */}
         <div className="flex-1 space-y-5 overflow-y-auto p-6">
           {comments.map((c, i) => (
-            <div key={i} className="flex gap-3">
+            <div key={c.id ?? i} className="flex gap-3">
               {c.avatar ? (
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full">
                   <Image
                     src={c.avatar}
-                    alt={c.name}
+                    alt={c.authorName}
                     width={40}
                     height={40}
                     className="h-full w-full object-cover"
@@ -319,7 +207,7 @@ export default function CollaborationPage() {
                 </div>
               ) : (
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-500 text-sm font-semibold text-white">
-                  Y
+                  {c.authorName.charAt(0).toUpperCase()}
                 </div>
               )}
               <div
@@ -335,56 +223,145 @@ export default function CollaborationPage() {
                       c.own ? "text-primary-500" : "text-gray-800"
                     }`}
                   >
-                    {c.name}
+                    {c.authorName}
                   </span>
                   <span className="text-[10px] text-gray-400">{c.time}</span>
                 </div>
-                <p className="text-sm leading-relaxed text-gray-700">
-                  {c.text}
-                </p>
+                <p className="text-sm leading-relaxed text-gray-700">{c.text}</p>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Input */}
         <div className="border-t border-gray-200 p-4">
-          <div className="rounded-lg border border-gray-200 bg-[#FAF8FF] p-3">
-            <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendComment();
-                }
-              }}
-              placeholder="Write a comment..."
-              rows={2}
-              className="w-full resize-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
-            />
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <div className="flex gap-2">
-              <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
-                <Paperclip size={16} />
-              </button>
-              <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
-                <Smile size={16} />
-              </button>
-              <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
-                <ImageIcon size={16} />
+          {canComment ? (
+            <>
+              <div className="rounded-lg border border-gray-200 bg-[#FAF8FF] p-3">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendComment();
+                    }
+                  }}
+                  placeholder="Write a comment..."
+                  rows={2}
+                  className="w-full resize-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <div className="flex gap-2">
+                  <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+                    <Paperclip size={16} />
+                  </button>
+                  <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+                    <Smile size={16} />
+                  </button>
+                  <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+                    <ImageIcon size={16} />
+                  </button>
+                </div>
+                <button
+                  onClick={handleSendComment}
+                  className="rounded-lg bg-primary-500 px-5 py-1.5 text-xs font-bold text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
+                >
+                  Send
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-center text-xs text-gray-500">
+              <ShieldCheck size={16} className="mx-auto mb-1 text-gray-400" />
+              <b>{me.role}</b> role cannot post comments.
+              <br />
+              Switch to an Editor or Owner to chat.
+            </div>
+          )}
+        </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="hidden shrink-0 flex-col items-center gap-3 border-l border-gray-200 bg-white/80 py-6 text-gray-400 transition hover:bg-white hover:text-primary-500 xl:sticky xl:top-0 xl:flex xl:self-start"
+          aria-label="Open chat"
+          title="Open Live Comments"
+        >
+          <PanelRightOpen size={18} />
+          <MessagesSquare size={18} />
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-500 px-1.5 text-[10px] font-bold text-white">
+            {comments.length}
+          </span>
+          <span className="text-[10px] font-medium tracking-widest [writing-mode:vertical-rl]">
+            Chat
+          </span>
+        </button>
+      )}
+
+      {/* ─── Invite Link Demo Modal ─── */}
+      {invite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ImageIcon size={20} className="text-primary-500" />
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Trip Invitation
+                </h3>
+              </div>
+              <button
+                onClick={() => setInviteToken(null)}
+                className="text-gray-400 transition hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X size={20} />
               </button>
             </div>
-            <button
-              onClick={handleSendComment}
-              className="rounded-lg bg-primary-500 px-5 py-1.5 text-xs font-bold text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
-            >
-              Send
-            </button>
+
+            <p className="text-sm text-gray-600">
+              You have been invited to join{" "}
+              <b className="text-gray-800">{trip.name}</b> as{" "}
+              <b className="text-primary-500">{invite.role}</b> by{" "}
+              <b className="text-gray-800">{invite.invitedBy}</b>.
+            </p>
+
+            <div className="mt-4 rounded-xl border border-gray-100 bg-[#FAF8FF] p-4 text-xs text-gray-500">
+              <p>Invited: {formatDate(invite.invitedAt)}</p>
+              <p>
+                Expires in{" "}
+                <b className="text-warning">
+                  {daysRemaining(invite.expiresAt)} days
+                </b>{" "}
+                (30-day limit)
+              </p>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => {
+                  acceptInvite(invite.id);
+                  setInviteToken(null);
+                }}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
+              >
+                <Check size={16} />
+                Accept
+              </button>
+              <button
+                onClick={() => {
+                  rejectInvite(invite.id);
+                  setInviteToken(null);
+                }}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 px-5 py-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 active:scale-[0.97]"
+              >
+                <X size={16} />
+                Decline
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
