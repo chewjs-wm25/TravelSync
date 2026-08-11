@@ -12,6 +12,13 @@ export interface Stop {
   lng: number;
 }
 
+export interface RoutePoint {
+  id?: string;
+  name?: string;
+  lat: number;
+  lng: number;
+}
+
 export interface RouteSummary {
   distanceKm: number;
   timeMinutes: number;
@@ -40,7 +47,7 @@ interface TripNavigationState {
   vehicleType: VehicleType;
   origin: Stop | null;
   destination: Stop | null;
-  generatedRoute: Stop[];
+  generatedRoute: RoutePoint[];
   summary: RouteSummary;
   savedRoutes: SavedRoute[];
   routePickerOpen: boolean;
@@ -51,7 +58,7 @@ interface TripNavigationState {
   setRoutePickerOpen: (open: boolean) => void;
   setActiveField: (field: RouteField | null) => void;
   setRouteLocation: (field: RouteField, stop: Stop) => void;
-  generateRoute: () => void;
+  generateRoute: () => Promise<void>;
   applyOptimization: (mode: OptimizationMode) => void;
   saveRoute: (name: string) => void;
   deleteSavedRoute: (id: string) => void;
@@ -104,7 +111,8 @@ const calculateSummary = (
   origin: Stop | null,
   destination: Stop | null,
   vehicleType: VehicleType,
-  optimizationMode: OptimizationMode
+  optimizationMode: OptimizationMode,
+  actualDistanceKm?: number
 ): RouteSummary => {
   if (!origin || !destination) {
     return {
@@ -115,14 +123,7 @@ const calculateSummary = (
     };
   }
 
-  const baseDistance = getDistanceKm(origin, destination);
-  const optimizationFactor = {
-    fastest: 0.9,
-    shortest: 1,
-    cheapest: 1.15,
-  }[optimizationMode];
-
-  const distance = baseDistance * optimizationFactor;
+  const baseDistance = actualDistanceKm ?? getDistanceKm(origin, destination);
   const speeds: Record<VehicleType, number> = {
     car: 50,
     walk: 4,
@@ -135,15 +136,51 @@ const calculateSummary = (
     'public transport': 9,
   }[vehicleType];
 
-  const timeMinutes = (distance / speeds[vehicleType]) * 60;
+  const speedModifier = optimizationMode === 'fastest' ? 1.1 : 1;
+  const costModifier = optimizationMode === 'cheapest' ? 0.95 : 1;
+
+  const distance = baseDistance;
+  const timeMinutes = (distance / speeds[vehicleType]) * 60 / speedModifier;
   const fuelLiters = distance / selectedVehicle;
-  const fuelCost = fuelLiters * 2.15;
+  const fuelCost = fuelLiters * 2.15 * costModifier;
 
   return {
     distanceKm: Number(distance.toFixed(1)),
     timeMinutes: Math.round(timeMinutes),
     fuelLiters: Number(fuelLiters.toFixed(1)),
     fuelCost: Number(fuelCost.toFixed(2)),
+  };
+};
+
+const fetchRouteShape = async (
+  origin: Stop,
+  destination: Stop,
+  vehicleType: VehicleType
+) => {
+  const profile = vehicleType === 'walk' ? 'foot' : 'driving';
+  const url = `https://router.project-osrm.org/route/v1/${profile}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=false`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Routing service failed');
+  }
+
+  const data = await response.json();
+  const route = data.routes?.[0];
+  if (!route || !route.geometry?.coordinates?.length) {
+    throw new Error('No route returned');
+  }
+
+  const points = route.geometry.coordinates.map(
+    ([lng, lat]: [number, number]) => ({
+      lat,
+      lng,
+    })
+  );
+
+  return {
+    points,
+    distanceKm: route.distance / 1000,
+    durationMinutes: route.duration / 60,
   };
 };
 
@@ -186,19 +223,34 @@ export const useTripNavigationStore = create<TripNavigationState>()(
           ],
           summary: calculateSummary(nextOrigin, nextDestination, vehicleType, optimizationMode),
         });
+
+        if (nextOrigin && nextDestination) {
+          void get().generateRoute();
+        }
       },
 
-      generateRoute: () => {
+      generateRoute: async () => {
         const { origin, destination, vehicleType, optimizationMode } = get();
-        const route = [
-          ...(origin ? [origin] : []),
-          ...(destination ? [destination] : []),
-        ];
+        if (!origin || !destination) return;
 
-        set({
-          generatedRoute: route,
-          summary: calculateSummary(origin, destination, vehicleType, optimizationMode),
-        });
+        try {
+          const route = await fetchRouteShape(origin, destination, vehicleType);
+          set({
+            generatedRoute: route.points.length > 0 ? route.points : [origin, destination],
+            summary: calculateSummary(
+              origin,
+              destination,
+              vehicleType,
+              optimizationMode,
+              route.distanceKm
+            ),
+          });
+        } catch {
+          set({
+            generatedRoute: [origin, destination],
+            summary: calculateSummary(origin, destination, vehicleType, optimizationMode),
+          });
+        }
       },
 
       applyOptimization: (mode) => {

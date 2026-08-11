@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -19,6 +18,10 @@ import type {
   Stop,
   VehicleType,
 } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import RouteAnalysisClient from "./RouteAnalysisClient";
+import SavedRoutesClient from "./SavedRoutesClient";
+import ExportRouteClient from "./ExportRouteClient";
+import VehicleGarageClient from "./VehicleGarageClient";
 
 const defaultMarkerIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -118,6 +121,9 @@ export default function TripNavigationClient() {
   );
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [activeSection, setActiveSection] = useState<
+    "planner" | "analysis" | "saved" | "garage" | "export"
+  >("planner");
 
   const mapCenter: LatLngExpression = [3.139, 101.6869];
   const routeCoordinates = generatedRoute.map(
@@ -223,35 +229,32 @@ export default function TripNavigationClient() {
 
   return (
     <div className="space-y-6">
-      <div className="shadow-base flex flex-wrap gap-2 rounded-3xl border border-gray-200 bg-white p-3">
-        <Link
-          href="/saved-routes"
-          className="bg-primary-500 hover:shadow-hover rounded-full px-3 py-2 text-sm font-semibold text-white"
-        >
-          Saved Routes
-        </Link>
-        <Link
-          href="/route-analysis"
-          className="bg-secondary-500 hover:shadow-hover rounded-full px-3 py-2 text-sm font-semibold text-white"
-        >
-          Route Analysis
-        </Link>
-        <Link
-          href="/vehicle-garage"
-          className="bg-success hover:shadow-hover rounded-full px-3 py-2 text-sm font-semibold text-white"
-        >
-          Vehicle Garage
-        </Link>
-        <Link
-          href="/export-route"
-          className="bg-info hover:shadow-hover rounded-full px-3 py-2 text-sm font-semibold text-white"
-        >
-          Export Route
-        </Link>
+      <div className="shadow-base flex flex-wrap items-center gap-2 rounded-3xl border border-gray-200 bg-white p-3">
+        {[
+          { key: "planner", label: "Planner" },
+          { key: "analysis", label: "Analysis" },
+          { key: "saved", label: "Saved" },
+          { key: "garage", label: "Garage" },
+          { key: "export", label: "Export" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveSection(tab.key as typeof activeSection)}
+            className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+              activeSection === tab.key
+                ? "bg-primary-500 text-white shadow-sm"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <section className="shadow-base overflow-hidden rounded-3xl border border-gray-200 bg-white">
-        <div className="from-primary-500 to-secondary-500 flex items-center justify-between border-b border-gray-200 bg-gradient-to-r p-4 text-white">
+      {activeSection === "planner" ? (
+        <>
+          <section className="shadow-base overflow-hidden rounded-3xl border border-gray-200 bg-white">
+          <div className="from-primary-500 to-secondary-500 flex items-center justify-between border-b border-gray-200 bg-gradient-to-r p-4 text-white">
           <div>
             <p className="text-xs font-semibold tracking-[0.3em] text-gray-100 uppercase">
               TravelSync
@@ -617,6 +620,24 @@ export default function TripNavigationClient() {
           </div>
         </aside>
       </div>
-    </div>
-  );
+    </>
+  ) : activeSection === "analysis" ? (
+      <div className="space-y-6">
+        <RouteAnalysisClient />
+      </div>
+    ) : activeSection === "saved" ? (
+      <div className="space-y-6">
+        <SavedRoutesClient />
+      </div>
+    ) : activeSection === "garage" ? (
+      <div className="space-y-6">
+        <VehicleGarageClient />
+      </div>
+    ) : (
+      <div className="space-y-6">
+        <ExportRouteClient />
+      </div>
+    )}
+  </div>
+);
 }
