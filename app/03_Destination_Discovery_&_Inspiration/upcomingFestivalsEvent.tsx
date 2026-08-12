@@ -1,79 +1,212 @@
-export default function UpcomingFestivalsEvent() {
+"use client";
+//3. 兴趣点（POI）决策视图 (Bento 网格)
+// 数据来源：Business Logic Layer（经 Presentation hooks 获取，含收藏状态）
+// 交互：分页展示；点击卡片 → 跳转地点详情页（携带 placeId + 地点名）
+
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import type { PoiItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
+import { StarIcon } from "./favouriteList";
+import { placeDetailPath } from "./routes";
+import { usePlaceImages } from "./hooks";
+
+/** 每页展示的地点数（4 列网格 × 2 行） */
+const PAGE_SIZE = 8;
+
+interface UpcomingFestivalsEventProps {
+  pois: PoiItem[];
+  isLoading?: boolean;
+  onToggleFavourite?: (poi: PoiItem) => void;
+  /** 将地点加入行程（模块 02，经 stub 桥接）；传入后卡片显示 Add to Trip 按钮 */
+  onAddToTrip?: (poi: PoiItem) => void;
+  /** 正在加入行程的地点 id（按钮 loading 态） */
+  addingToTripId?: string | null;
+}
+
+/** 品质徽章等级 → 展示文案（纯 UI 展示映射） */
+const BADGE_LABEL: Record<NonNullable<PoiItem["qualityBadge"]>, string> = {
+  platinum: "Platinum",
+  gold: "Gold",
+  silver: "Silver",
+};
+
+export default function UpcomingFestivalsEvent({
+  pois,
+  isLoading,
+  onToggleFavourite,
+  onAddToTrip,
+  addingToTripId,
+}: UpcomingFestivalsEventProps) {
+  /** 当前页码（分页为纯前端 UI 行为，状态内聚于组件） */
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(pois.length / PAGE_SIZE));
+  /** 数据/筛选变化时回到第一页 */
+  useEffect(() => {
+    setPage(1);
+  }, [pois]);
+  const safePage = Math.min(page, totalPages);
+  const visiblePois = pois.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  );
+  /** 当前页地点图片（懒加载：仅对可见卡片请求，翻页/重复浏览走缓存） */
+  const images = usePlaceImages(visiblePois);
+
   return (
     <section>
       <div className="mb-4 flex items-end justify-between">
         <h2 className="text-2xl font-semibold text-gray-800">
           Recommended Places
         </h2>
+        {totalPages > 1 && (
+          <span className="text-sm text-gray-500">
+            Page {safePage} / {totalPages}
+          </span>
+        )}
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
-        {/* POI 主卡片（跨度根据规范按屏幕尺寸调整） */}
-        {[1, 2, 3, 4].map((item) => (
-          <div
-            key={item}
-            className="group overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)]"
+        {isLoading && (
+          <p className="col-span-full text-sm text-gray-400">
+            Loading places...
+          </p>
+        )}
+        {!isLoading && pois.length === 0 && (
+          <p className="col-span-full text-sm text-gray-500">
+            No officially rated places available yet.
+          </p>
+        )}
+        {visiblePois.map((poi) => (
+          <Link
+            key={poi.id}
+            href={placeDetailPath(
+              poi.placeId ?? poi.id.replace(/^geo-/, ""),
+              poi.name
+            )}
+            className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)]"
           >
-            {/* 带质量徽章的图片占位符 */}
+            {/* 带质量徽章的图片区（真实图片；加载中/无图时灰色骨架占位） */}
             <div className="relative m-2 h-48 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
-              {/* 官方质量认证徽章 */}
-              <div className="absolute top-3 left-3 flex items-center gap-1 rounded-md bg-gray-800/90 px-3 py-1 text-xs font-semibold text-white shadow-md backdrop-blur-sm">
-                <svg
-                  className="text-accent-400 h-3 w-3"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                </svg>
-                Platinum
-              </div>
-              {/* 收藏按钮 */}
-              <button className="hover:text-primary-500 absolute top-3 right-3 rounded-full bg-white/90 p-2 text-gray-500 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white">
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                  ></path>
-                </svg>
+              {images[poi.id] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={images[poi.id]}
+                  alt={poi.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 animate-pulse bg-gray-100"></div>
+              )}
+              {/* 官方品质评级徽章（仅匹配 Offical Quality Rating 的地点展示） */}
+              {poi.qualityBadge && (
+                <div className="absolute top-3 left-3 flex items-center gap-1 rounded-md bg-gray-800/90 px-3 py-1 text-xs font-semibold text-white shadow-md backdrop-blur-sm">
+                  <svg
+                    className="text-accent-400 h-3 w-3"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                  </svg>
+                  {BADGE_LABEL[poi.qualityBadge]}
+                </div>
+              )}
+              {/* 收藏按钮（星星图标）：阻止冒泡避免触发卡片跳转 */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggleFavourite?.(poi);
+                }}
+                aria-label={
+                  poi.isFavourite
+                    ? `Remove ${poi.name} from favourites`
+                    : `Add ${poi.name} to favourites`
+                }
+                className={`absolute top-3 right-3 rounded-full p-2 shadow-sm backdrop-blur-sm transition-colors duration-150 ${
+                  poi.isFavourite
+                    ? "bg-primary-500 text-white"
+                    : "bg-white/90 text-gray-500 hover:bg-white hover:text-primary-500"
+                }`}
+              >
+                <StarIcon filled={poi.isFavourite} className="h-5 w-5" />
               </button>
             </div>
 
             <div className="p-6 pt-4">
               <div className="mb-2 flex items-start justify-between">
                 <h3 className="text-xl font-semibold text-gray-800">
-                  Grand National Museum
+                  {poi.name}
                 </h3>
               </div>
 
-              {/* 营业状态与核心信息 */}
-              <div className="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-500">
-                <span className="flex items-center gap-1 font-medium text-[#10b981]">
-                  <span className="h-2 w-2 rounded-full bg-[#10b981]"></span>{" "}
-                  Open Now
-                </span>
-                <span className="flex items-center gap-1">⏱️ 2-3 hrs</span>
-                <span className="flex items-center gap-1">🎟️ $15</span>
+              {/* 地址与评级有效期（数据来自 Offical Quality Rating） */}
+              <div className="mb-4 space-y-2 text-sm text-gray-500">
+                {poi.formatted && (
+                  <p className="line-clamp-2">{poi.formatted}</p>
+                )}
+                {poi.ratingDuration && (
+                  <p className="flex items-center gap-1">
+                    📅 Valid {poi.ratingDuration}
+                  </p>
+                )}
               </div>
 
-              {/* 设施与无障碍提示标签 */}
-              <div className="flex flex-wrap gap-2 border-t border-gray-200 pt-4">
-                <span className="flex items-center gap-1 rounded-md border border-[#3b82f6]/20 bg-[#3b82f6]/10 px-2 py-1 text-xs text-[#3b82f6]">
-                  ♿ Wheelchair Accessible
-                </span>
-                <span className="flex items-center gap-1 rounded-md border border-[#f59e0b]/20 bg-[#f59e0b]/10 px-2 py-1 text-xs text-[#f59e0b]">
-                  ⚠️ Limited Parking
-                </span>
-              </div>
+              {/* 加入行程（跨模块：模块 02，当前经 stub 桥接） */}
+              {onAddToTrip && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onAddToTrip(poi);
+                  }}
+                  disabled={addingToTripId === poi.id}
+                  aria-label={`Add ${poi.name} to trip`}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary-500/10 py-2 text-sm font-semibold text-primary-500 transition-colors duration-150 hover:bg-primary-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {addingToTripId === poi.id
+                    ? "Adding to trip…"
+                    : "+ Add to Trip"}
+                </button>
+              )}
             </div>
-          </div>
+          </Link>
         ))}
       </div>
+
+      {/* 分页控件（每页 PAGE_SIZE 条，前端分页） */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={safePage <= 1}
+            className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-colors duration-150 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ← Prev
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setPage(n)}
+              className={`h-9 w-9 rounded-full text-sm font-semibold transition-colors duration-150 ${
+                n === safePage
+                  ? "bg-primary-500 text-white shadow-md"
+                  : "border border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={safePage >= totalPages}
+            className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-colors duration-150 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </section>
   );
 }

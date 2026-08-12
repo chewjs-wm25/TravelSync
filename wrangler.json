@@ -16,5 +16,9 @@
       "binding": "TEST_KV",
       "id": "local-kv-id"
     }
-  ]
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
 }

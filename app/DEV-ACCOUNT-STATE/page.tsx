@@ -1,6 +1,7 @@
 "use client";
 import LogoutBTN from "./logout";
 import LoginBTN from "./login";
+import SyncQualityRatingsBTN from "./syncQualityRatings";
 
 export default function AccountSettingsPage() {
   return (
@@ -12,6 +13,9 @@ export default function AccountSettingsPage() {
         <LoginBTN />
         <LogoutBTN />
       </div>
+      <br />
+      {/* 官方品质评级同步（hardcode JSON → Geoapify 补全 → D1） */}
+      <SyncQualityRatingsBTN />
     </div>
   );
 }

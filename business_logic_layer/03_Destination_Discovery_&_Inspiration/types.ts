@@ -1,0 +1,165 @@
+/**
+ * types.ts — 模块 03 领域模型总出口（Business Logic Layer）
+ *
+ * 依赖方向：Presentation → Business Logic → Data Access / API。
+ * 本文件为领域类型唯一出口：Presentation 只允许从这里导入类型；
+ * 下层（data_access_layer / api_layer）的类型也经此 re-export，
+ * 保证上层不直接依赖下层、下层不反向依赖上层。
+ */
+
+// ---------------------------------------------------------------------------
+// re-export 下层类型（BL 可正向依赖下层）
+// ---------------------------------------------------------------------------
+
+export type {
+  EventDto,
+  CollectionDto,
+  NearbyPlaceDto,
+  FilterOptionsDto,
+} from "../../api_layer/03_Destination_Discovery_&_Inspiration/DiscoveryExternalApi";
+
+export type { GeoapifyPlaceDto } from "../../api_layer/03_Destination_Discovery_&_Inspiration/GeoapifyGeocodingApi";
+
+export type { WikiAndMediaDto } from "../../api_layer/03_Destination_Discovery_&_Inspiration/PlaceDetailsApi";
+
+export type { UnsplashPhotoUrlsDto } from "../../api_layer/03_Destination_Discovery_&_Inspiration/UnsplashApi";
+
+import type {
+  FavoriteItemEntity,
+  FavoritesRepository,
+} from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
+
+export type {
+  FavoriteItemEntity,
+  FavoritesRepository,
+};
+
+export type { FavoriteCacheService } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoriteCacheService";
+
+export type {
+  OfficialQualityRatingEntity,
+  OfficialQualityRatingRepository,
+} from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/OfficialQualityRatingRepository";
+
+// ---------------------------------------------------------------------------
+// 领域类型
+// ---------------------------------------------------------------------------
+
+/** 室内外场景分类（与 SearchAndFilter 的场景标签页对应） */
+export type activeType = "indoor" | "outdoor" | "all";
+
+/** 搜索与多维筛选条件（组合后驱动 POI 查询/过滤） */
+export interface SearchFilters {
+  /** 关键词（地点、地标、主题） */
+  query: string;
+  /** 体验类型（如 "Cultural Heritage"），空串表示不限 */
+  experienceType: string;
+  /** 是否仅看穆斯林友好设施 */
+  isMuslimFriendly: boolean;
+  /** 室内外场景（"all" 表示不限） */
+  scene: activeType;
+}
+
+/** 灵感合辑条目 */
+export interface Collection {
+  id: string;
+  title: string;
+  imageUrl: string;
+}
+
+/** 设施状态标签（无障碍、停车等基础设施状态） */
+export interface FacilityTag {
+  type: string;
+  label: string;
+  status: "available" | "limited" | "unavailable";
+}
+
+/** 地点决策卡片条目（BL 聚合外部数据 + 用户收藏状态后的领域形态） */
+export interface PoiItem {
+  id: string;
+  /** Geoapify place_id（跳转地点详情页用；官方评级地点由 D1 数据填充） */
+  placeId?: string;
+  name: string;
+  imageUrl: string;
+  /**
+   * 官方品质评级徽章（数据源：Cloudflare D1 中爬取的 Offical Quality Rating）。
+   * 仅当地点与官方评级匹配（placeId 命中）时才存在；未匹配的地点不展示徽章。
+   */
+  qualityBadge?: "platinum" | "gold" | "silver";
+  /** 官方评级有效期（如 "07/08/25 - 06/08/28"，来自官方评级数据） */
+  ratingDuration?: string;
+  /** 完整格式化地址（官方评级地点的展示地址） */
+  formatted?: string;
+  /** 是否已被用户收藏（由 BL 合并 Data Access 数据得出） */
+  isFavourite: boolean;
+  isOpenNow: boolean;
+  suggestedDuration: string;
+  ticketPrice: string;
+  bestVisitTime?: string;
+  facilities: FacilityTag[];
+  scene: "indoor" | "outdoor";
+  experienceType: string;
+  isMuslimFriendly: boolean;
+}
+
+/** 节日/活动条目 */
+export interface EventItem {
+  id: string;
+  name: string;
+  dateRange: string;
+  description: string;
+  venue?: string;
+}
+
+/** 活动场地周边的住宿/餐饮推荐 */
+export interface NearbyPlace {
+  name: string;
+  category: "hotel" | "restaurant" | "food";
+  distanceKm: number;
+}
+
+/** 节日活动 + 其周边推荐（BL 聚合后的活动流条目） */
+export interface EventFeedItem extends EventItem {
+  nearby: NearbyPlace[];
+}
+
+/** 搜索联想建议条目（真实 Geoapify autocomplete 结果的领域形态） */
+export interface SuggestionItem {
+  placeId: string;
+  name: string;
+  /** 完整格式化地址（如 "Batu Caves, Selangor, Malaysia"） */
+  formatted: string;
+  lat: number;
+  lon: number;
+}
+
+/**
+ * 地点详情（搜索结果/详情页形态）：PoiItem 展示字段 + Geoapify 完整地理字段。
+ * 由 BL 聚合（toPlaceDetail），供搜索结果页与地点详情页使用。
+ */
+export interface PlaceDetail extends PoiItem {
+  /** Geoapify place_id */
+  placeId: string;
+  /** 完整格式化地址 */
+  formatted: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  country: string;
+  countryCode: string;
+  /** 地点分类（如 "tourism.attraction"） */
+  category?: string;
+  /** 结果类型（city / amenity / tourism / street ...） */
+  resultType?: string;
+  lat: number;
+  lon: number;
+}
+
+/** 收藏夹条目（领域形态，与 DA 实体一致；每个用户只有一个收藏夹） */
+export type SavedItem = FavoriteItemEntity;
+
+/** 筛选面板的候选项（体验类型） */
+export interface FilterOptions {
+  experienceTypes: string[];
+}
