@@ -30,7 +30,7 @@ export default function InviteCollaboratorsPanel() {
   if (!trip || !me) return null;
 
   const handleSend = async () => {
-    const res = inviteCollaborator(email, role);
+    const res = await inviteCollaborator(email, role);
     if (!res.ok || !res.invite) {
       setNotice({ ok: false, text: res.message ?? "Could not send invite." });
       setTimeout(() => setNotice(null), 4000);

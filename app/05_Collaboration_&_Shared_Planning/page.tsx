@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   Share2,
@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   PanelRightOpen,
   PanelRightClose,
+  Loader2,
 } from "lucide-react";
 import {
   can,
@@ -47,6 +48,9 @@ export default function CollaborationPage() {
   const addComment = useCollabStore((s) => s.addComment);
   const acceptInvite = useCollabStore((s) => s.acceptInvite);
   const rejectInvite = useCollabStore((s) => s.rejectInvite);
+  const loading = useCollabStore((s) => s.loading);
+  const error = useCollabStore((s) => s.error);
+  const load = useCollabStore((s) => s.load);
 
   const me = trip?.members.find((m) => m.id === currentUserId);
 
@@ -57,7 +61,29 @@ export default function CollaborationPage() {
     return new URLSearchParams(window.location.search).get("invite");
   });
 
-  if (!trip || !me) return null;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading && !trip) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-gray-400">
+        <Loader2 size={24} className="mr-2 animate-spin" />
+        Loading collaboration data…
+      </div>
+    );
+  }
+
+  if (!trip || !me) {
+    if (error) {
+      return (
+        <div className="rounded-2xl border border-error/30 bg-error/5 p-6 text-sm text-error">
+          无法连接数据库：{error}
+        </div>
+      );
+    }
+    return null;
+  }
 
   const canComment = can(me.role, "comment");
   const canInvite = can(me.role, "invite");
