@@ -110,6 +110,7 @@ export default function TripNavigationClient() {
     setRouteLocation,
     generateRoute,
     applyOptimization,
+    loadSavedRoute,
     saveRoute,
     deleteSavedRoute,
   } = useTripNavigationStore();
@@ -129,6 +130,30 @@ export default function TripNavigationClient() {
   const routeCoordinates = generatedRoute.map(
     (stop) => [stop.lat, stop.lng] as LatLngExpression
   );
+
+  const routeStyle = {
+    car: {
+      color: '#2563eb',
+      weight: 5,
+      dashArray: '',
+    },
+    walk: {
+      color: '#16a34a',
+      weight: 4,
+      dashArray: '4,8',
+    },
+    'public transport': {
+      color: '#f59e0b',
+      weight: 5,
+      dashArray: '8,6',
+    },
+  }[vehicleType];
+
+  const optimizationLabel = {
+    fastest: 'Fastest route with priority on time',
+    shortest: 'Shortest route with the straightest path',
+    cheapest: 'Cheapest route with cost-saving detours',
+  }[optimizationMode];
 
   useEffect(() => {
     setOriginInput(origin?.name ?? "");
@@ -297,8 +322,9 @@ export default function TripNavigationClient() {
             {routeCoordinates.length > 1 && (
               <Polyline
                 positions={routeCoordinates}
-                color="#2563eb"
-                weight={4}
+                color={routeStyle.color}
+                weight={routeStyle.weight}
+                pathOptions={{ dashArray: routeStyle.dashArray }}
               />
             )}
           </MapContainer>
@@ -492,6 +518,7 @@ export default function TripNavigationClient() {
                 💰 Cheapest
               </button>
             </div>
+            <p className="mt-4 text-sm text-gray-500">{optimizationLabel}</p>
           </div>
         </section>
 
@@ -606,10 +633,16 @@ export default function TripNavigationClient() {
                       {route.vehicleType}
                     </span>
                   </div>
-                  <div className="mt-2 flex gap-2">
+                      <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => loadSavedRoute(route.id)}
+                      className="bg-primary-500 rounded-2xl px-3 py-1 text-sm font-semibold text-white hover:bg-primary-600"
+                    >
+                      Load route
+                    </button>
                     <button
                       onClick={() => deleteSavedRoute(route.id)}
-                      className="text-error rounded-xl border border-gray-200 px-3 py-1 text-sm font-semibold hover:bg-gray-100"
+                      className="text-error rounded-2xl border border-gray-200 px-3 py-1 text-sm font-semibold hover:bg-gray-100"
                     >
                       Delete
                     </button>

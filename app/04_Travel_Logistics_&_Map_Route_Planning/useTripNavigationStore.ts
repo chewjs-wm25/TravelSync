@@ -41,6 +41,8 @@ export interface SavedRoute {
   destination?: Stop;
   summary: RouteSummary;
   vehicleType: VehicleType;
+  optimizationMode: OptimizationMode;
+  routePoints: RoutePoint[];
 }
 
 interface TripNavigationState {
@@ -60,6 +62,7 @@ interface TripNavigationState {
   setRouteLocation: (field: RouteField, stop: Stop) => void;
   generateRoute: () => Promise<void>;
   applyOptimization: (mode: OptimizationMode) => void;
+  loadSavedRoute: (id: string) => void;
   saveRoute: (name: string) => void;
   deleteSavedRoute: (id: string) => void;
   addVehicle: (vehicle: Omit<Vehicle, 'id' | 'isDefault'>) => void;
@@ -184,6 +187,35 @@ const fetchRouteShape = async (
   };
 };
 
+const buildRoutePoints = async (
+  origin: Stop,
+  destination: Stop,
+  vehicleType: VehicleType,
+  optimizationMode: OptimizationMode
+) => {
+  if (vehicleType === 'public transport') {
+    const midLat = (origin.lat + destination.lat) / 2 + 0.015;
+    const midLng = (origin.lng + destination.lng) / 2 - 0.02;
+    return [origin, { id: 'transfer-point', name: 'Transit hub', lat: midLat, lng: midLng }, destination];
+  }
+
+  if (optimizationMode === 'shortest') {
+    return [origin, destination];
+  }
+
+  try {
+    const route = await fetchRouteShape(origin, destination, vehicleType);
+    if (optimizationMode === 'cheapest') {
+      const midLat = (origin.lat + destination.lat) / 2 + 0.02 * (origin.lng < destination.lng ? 1 : -1);
+      const midLng = (origin.lng + destination.lng) / 2 - 0.02 * (origin.lat < destination.lat ? 1 : -1);
+      return [origin, { id: 'eco-route', name: 'Eco detour', lat: midLat, lng: midLng }, destination];
+    }
+    return route.points.length > 1 ? route.points : [origin, destination];
+  } catch {
+    return [origin, destination];
+  }
+};
+
 export const useTripNavigationStore = create<TripNavigationState>()(
   persist(
     (set, get) => ({
@@ -204,6 +236,9 @@ export const useTripNavigationStore = create<TripNavigationState>()(
           vehicleType: value,
           summary: calculateSummary(origin, destination, value, optimizationMode),
         });
+        if (origin && destination) {
+          void get().generateRoute();
+        }
       },
 
       setRoutePickerOpen: (open) => set({ routePickerOpen: open }),
@@ -234,15 +269,27 @@ export const useTripNavigationStore = create<TripNavigationState>()(
         if (!origin || !destination) return;
 
         try {
-          const route = await fetchRouteShape(origin, destination, vehicleType);
+          const routePoints = await buildRoutePoints(
+            origin,
+            destination,
+            vehicleType,
+            optimizationMode
+          );
+
+          const actualDistanceKm = routePoints.reduce((sum, point, index, points) => {
+            if (index === 0) return 0;
+            const previous = points[index - 1];
+            return sum + getDistanceKm(previous as Stop, point as Stop);
+          }, 0);
+
           set({
-            generatedRoute: route.points.length > 0 ? route.points : [origin, destination],
+            generatedRoute: routePoints,
             summary: calculateSummary(
               origin,
               destination,
               vehicleType,
               optimizationMode,
-              route.distanceKm
+              actualDistanceKm
             ),
           });
         } catch {
@@ -259,10 +306,28 @@ export const useTripNavigationStore = create<TripNavigationState>()(
           optimizationMode: mode,
           summary: calculateSummary(origin, destination, vehicleType, mode),
         });
+        if (origin && destination) {
+          void get().generateRoute();
+        }
+      },
+
+      loadSavedRoute: (id) => {
+        const { savedRoutes } = get();
+        const route = savedRoutes.find((item) => item.id === id);
+        if (!route) return;
+
+        set({
+          origin: route.origin ?? null,
+          destination: route.destination ?? null,
+          vehicleType: route.vehicleType,
+          optimizationMode: route.optimizationMode,
+          generatedRoute: route.routePoints,
+          summary: route.summary,
+        });
       },
 
       saveRoute: (name) => {
-        const { origin, destination, summary, vehicleType, savedRoutes } = get();
+        const { origin, destination, summary, vehicleType, optimizationMode, generatedRoute, savedRoutes } = get();
         if (!origin || !destination) return;
 
         const trimmedName = name.trim() || `${origin.name} → ${destination.name}`;
@@ -273,6 +338,8 @@ export const useTripNavigationStore = create<TripNavigationState>()(
           destination,
           summary,
           vehicleType,
+          optimizationMode,
+          routePoints: generatedRoute,
         };
 
         set({
