@@ -224,32 +224,6 @@ export default function TripNavigationClient() {
     setSuggestions([]);
   };
 
-  const handleUseMyLocation = (field: "origin" | "destination") => {
-    if (!navigator.geolocation) {
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const stop: Stop = {
-          id: `${field}-${Date.now()}`,
-          name: "Current location",
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        setRouteLocation(field, stop);
-        if (field === "origin") {
-          setOriginInput(stop.name);
-        } else {
-          setDestinationInput(stop.name);
-        }
-      },
-      () => {
-        window.alert("Location access was denied or unavailable.");
-      }
-    );
-  };
-
   const handleSave = () => {
     saveRoute(routeName);
     setRouteName("");
@@ -369,12 +343,6 @@ export default function TripNavigationClient() {
                         placeholder="Enter origin"
                         className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none"
                       />
-                      <button
-                        onClick={() => handleUseMyLocation("origin")}
-                        className="bg-primary-500 rounded-2xl px-3 py-2 text-sm font-semibold text-white"
-                      >
-                        GPS
-                      </button>
                     </div>
                     {activeField === "origin" && suggestions.length > 0 && (
                       <ul className="shadow-base mt-2 rounded-2xl border border-gray-200 bg-white p-2 text-sm">
@@ -408,12 +376,6 @@ export default function TripNavigationClient() {
                         placeholder="Enter destination"
                         className="focus:border-secondary-500 w-full rounded-2xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none"
                       />
-                      <button
-                        onClick={() => handleUseMyLocation("destination")}
-                        className="bg-secondary-500 rounded-2xl px-3 py-2 text-sm font-semibold text-white"
-                      >
-                        GPS
-                      </button>
                     </div>
                     {activeField === "destination" &&
                       suggestions.length > 0 && (
@@ -439,8 +401,16 @@ export default function TripNavigationClient() {
                   <p className="text-xs text-gray-500">
                     {isSearching
                       ? "Searching places…"
-                      : "Search suggestions come from OpenStreetMap and you can also click the map or use GPS."}
+                      : "Search suggestions come from OpenStreetMap and you can also click the map."}
                   </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      onClick={generateRoute}
+                      className="bg-primary-500 shadow-base hover:shadow-hover rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
+                    >
+                      Generate Route
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -480,15 +450,6 @@ export default function TripNavigationClient() {
                   {option.label}
                 </button>
               ))}
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                onClick={generateRoute}
-                className="bg-primary-500 shadow-base hover:shadow-hover rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
-              >
-                Generate Route
-              </button>
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -614,7 +575,7 @@ export default function TripNavigationClient() {
       </div>
     ) : activeSection === "saved" ? (
       <div className="space-y-6">
-        <SavedRoutesClient />
+        <SavedRoutesClient onRouteLoad={() => setActiveSection("planner")} />
       </div>
     ) : activeSection === "garage" ? (
       <div className="space-y-6">

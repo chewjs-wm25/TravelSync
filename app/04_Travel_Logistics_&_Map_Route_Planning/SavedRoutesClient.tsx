@@ -3,7 +3,11 @@
 import { useTripNavigationStore } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 import { useShallow } from 'zustand/react/shallow';
 
-export default function SavedRoutesClient() {
+export default function SavedRoutesClient({
+  onRouteLoad,
+}: {
+  onRouteLoad?: () => void;
+}) {
   const { savedRoutes, loadSavedRoute, deleteSavedRoute } = useTripNavigationStore(
     useShallow((state) => ({
       savedRoutes: state.savedRoutes,
@@ -47,7 +51,10 @@ export default function SavedRoutesClient() {
                 </div>
                 <div className="mt-3 flex gap-2">
                   <button
-                    onClick={() => loadSavedRoute(route.id)}
+                    onClick={() => {
+                      loadSavedRoute(route.id);
+                      onRouteLoad?.();
+                    }}
                     className="rounded-2xl bg-primary-500 px-3 py-1 text-sm font-semibold text-white hover:bg-primary-600"
                   >
                     Load route

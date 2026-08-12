@@ -193,33 +193,27 @@ const fetchRouteShape = async (
   };
 };
 
-// Generate realistic public transport route with multiple stops
-const generatePublicTransportRoute = (
+// Generate realistic public transport route by following the walking path
+const generatePublicTransportRoute = async (
   origin: Stop,
   destination: Stop
-): RoutePoint[] => {
-  const points: RoutePoint[] = [origin];
-  
-  // Calculate intermediate stops for a realistic transit route
-  const numStops = Math.max(3, Math.floor(getDistanceKm(origin, destination) / 2));
-  
-  for (let i = 1; i < numStops; i++) {
-    const ratio = i / numStops;
-    // Add some deviation from straight line for realistic transit paths
-    const devFactor = 0.02 * Math.sin(i * 1.5);
-    const lat = origin.lat + (destination.lat - origin.lat) * ratio + devFactor;
-    const lng = origin.lng + (destination.lng - origin.lng) * ratio + devFactor * 0.5;
-    
-    points.push({
-      id: `transit-${i}`,
-      name: `Stop ${i}`,
-      lat,
-      lng,
-    });
+): Promise<RoutePoint[]> => {
+  try {
+    const route = await fetchRouteShape(origin, destination, 'walk');
+    return route.points.map((point, index) => ({
+      id: `transit-${index}`,
+      name:
+        index === 0
+          ? origin.name
+          : index === route.points.length - 1
+          ? destination.name
+          : `Stop ${index}`,
+      lat: point.lat,
+      lng: point.lng,
+    }));
+  } catch {
+    return [origin, destination];
   }
-  
-  points.push(destination);
-  return points;
 };
 
 const buildRoutePoints = async (
@@ -228,9 +222,9 @@ const buildRoutePoints = async (
   vehicleType: VehicleType,
   optimizationMode: OptimizationMode
 ) => {
-  // Public transport - generate realistic transit route
+  // Public transport - follow the walking route shape
   if (vehicleType === 'public transport') {
-    return generatePublicTransportRoute(origin, destination);
+    return await generatePublicTransportRoute(origin, destination);
   }
 
   // For walking, get actual walking path
@@ -258,20 +252,8 @@ const buildRoutePoints = async (
     }
     
     if (optimizationMode === 'cheapest') {
-      // Add eco-friendly detour points
-      const ecoPoints = route.points.map(
-        (point: RoutePoint, index: number, array: RoutePoint[]) => {
-          if (index === 0 || index === array.length - 1) return point;
-          // Slightly offset for eco-route
-          const offset = 0.005 * (index % 2 === 0 ? 1 : -1);
-          return {
-            ...point,
-            lat: point.lat + offset * 0.5,
-            lng: point.lng + offset,
-          };
-        }
-      );
-      return ecoPoints;
+      // Keep the same route geometry for cheapest mode to avoid excessive detours.
+      return route.points.length > 1 ? route.points : [origin, destination];
     }
 
     // Fastest - use the actual route
@@ -285,10 +267,15 @@ export const useTripNavigationStore = create<TripNavigationState>()(
   persist(
     (set, get) => ({
       vehicleType: 'car',
-      origin: defaultStops.origin,
-      destination: defaultStops.destination,
-      generatedRoute: [defaultStops.origin, defaultStops.destination],
-      summary: calculateSummary(defaultStops.origin, defaultStops.destination, 'car', 'fastest'),
+      origin: null,
+      destination: null,
+      generatedRoute: [],
+      summary: {
+        distanceKm: 0,
+        timeMinutes: 0,
+        fuelLiters: 0,
+        fuelCost: 0,
+      },
       savedRoutes: [],
       routePickerOpen: true,
       activeField: null,
