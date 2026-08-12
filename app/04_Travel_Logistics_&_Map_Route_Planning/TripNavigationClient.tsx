@@ -127,7 +127,7 @@ export default function TripNavigationClient() {
   >("planner");
 
   const mapCenter: LatLngExpression = [3.139, 101.6869];
-  const routeCoordinates = generatedRoute.map(
+  const routeCoordinates = (generatedRoute ?? []).map(
     (stop) => [stop.lat, stop.lng] as LatLngExpression
   );
 
