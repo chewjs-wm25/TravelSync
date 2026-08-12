@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -12,7 +12,10 @@ import {
   useMapEvents,
   useMap,
 } from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
+import type { LatLngExpression, LeafletMouseEvent } from "leaflet";
+
+const AnyMapContainer = MapContainer as unknown as ComponentType<any>;
+const AnyTileLayer = TileLayer as unknown as ComponentType<any>;
 import { useTripNavigationStore } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 import type {
   Stop,
@@ -77,7 +80,7 @@ function RouteMapHandler({
   onSelectLocation: (field: "origin" | "destination", stop: Stop) => void;
 }) {
   useMapEvents({
-    click: (event) => {
+    click: (event: LeafletMouseEvent) => {
       const { lat, lng } = event.latlng;
       const field = activeField ?? "destination";
       const stop: Stop = {
@@ -294,13 +297,13 @@ export default function TripNavigationClient() {
         </div>
 
         <div className="relative h-[440px] w-full">
-          <MapContainer
+          <AnyMapContainer
             center={mapCenter}
             zoom={11}
             scrollWheelZoom
             className="h-full w-full"
           >
-            <TileLayer
+            <AnyTileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
@@ -322,12 +325,14 @@ export default function TripNavigationClient() {
             {routeCoordinates.length > 1 && (
               <Polyline
                 positions={routeCoordinates}
-                color={routeStyle.color}
-                weight={routeStyle.weight}
-                pathOptions={{ dashArray: routeStyle.dashArray }}
+                pathOptions={{
+                  color: routeStyle.color,
+                  weight: routeStyle.weight,
+                  dashArray: routeStyle.dashArray,
+                }}
               />
             )}
-          </MapContainer>
+          </AnyMapContainer>
 
           <div className="pointer-events-none absolute inset-x-4 top-4 z-[1000] max-w-[390px] rounded-3xl border border-gray-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
             <div className="pointer-events-auto">
@@ -599,57 +604,6 @@ export default function TripNavigationClient() {
             >
               Save Route
             </button>
-          </div>
-
-          <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Saved routes
-              </h3>
-              <span className="text-sm text-gray-500">
-                {savedRoutes.length} saved
-              </span>
-            </div>
-            <div className="mt-4 space-y-3">
-              {savedRoutes.length === 0 && (
-                <p className="text-sm text-gray-500">No saved routes yet.</p>
-              )}
-              {savedRoutes.slice(0, 3).map((route) => (
-                <div
-                  key={route.id}
-                  className="rounded-2xl border border-gray-200 bg-gray-100 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-gray-800">
-                        {route.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {route.summary.distanceKm.toFixed(1)} km •{" "}
-                        {route.summary.timeMinutes} min
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-gray-200 px-2 py-1 text-[10px] font-semibold tracking-[0.2em] text-gray-800 uppercase">
-                      {route.vehicleType}
-                    </span>
-                  </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => loadSavedRoute(route.id)}
-                      className="bg-primary-500 rounded-2xl px-3 py-1 text-sm font-semibold text-white hover:bg-primary-600"
-                    >
-                      Load route
-                    </button>
-                    <button
-                      onClick={() => deleteSavedRoute(route.id)}
-                      className="text-error rounded-2xl border border-gray-200 px-3 py-1 text-sm font-semibold hover:bg-gray-100"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </aside>
       </div>

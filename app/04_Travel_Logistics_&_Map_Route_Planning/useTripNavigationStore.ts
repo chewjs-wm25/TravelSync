@@ -130,17 +130,17 @@ const calculateSummary = (
   const speeds: Record<VehicleType, number> = {
     car: 50,
     walk: 4,
-    'public transport': 28,
+    'public transport': 30, // Improved speed for public transport
   };
 
   const selectedVehicle = {
     car: 15,
     walk: 0.5,
-    'public transport': 9,
+    'public transport': 12, // Better fuel efficiency for public transport
   }[vehicleType];
 
-  const speedModifier = optimizationMode === 'fastest' ? 1.1 : 1;
-  const costModifier = optimizationMode === 'cheapest' ? 0.95 : 1;
+  const speedModifier = optimizationMode === 'fastest' ? 1.15 : optimizationMode === 'cheapest' ? 0.9 : 1;
+  const costModifier = optimizationMode === 'cheapest' ? 0.85 : 1;
 
   const distance = baseDistance;
   const timeMinutes = (distance / speeds[vehicleType]) * 60 / speedModifier;
@@ -167,7 +167,13 @@ const fetchRouteShape = async (
     throw new Error('Routing service failed');
   }
 
-  const data = await response.json();
+  const data = (await response.json()) as {
+    routes?: Array<{
+      geometry?: { coordinates?: Array<[number, number]> };
+      distance: number;
+      duration: number;
+    }>;
+  };
   const route = data.routes?.[0];
   if (!route || !route.geometry?.coordinates?.length) {
     throw new Error('No route returned');
@@ -187,29 +193,88 @@ const fetchRouteShape = async (
   };
 };
 
+// Generate realistic public transport route with multiple stops
+const generatePublicTransportRoute = (
+  origin: Stop,
+  destination: Stop
+): RoutePoint[] => {
+  const points: RoutePoint[] = [origin];
+  
+  // Calculate intermediate stops for a realistic transit route
+  const numStops = Math.max(3, Math.floor(getDistanceKm(origin, destination) / 2));
+  
+  for (let i = 1; i < numStops; i++) {
+    const ratio = i / numStops;
+    // Add some deviation from straight line for realistic transit paths
+    const devFactor = 0.02 * Math.sin(i * 1.5);
+    const lat = origin.lat + (destination.lat - origin.lat) * ratio + devFactor;
+    const lng = origin.lng + (destination.lng - origin.lng) * ratio + devFactor * 0.5;
+    
+    points.push({
+      id: `transit-${i}`,
+      name: `Stop ${i}`,
+      lat,
+      lng,
+    });
+  }
+  
+  points.push(destination);
+  return points;
+};
+
 const buildRoutePoints = async (
   origin: Stop,
   destination: Stop,
   vehicleType: VehicleType,
   optimizationMode: OptimizationMode
 ) => {
+  // Public transport - generate realistic transit route
   if (vehicleType === 'public transport') {
-    const midLat = (origin.lat + destination.lat) / 2 + 0.015;
-    const midLng = (origin.lng + destination.lng) / 2 - 0.02;
-    return [origin, { id: 'transfer-point', name: 'Transit hub', lat: midLat, lng: midLng }, destination];
+    return generatePublicTransportRoute(origin, destination);
   }
 
-  if (optimizationMode === 'shortest') {
-    return [origin, destination];
+  // For walking, get actual walking path
+  if (vehicleType === 'walk') {
+    try {
+      const route = await fetchRouteShape(origin, destination, vehicleType);
+      return route.points.length > 1 ? route.points : [origin, destination];
+    } catch {
+      return [origin, destination];
+    }
   }
 
+  // For car with optimization
   try {
     const route = await fetchRouteShape(origin, destination, vehicleType);
-    if (optimizationMode === 'cheapest') {
-      const midLat = (origin.lat + destination.lat) / 2 + 0.02 * (origin.lng < destination.lng ? 1 : -1);
-      const midLng = (origin.lng + destination.lng) / 2 - 0.02 * (origin.lat < destination.lat ? 1 : -1);
-      return [origin, { id: 'eco-route', name: 'Eco detour', lat: midLat, lng: midLng }, destination];
+    
+    if (optimizationMode === 'shortest') {
+      // For shortest path, try to get direct route
+      try {
+        const shortestRoute = await fetchRouteShape(origin, destination, vehicleType);
+        return shortestRoute.points.length > 1 ? shortestRoute.points : [origin, destination];
+      } catch {
+        return [origin, destination];
+      }
     }
+    
+    if (optimizationMode === 'cheapest') {
+      // Add eco-friendly detour points
+      const ecoPoints = route.points.map(
+        (point: RoutePoint, index: number, array: RoutePoint[]) => {
+          if (index === 0 || index === array.length - 1) return point;
+          // Slightly offset for eco-route
+          const offset = 0.005 * (index % 2 === 0 ? 1 : -1);
+          return {
+            ...point,
+            lat: point.lat + offset * 0.5,
+            lng: point.lng + offset,
+          };
+        }
+      );
+      return ecoPoints;
+    }
+
+    // Fastest - use the actual route
     return route.points.length > 1 ? route.points : [origin, destination];
   } catch {
     return [origin, destination];
@@ -276,11 +341,14 @@ export const useTripNavigationStore = create<TripNavigationState>()(
             optimizationMode
           );
 
-          const actualDistanceKm = routePoints.reduce((sum, point, index, points) => {
-            if (index === 0) return 0;
-            const previous = points[index - 1];
-            return sum + getDistanceKm(previous as Stop, point as Stop);
-          }, 0);
+          const actualDistanceKm = routePoints.reduce(
+            (sum: number, point: RoutePoint, index: number, points: RoutePoint[]) => {
+              if (index === 0) return 0;
+              const previous = points[index - 1];
+              return sum + getDistanceKm(previous as Stop, point as Stop);
+            },
+            0
+          );
 
           set({
             generatedRoute: routePoints,

@@ -1,13 +1,16 @@
 "use client";
 
 import { useTripNavigationStore } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import { useShallow } from 'zustand/react/shallow';
 
 export default function SavedRoutesClient() {
-  const { savedRoutes, loadSavedRoute, deleteSavedRoute } = useTripNavigationStore((state) => ({
-    savedRoutes: state.savedRoutes,
-    loadSavedRoute: state.loadSavedRoute,
-    deleteSavedRoute: state.deleteSavedRoute,
-  }));
+  const { savedRoutes, loadSavedRoute, deleteSavedRoute } = useTripNavigationStore(
+    useShallow((state) => ({
+      savedRoutes: state.savedRoutes,
+      loadSavedRoute: state.loadSavedRoute,
+      deleteSavedRoute: state.deleteSavedRoute,
+    }))
+  );
 
   return (
     <div className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
