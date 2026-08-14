@@ -1,3 +1,7 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+
 export type TripCardProps = {
   name: string;
   image?: string;
@@ -13,8 +17,28 @@ export default function TripCard({
   endDate,
   locationsCount,
 }: TripCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const hasDates = Boolean(startDate && endDate);
   const initial = name.trim().charAt(0).toUpperCase() || "T";
+
+  // Close dropdown when clicking anywhere outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md">
@@ -33,9 +57,11 @@ export default function TripCard({
           </div>
         )}
 
-        <div className="group/dropdown absolute right-3 top-3">
+        {/* Dropdown Container */}
+        <div ref={dropdownRef} className="absolute right-3 top-3">
           <button
             type="button"
+            onClick={() => setIsOpen((prev) => !prev)}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-gray-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white hover:text-gray-900"
             aria-label="Trip options"
           >
@@ -44,73 +70,87 @@ export default function TripCard({
             </svg>
           </button>
 
-          <div className="absolute right-0 top-10 z-10 hidden w-40 rounded-xl border border-gray-100 bg-white p-1.5 shadow-lg group-hover/dropdown:block">
-            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100">
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          {isOpen && (
+            <div className="absolute right-0 top-10 z-10 w-40 rounded-xl border border-gray-100 bg-white p-1.5 shadow-lg">
+              <button
+                onClick={() => setIsOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-              Rename
-            </button>
-            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100">
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                <svg
+                  className="h-4 w-4 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                Rename
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              Change Image
-            </button>
-            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100">
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                <svg
+                  className="h-4 w-4 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                Change Image
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-              Share
-            </button>
-            <hr className="my-1 border-gray-100" />
-            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50">
-              <svg
-                className="h-4 w-4 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                <svg
+                  className="h-4 w-4 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                  />
+                </svg>
+                Share
+              </button>
+              <hr className="my-1 border-gray-100" />
+              <button
+                onClick={() => setIsOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-              Delete
-            </button>
-          </div>
+                <svg
+                  className="h-4 w-4 text-red-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
