@@ -2,7 +2,7 @@
 
 ### Phase 0: Setup & UI Refactoring
 - [x] Refactor monolithic `page.tsx` into `components/` (`SearchBar.tsx`, `TripCard.tsx`, `CreateTripCard.tsx`, `SuggestedTripCard.tsx`)
-- [ ] Add Module 02 table definitions (`trips`, `itineraries`, `itinerary_items`, `travel_notes`) to `schema.sql`
+- [x] Add Module 02 table definitions (`trips`, `itineraries`, `itinerary_items`) to `schema.sql` (Note: Travel notes are embedded via `trip_note` and `itinerary_note`)
 
 ### Phase 1: Trip Management
 - [x] **FR001**: Create Trip (BLL, DAL, API, UI Modal)
