@@ -29,19 +29,24 @@
 | `activeTab` | 当前选中的室内外场景标签，决定按钮高亮样式 | `activeType` |
 | `setActiveTab` | 点击 Indoor / Outdoor / All 标签时更新场景分类 | `React.Dispatch<React.SetStateAction<activeType>>` |
 
-### 组件内部 UI 所需数据（当前为硬编码，应由 API 提供）
+### 组件内部 UI 所需数据（筛选候选项经 BL 层 getFilterOptions 注入）
 
 | 变量名称 | 描述 | 类型 |
 | --- | --- | --- |
-| `searchQuery` | 用户在搜索栏输入的关键词（支持地点、地标、主题），当前输入框无受控状态，需接入后驱动 POI 列表过滤 | `string` |
-| `experienceTypeOptions` | 体验类型筛选下拉的候选项，如 Cultural Heritage、Nature & Adventure | `string[]` |
+| `searchQuery` | 用户在搜索栏输入的关键词（支持地点、地标、主题），Enter / 联想点击后跳转搜索结果页 | `string` |
+| `experienceTypeOptions` | 体验类型筛选下拉的候选项（与 BL 层 Geoapify 分类推断取值一致） | `string[]` |
 | `selectedExperienceType` | 用户当前选中的体验类型（文化 / 自然探险等） | `string` |
-| `qualityRatingOptions` | 官方品质认证下拉候选项，如 Platinum Certified、Gold Certified（对应需求中的白金、金、银级） | `string[]` |
-| `selectedQualityRating` | 用户当前选中的官方品质评级 | `string` |
-| `isMuslimFriendly` | 是否勾选"穆斯林友好设施"筛选条件（checkbox 当前无受控状态） | `boolean` |
+| `stateOptions` | 马来西亚州/联邦直辖区筛选下拉候选项（13 州 + 3 直辖区） | `string[]` |
+| `selectedState` | 用户当前选中的州属（Geoapify state 字段别名匹配） | `string` |
 | `venueScene` | 室内外场景分类枚举，供标签页切换使用 | `"indoor" \| "outdoor" \| "all"`（即 `activeType`） |
 
-> 备注：需求要求"支持按体验类型、官方品质认证、文化及特定需求（如穆斯林友好设施）等多维度精确筛选"，以上筛选条件最终需组合成过滤参数传给 POI 查询接口。
+> 备注：筛选维度（体验类型 / 室内外场景 / 州属）全部基于真实数据在 BL 层过滤
+> （Geoapify category/state 字段推断与匹配）；"穆斯林友好设施"筛选因所有免费
+> 数据源均无该字段而移除。筛选状态经 URL 参数（exp / scene / state）在主页
+> 跳转与搜索结果页之间传递。
+> **Recommended Places（官方品质评级）与搜索栏完全解绑**：独立展示全部官方
+> 评级地点，不受搜索词与任何筛选状态影响；品质评级不作为搜索筛选维度
+> （BL 层 getQualityRatedPois 不接受筛选条件）。
 
 ---
 

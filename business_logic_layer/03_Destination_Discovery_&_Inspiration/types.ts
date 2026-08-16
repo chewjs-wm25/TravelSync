@@ -12,7 +12,6 @@
 // ---------------------------------------------------------------------------
 
 export type {
-  CollectionDto,
   FilterOptionsDto,
 } from "../../api_layer/03_Destination_Discovery_&_Inspiration/DiscoveryExternalApi";
 
@@ -32,6 +31,10 @@ export type {
 
 export type { FavoriteCacheService } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoriteCacheService";
 
+import type { PlaceImageAttribution } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
+
+export type { PlaceImageAttribution };
+
 export type {
   OfficialQualityRatingEntity,
   OfficialQualityRatingRepository,
@@ -50,17 +53,64 @@ export interface SearchFilters {
   query: string;
   /** 体验类型（如 "Cultural Heritage"），空串表示不限 */
   experienceType: string;
-  /** 是否仅看穆斯林友好设施 */
-  isMuslimFriendly: boolean;
   /** 室内外场景（"all" 表示不限） */
   scene: activeType;
+  /** 马来西亚州/联邦直辖区（如 "Penang"），空串表示不限 */
+  state: string;
 }
 
-/** 灵感合辑条目 */
+/**
+ * 灵感合辑条目（数据源：Wikivoyage 自动发现的主题 + 真实内容聚合，
+ * 见 InspirationsService；默认展示 3 个，可"生成更多"）。
+ */
 export interface Collection {
+  /** 主题源标识："cat:{CategoryTitle}" | "topics" | "itineraries" */
+  id: string;
+  /** 展示标题：分类名（去 "Category:" 前缀）或固定主题名 */
+  title: string;
+  /** 副标题：州文章导语（数据驱动，可能为空） */
+  subtitle: string;
+  /** 封面图（成员中首个有图文章的缩略图；无 → ""，前端渐变占位） */
+  imageUrl: string;
+  /** 成员数量（实际命中数） */
+  memberCount: number;
+  /** Wikivoyage Star 条目数量（pageprops 徽章检测） */
+  starCount: number;
+  /** 主题来源类型（决定详情页聚合方式） */
+  source: "category" | "topics" | "itineraries";
+  /** source=category 时的完整分类名（详情页聚合用） */
+  categoryTitle?: string;
+}
+
+/** 合辑成员目的地条目（Wikivoyage 文章映射后的领域形态） */
+export interface CollectionPlaceItem {
+  /** 文章标题（Wikivoyage 内唯一，作条目 id） */
   id: string;
   title: string;
+  /** Wikivoyage 导语摘要（exintro，纯文本，2 句） */
+  extract: string;
   imageUrl: string;
+  /** Wikivoyage Star 徽章（社区质量评级，与官方品质徽章区分） */
+  isStar: boolean;
+  lat?: number;
+  lon?: number;
+  /** 完整指南外部链接 */
+  wikivoyageUrl: string;
+}
+
+/** 合辑详情（合辑摘要 + 成员列表） */
+export interface CollectionDetail extends Collection {
+  items: CollectionPlaceItem[];
+}
+
+/** 附近灵感条目（geosearch 附近目的地） */
+export interface NearbyInspiration {
+  title: string;
+  imageUrl: string;
+  isStar: boolean;
+  /** 距中心点距离（米） */
+  distanceMeters: number;
+  wikivoyageUrl: string;
 }
 
 /** 设施状态标签（无障碍、停车等基础设施状态） */
@@ -92,8 +142,12 @@ export interface PoiItem {
   qualityBadge?: "platinum" | "gold" | "silver";
   /** 官方评级有效期（如 "07/08/25 - 06/08/28"，来自官方评级数据） */
   ratingDuration?: string;
-  /** 完整格式化地址（官方评级地点的展示地址） */
+  /**
+   * 完整格式化地址（官方评级地点的展示地址）
+   */
   formatted?: string;
+  /** 马来西亚州/联邦直辖区（Geoapify 来源填充，如 "Pulau Pinang"；官方评级来源无） */
+  state?: string;
   /** 联系电话（官方评级数据 company_phone；仅 Recommended Places 提供） */
   phone?: string;
   /** 是否已被用户收藏（由 BL 合并 Data Access 数据得出） */
@@ -105,7 +159,6 @@ export interface PoiItem {
   facilities: FacilityTag[];
   scene: "indoor" | "outdoor";
   experienceType: string;
-  isMuslimFriendly: boolean;
 }
 
 /** 节日/活动条目（数据源：Cloudflare D1 中 parsed_events.json 同步的官方活动） */
@@ -171,7 +224,21 @@ export interface PlaceDetail extends PoiItem {
 /** 收藏夹条目（领域形态，与 DA 实体一致；每个用户只有一个收藏夹） */
 export type SavedItem = FavoriteItemEntity;
 
-/** 筛选面板的候选项（体验类型） */
+/** 筛选面板的候选项（体验类型 / 马来西亚州属） */
 export interface FilterOptions {
   experienceTypes: string[];
+  /** 马来西亚州/联邦直辖区候选（Geoapify state 字段的显示名，如 "Penang"） */
+  states: string[];
+}
+
+/**
+ * 地点图片查询结果（BL 统一图片链路 getPlaceImage 的返回形态）。
+ * url 为空串表示确定无图（前端以无图 Icon 展示）；有图时 attribution
+ * 携带开源协议署名信息（原作者 + 许可声明，CC BY-SA 等），展示必须保留。
+ */
+export interface PlaceImageResult {
+  /** 图片 URL（upload.wikimedia.org / Mapillary 签名 URL，可直接热链） */
+  url: string;
+  /** 作者/许可署名信息（开源协议展示合规） */
+  attribution?: PlaceImageAttribution;
 }

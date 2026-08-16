@@ -3,6 +3,8 @@
  *
  * 职责（单一）：服务端代理传输层。
  *   - 白名单校验请求参数（action / bbox / imageId），拒绝非法输入；
+ *   - 服务端强制马来西亚范围：bbox 必须完全落在马来西亚边界框内
+ *     （见 api_layer MalaysiaBounds），前端无法绕过；
  *   - 在服务端注入 Mapillary access token（process.env.MAPILLARY_ACCESS_TOKEN，
  *     非 NEXT_PUBLIC，token 不再暴露给前端 bundle）；
  *   - 转发到 graph.mapillary.com 并透传原始 JSON 响应
@@ -14,6 +16,10 @@
  *
  * 认证说明：access token 从服务端环境变量读取（本地 .env / Cloudflare vars 或 secrets）。
  */
+
+import {
+  MALAYSIA_BBOX,
+} from "../../../../api_layer/03_Destination_Discovery_&_Inspiration/MalaysiaBounds";
 
 /** Mapillary Graph API 端点 */
 const MAPILLARY_GRAPH_BASE_URL = "https://graph.mapillary.com";
@@ -61,6 +67,16 @@ function parseBbox(raw: string): {
   if (maxLon - minLon > BBOX_MAX_SPAN || maxLat - minLat > BBOX_MAX_SPAN) {
     return null;
   }
+  // 服务端强制马来西亚范围：bbox 必须完全落在马来西亚边界框内
+  // （与 api_layer MalaysiaBounds 保持一致，前端无法绕过）
+  if (
+    minLon < MALAYSIA_BBOX.minLon ||
+    maxLon > MALAYSIA_BBOX.maxLon ||
+    minLat < MALAYSIA_BBOX.minLat ||
+    maxLat > MALAYSIA_BBOX.maxLat
+  ) {
+    return null;
+  }
   return { minLon, minLat, maxLon, maxLat };
 }
 
@@ -83,7 +99,10 @@ export async function GET(request: Request) {
     const bbox = parseBbox(params.get("bbox")?.trim() ?? "");
     if (!bbox) {
       return Response.json(
-        { error: "bbox must be 4 numbers: minLon,minLat,maxLon,maxLat (span <= 0.5 deg)" },
+        {
+          error:
+            "bbox must be 4 numbers: minLon,minLat,maxLon,maxLat (span <= 0.5 deg, fully within Malaysia)",
+        },
         { status: 400 }
       );
     }

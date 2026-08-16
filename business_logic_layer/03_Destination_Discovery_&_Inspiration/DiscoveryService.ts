@@ -2,20 +2,26 @@
  * DiscoveryService — 模块 03 目的地探索业务逻辑（Business Logic Layer）
  *
  * 职责：
- *   - 智能搜索与多维筛选（关键词 / 体验类型 / 品质评级 / 穆斯林友好 / 室内外场景）；
+ *   - 智能搜索与多维筛选（关键词 / 体验类型 / 州属 / 室内外场景）；
  *   - 搜索框输入自动联想（真实 Geoapify autocomplete）；
  *   - 灵感合辑、节日活动（含周边推荐）聚合；
  *   - POI 收藏状态合并（外部数据 + 用户收藏数据 → 领域形态 PoiItem）。
+ *   - Recommended Places（官方品质评级）独立展示：不受搜索与筛选影响。
  *
  * 数据来源（真实第三方 API，见 api_layer）：
  *   - 地点搜索 / 联想 → Geoapify Geocoding API（限定马来西亚 countrycode:my）；
- *   - 地点图片 → Geoapify Place Details（wiki_and_media）→ Wikipedia 条目配图
- *     （兜底链见 getPlaceImage；结果带内存/sessionStorage/KV 缓存）；
+ *   - 地点图片（统一链路 getPlaceImage，Wikimedia 前端直连 + Mapillary
+ *     后端代理，均带马来西亚范围与地点/景点过滤）：
+ *       Wikipedia 条目配图（"地点名 Malaysia"，强制马来西亚）→
+ *       Wikimedia Commons Geosearch（按经纬度，马来西亚 bbox + 半径上限
+ *       5000m + 文件坐标/标题过滤）→ Mapillary 兜底（马来西亚 bbox，
+ *       仅当经纬度齐全）；
  *   - Recommended Places → Cloudflare D1 中官方品质评级数据（提供
  *     officalQualityRating_hardcode.json 所含信息：公司名/地址/电话/评级
- *     有效期/品质等级，及同步时 Nominatim 补全的经纬度），卡片图片用
- *     Wikimedia Geosearch API 按经纬度搜索获取；
- *   - 灵感合辑 / 筛选字典 → DiscoveryExternalApi（暂无免费数据源，mock 占位）。
+ *     有效期/品质等级，及同步时 Nominatim 补全的经纬度），卡片图片复用
+ *     统一图片链路（与 Search&Filter 同一封装、同一缓存）；
+ *   - 灵感合辑 → InspirationsService（Wikivoyage 主题自动发现与内容聚合）；
+ *   - 筛选字典 → DiscoveryExternalApi（暂无免费数据源，mock 占位）。
  *   - 节日活动 → Cloudflare D1（parsed_events.json 经 DEV 按钮同步，Data Access 层读取）。
  *
  * 依赖方向：Business Logic → API Layer（GeoapifyGeocodingApi / DiscoveryExternalApi）
@@ -29,16 +35,15 @@ import {
   type GeoapifyPlaceDto,
 } from "../../api_layer/03_Destination_Discovery_&_Inspiration/GeoapifyGeocodingApi";
 import {
-  geoapifyPlaceDetailsApi,
-  type WikiAndMediaResult,
-} from "../../api_layer/03_Destination_Discovery_&_Inspiration/PlaceDetailsApi";
-import {
   wikidataApi,
   type WikidataPlaceDto,
 } from "../../api_layer/03_Destination_Discovery_&_Inspiration/WikidataApi";
 import { wikipediaImageApi } from "../../api_layer/03_Destination_Discovery_&_Inspiration/WikipediaImageApi";
+import { wikivoyageImageApi } from "../../api_layer/03_Destination_Discovery_&_Inspiration/WikivoyageImageApi";
 import { wikimediaGeosearchApi } from "../../api_layer/03_Destination_Discovery_&_Inspiration/WikimediaGeosearchApi";
 import { mapillaryApi } from "../../api_layer/03_Destination_Discovery_&_Inspiration/MapillaryApi";
+import { MALAYSIA_BBOX } from "../../api_layer/03_Destination_Discovery_&_Inspiration/MalaysiaBounds";
+import type { WikimediaFileMeta } from "../../api_layer/03_Destination_Discovery_&_Inspiration/WikimediaFileMetaApi";
 import type { FavoritesRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
 import {
   CURRENT_USER_ID,
@@ -57,10 +62,11 @@ import {
 } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
 import { remotePlaceImageCacheRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/RemotePlaceImageCacheRepository";
 import type {
-  Collection,
   EventFeedItem,
   FilterOptions,
   PlaceDetail,
+  PlaceImageAttribution,
+  PlaceImageResult,
   PoiItem,
   SearchFilters,
   SuggestionItem,
@@ -101,13 +107,34 @@ const WIKIDATA_PLACE_ID_PREFIX = "wikidata:";
 
 /** 马来西亚在 Wikidata 的国家实体 id（P17 country 属性取值） */
 const MALAYSIA_WIKIDATA_ID = "Q833";
+// 马来西亚大致边界（bbox）：共享常量见 api_layer MalaysiaBounds.ts
+// （MALAYSIA_BBOX），本文件仅用于 Wikidata 实体坐标兜底过滤。
 
-/** 马来西亚大致边界（bbox，Wikidata 实体缺 P17 时的坐标兜底过滤） */
-const MALAYSIA_BBOX = {
-  minLon: 99.5,
-  maxLon: 119.5,
-  minLat: 0.8,
-  maxLat: 7.8,
+// ---------------------------------------------------------------------------
+// 马来西亚州/联邦直辖区别名表（筛选 state 维度用）
+// ---------------------------------------------------------------------------
+// Geoapify（OSM 数据）对马来西亚返回的 state 字段与常用显示名存在差异
+// （实测：Penang → "Pulau Pinang"、Malacca → "Melaka"、Kuala Lumpur →
+// "Kuala Lumpur" 等）。筛选面板候选用显示名（见 DiscoveryExternalApi），
+// 匹配时以归一化后的"包含"比较命中任一别名，兼容两种写法。
+// 注意：别名全部小写（matchesState 归一化后比较）。
+const STATE_ALIASES: Record<string, string[]> = {
+  Johor: ["johor"],
+  Kedah: ["kedah"],
+  Kelantan: ["kelantan"],
+  "Kuala Lumpur": ["kuala lumpur"],
+  Labuan: ["labuan"],
+  Melaka: ["melaka", "malacca"],
+  "Negeri Sembilan": ["negeri sembilan"],
+  Pahang: ["pahang"],
+  Penang: ["penang", "pulau pinang", "pinang"],
+  Perak: ["perak"],
+  Perlis: ["perlis"],
+  Putrajaya: ["putrajaya"],
+  Sabah: ["sabah"],
+  Sarawak: ["sarawak"],
+  Selangor: ["selangor"],
+  Terengganu: ["terengganu"],
 };
 
 // ---------------------------------------------------------------------------
@@ -304,7 +331,7 @@ function toQualityRatedPoiItem(
     lat: item.lat ?? undefined,
     lon: item.lon ?? undefined,
     name: item.companyName,
-    imageUrl: "", // 图片另经 Wikimedia Geosearch（按经纬度）获取，见 getRecommendedPlaceImage
+    imageUrl: "", // 图片另经统一图片链路获取（Wikipedia/Commons 前端直连 + Mapillary 后端代理），见 getPlaceImage
     qualityBadge: awardCategoryToBadge(item.awardCategory),
     ratingDuration: item.duration,
     formatted: item.companyAddress,
@@ -316,7 +343,6 @@ function toQualityRatedPoiItem(
     facilities: [], // JSON 无设施信息
     scene: "outdoor", // JSON 无室内外分类信息（取默认值）
     experienceType: "", // JSON 无体验类型信息
-    isMuslimFriendly: false, // JSON 无穆斯林友好信息
   };
 }
 
@@ -423,6 +449,7 @@ function toPoiItem(place: GeoapifyPlaceDto): PoiItem {
     name: place.name,
     lat: place.lat,
     lon: place.lon,
+    state: place.state ?? undefined,
     imageUrl: "", // 占位：免费地理数据无图片
     isOpenNow: true, // 占位：免费地理数据无营业时间
     suggestedDuration: inferSuggestedDuration(category),
@@ -430,7 +457,6 @@ function toPoiItem(place: GeoapifyPlaceDto): PoiItem {
     facilities: [], // 占位：免费地理数据无设施信息
     scene: inferScene(category, place.resultType),
     experienceType: inferExperienceType(category, place.resultType),
-    isMuslimFriendly: true, // 占位：马来西亚整体对穆斯林游客友好
     isFavourite: false,
   };
 }
@@ -455,16 +481,28 @@ function toPlaceDetail(place: GeoapifyPlaceDto): PlaceDetail {
 }
 
 /**
- * 地点图片缓存的 sessionStorage 键（跨页面导航复用结果，避免重复消耗免费额度）。
- * v3：v2 时代（含 Unsplash 兜底）缓存过大量脏"无图"结果（数据源有图但被缓存为无图，
- * 如 Malaysia Heritage Studios），升级键名使 v2 及更早缓存整体失效、重新查询；
- * 旧键在读取时顺手清除。
- * v3 值格式：值为 PlaceImageCacheEntry 的 JSON 序列化（wikimedia url / mapillary
- * imageId / "" 无图）。
+ * 文本归一化（防重复去重键用）：
+ * trim + 转小写 + 压缩连续空白，消除 "Batu  Caves" 与 "batu caves" 之类
+ * 仅因大小写/多余空格而不同的同义展示文本，保证去重判定稳定。
  */
-const PLACE_IMAGE_CACHE_KEY = "module03-place-image-cache-v3";
-/** 旧版缓存键（v1/v2 可能含脏"无图"结果与旧值格式，读取时顺手清除） */
+function normalizeSearchText(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * 地点图片缓存的 sessionStorage 键（跨页面导航复用结果，避免重复消耗免费额度）。
+ * v5：统一图片链路（v5，见 getPlaceImage）新增 Wikivoyage 首环节、并携带
+ * 作者/许可署名信息（attribution，开源协议展示合规），v4 及更早缓存（旧值
+ * 格式无署名、且旧"确定无图"结果会阻挡新环节）整体失效、重新查询；
+ * 旧键在读取时顺手清除。
+ * v5 值格式：值为 PlaceImageCacheEntry 的 JSON 序列化（wikimedia url +
+ * attribution / mapillary imageId + attribution / "" 无图）。
+ */
+const PLACE_IMAGE_CACHE_KEY = "module03-place-image-cache-v5";
+/** 旧版缓存键（v1–v4 可能含脏"无图"结果与旧值格式，读取时顺手清除） */
 const LEGACY_PLACE_IMAGE_CACHE_KEYS = [
+  "module03-place-image-cache-v4",
+  "module03-place-image-cache-v3",
   "module03-place-image-cache-v2",
   "module03-place-image-cache",
 ];
@@ -475,11 +513,31 @@ const LEGACY_PLACE_IMAGE_CACHE_KEYS = [
  */
 const MAPILLARY_URL_TTL_MS = 60 * 60 * 1000;
 
+/**
+ * Commons Geosearch 统一搜索半径（米，上限值，见 WikimediaGeosearchApi）：
+ * 统一图片链路固定 5000m——Recommended Places 的坐标为 Nominatim 降级
+ * 命中的区域中心，需大半径覆盖附近地标；精确坐标也统一使用
+ * （geosearch 按距离排序取首图，仍相对相关；文件坐标逐条马来西亚校验）。
+ */
+const RECOMMENDED_GEOSEARCH_RADIUS_METERS = 5000;
+
+/**
+ * Mapillary 图片的固定署名（Mapillary 服务条款：图片为 CC BY-SA 4.0，
+ * 署名 "Mapillary contributors"；免费 API 不返回逐图作者，统一署名）。
+ */
+const MAPILLARY_ATTRIBUTION = {
+  artist: "Mapillary contributors",
+  licenseName: "CC BY-SA 4.0",
+  licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0",
+} as const;
+
 /** 内存短期 URL 缓存条目 */
 interface ImageUrlCacheEntry {
   url: string;
   /** 过期时间戳；Infinity = 永久（wikimedia 来源 URL） */
   expiresAt: number;
+  /** 作者/许可署名信息（开源协议展示合规；wikimedia/mapillary 来源均存在） */
+  attribution?: PlaceImageAttribution;
 }
 
 export class DiscoveryService {
@@ -489,7 +547,7 @@ export class DiscoveryService {
     private readonly geocodingApi = geoapifyGeocodingApi,
     private readonly qualityRatingRepo: OfficialQualityRatingRepository = remoteQualityRatingRepository,
     private readonly eventRepo: EventRepository = remoteEventRepository,
-    private readonly placeDetailsApi = geoapifyPlaceDetailsApi,
+    private readonly wikivoyageImageClient = wikivoyageImageApi,
     private readonly wikipediaImageClient = wikipediaImageApi,
     private readonly wikimediaGeosearchClient = wikimediaGeosearchApi,
     private readonly mapillaryClient = mapillaryApi,
@@ -500,19 +558,19 @@ export class DiscoveryService {
   /** 空搜索时热门目的地推荐结果缓存（真实数据，仅拉取一次避免重复消耗免费额度） */
   private popularPlacesCache?: GeoapifyPlaceDto[];
 
-  /** 筛选面板候选项（体验类型） */
+  /** 筛选面板候选项（体验类型 / 马来西亚州属） */
   async getFilterOptions(): Promise<FilterOptions> {
     const dto = await this.externalApi.fetchFilterOptions();
     return {
       experienceTypes: dto.experienceTypes,
+      states: dto.states,
     };
   }
 
-  /** 灵感合辑列表 */
-  async getCollections(): Promise<Collection[]> {
-    const dtos = await this.externalApi.fetchCollections();
-    return dtos.map(({ id, title, imageUrl }) => ({ id, title, imageUrl }));
-  }
+  /**
+   * 灵感合辑：已迁至 InspirationsService（Wikivoyage 主题自动发现），
+   * 调用方（Presentation hooks）改经 inspirationsService 获取。
+   */
 
   /**
    * 节日活动流（活动 + 周边住宿/餐饮推荐）。
@@ -549,18 +607,111 @@ export class DiscoveryService {
    * 按关键词搜索地点详情列表（搜索结果页数据源）。
    * 真实 Geoapify 正向搜索，返回含完整地理字段的 PlaceDetail[]。
    * 品质徽章：仅当 Geoapify place_id 命中 D1 官方评级数据时合并（未命中无徽章）。
+   * 防重复：Geoapify 对同一地点可能返回多个条目（同一 POI 的多个 OSM 对象 /
+   * 多个 place_id，或不同层级重复命中），返回前按"名称 + 地址"去重（见
+   * dedupePlaceDetails），保证搜索结果页不出现名称、地址完全相同的地点。
+   * filters：可选；传入时在返回前应用多维筛选（场景 / 体验类型 / 州属），
+   * 筛选全部基于 Geoapify 真实返回字段（category 推断 + state），见 applyPoiFilters。
    */
-  async searchPlaceDetails(query: string): Promise<PlaceDetail[]> {
+  async searchPlaceDetails(
+    query: string,
+    filters?: SearchFilters
+  ): Promise<PlaceDetail[]> {
     const trimmed = query.trim();
     if (!trimmed) return [];
     const [places, badgeMap] = await Promise.all([
       this.geocodingApi.searchPlaces(trimmed, 10),
       this.getQualityBadgeMap(),
     ]);
-    return places.map((place) => ({
-      ...toPlaceDetail(place),
-      qualityBadge: badgeMap.get(place.placeId),
-    }));
+    const results = this.dedupePlaceDetails(
+      places.map((place) => ({
+        ...toPlaceDetail(place),
+        qualityBadge: badgeMap.get(place.placeId),
+      }))
+    );
+    return filters ? this.applyPoiFilters(results, filters) : results;
+  }
+
+  // -------------------------------------------------------------------------
+  // 多维筛选核心（场景 / 体验类型 / 州属 / 品质评级）
+  // -------------------------------------------------------------------------
+
+  /**
+   * 州属筛选匹配：Geoapify state 字段值与筛选候选项的别名包含比较。
+   * 候选显示名（如 "Penang"）经别名表映射后与归一化 state 值双向包含匹配，
+   * 兼容 "Pulau Pinang" / "Melaka" / "Malacca" 等 OSM 实际取值；
+   * state 字段缺失的地点不匹配任何州属筛选（诚实过滤）。
+   */
+  private matchesState(
+    stateValue: string | undefined,
+    selectedState: string
+  ): boolean {
+    if (!stateValue) return false;
+    const norm = normalizeSearchText(stateValue);
+    const aliases = STATE_ALIASES[selectedState] ?? [selectedState];
+    return aliases.some((alias) => norm.includes(alias) || alias.includes(norm));
+  }
+
+  /**
+   * 对已加载的 POI 列表应用多维筛选（纯计算，不发起请求）。
+   * 筛选维度全部基于 POI 携带的真实数据：
+   *   - scene：Geoapify 分类推断值（官方评级数据无分类信息，取默认 outdoor）；
+   *   - experienceType：Geoapify 分类推断值（官方评级数据为空串）；
+   *   - state：Geoapify 真实州字段（官方评级数据无该字段）。
+   * 注：品质评级（qualityBadge）不属于搜索筛选维度——Recommended Places
+   * 独立展示官方评级数据，不受搜索栏筛选影响（见 getQualityRatedPois）。
+   */
+  applyPoiFilters<T extends PoiItem>(pois: T[], filters: SearchFilters): T[] {
+    return pois.filter((poi) => {
+      if (filters.scene !== "all" && poi.scene !== filters.scene) return false;
+      if (
+        filters.experienceType &&
+        poi.experienceType !== filters.experienceType
+      )
+        return false;
+      if (filters.state && !this.matchesState(poi.state, filters.state))
+        return false;
+      return true;
+    });
+  }
+
+  /** 对已加载的地点详情列表应用多维筛选（搜索页复用，纯计算不发起请求） */
+  filterPlaceDetails(
+    details: PlaceDetail[],
+    filters: SearchFilters
+  ): PlaceDetail[] {
+    return this.applyPoiFilters(details, filters);
+  }
+
+  /**
+   * 搜索结果防重复地点（名称 + 地址去重）：
+   * Geoapify 正向搜索对同一地点常返回多条近似条目——同一 POI 存在多个
+   * OSM 对象 / 多个 place_id，或 street 与 amenity 等不同层级重复命中，
+   * 导致搜索结果页出现名称、地址完全相同的地点卡片。
+   * 去重规则：
+   *   1. 去重键 = 归一化后的"名称 + 展示地址"（地址取 addressLine1 →
+   *      addressLine2 → formatted 的优先顺序，与搜索结果卡片展示的地址一致，
+   *      即用户视觉上"名称、地址一样"的卡片视为同一地点）；
+   *   2. 保留首次出现项——Geoapify 结果按相关度排序，首个通常最匹配，
+   *      其 placeId 亦用于详情页跳转与收藏；
+   *   3. 无名称的条目直接剔除（无法展示也无法跳转详情）；
+   *   4. 仅名称相同但地址不同（如不同城市的同名地点）不视为重复，均保留。
+   */
+  private dedupePlaceDetails(places: PlaceDetail[]): PlaceDetail[] {
+    const seen = new Set<string>();
+    const result: PlaceDetail[] = [];
+    for (const place of places) {
+      const name = normalizeSearchText(place.name);
+      if (!name) continue; // 无名称条目直接剔除
+      const address = normalizeSearchText(
+        place.addressLine1 || place.addressLine2 || place.formatted
+      );
+      const key = `${name}\u0000${address}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(place);
+    }
+    return result;
   }
 
   /**
@@ -690,21 +841,33 @@ export class DiscoveryService {
   }
 
   /**
-   * 地点图片聚合（带缓存）：
+   * 地点图片聚合（带缓存）——Recommended Places 与 Search&Filter 的统一封装：
    *   1. 内存短期 URL 缓存命中直接返回（wikimedia 来源长期有效；
    *      mapillary 来源 URL 带签名有时效，仅 1 小时内复用，过期用引用重新换取）；
    *   2. 引用缓存（来源引用格式，内存 + sessionStorage + Cloudflare KV）：
    *      - wikimedia 来源：URL 永久，直接返回；
    *      - mapillary 来源：用 imageId 换取当前有效 URL（持久化只存 id，不存 URL）；
-   *      - none：确定无图，返回 ""；
-   *   3. 未命中时按链查询：Geoapify Place Details（wiki_and_media.image）
-   *      → Wikipedia 条目配图兜底（条目首图 prop=pageimages → 条目搜索取首图）
-   *      → Mapillary 兜底（仅当 lat/lon 齐全，按经纬度搜索图片 id 再换取 URL）；
-   *   4. 仍无 → 返回 ""（前端以 Icon 表示无图，不破坏页面）。
-   * 缓存策略（关键）：仅缓存"确定结果"——有图总缓存（mapillary 只缓存 imageId）；
-   * "确定无图"仅在所有数据源都**请求成功且确定无图**时缓存。瞬时失败
-   * （429 限流 / 网络错误 / 密钥未配置）由 API 客户端抛错，本方法不写入缓存，
-   * 下次浏览自动重试，避免配额恢复后图片仍永久缺失。
+   *      - none：确定无图，返回 null；
+   *   3. 未命中时按统一链查询（Wikimedia 前端直连 + Mapillary 后端代理，
+   *      均带过滤器——马来西亚范围 + 地点/景点图片 + 开源协议署名，详见 api_layer）：
+   *      → Wikivoyage 条目配图（链首："intitle:{地点名} Malaysia" 标题搜索
+   *        → 全文搜索兜底，条目标题关键词校验，Commons extmetadata 作者/许可）
+   *      → Wikipedia 条目配图（"地点名 Malaysia"，API 层强制马来西亚关键词
+   *        与首图黑名单过滤，排除 logo/flag/map 等非地点图）
+   *      → Wikimedia Commons Geosearch（按经纬度，入口坐标须在马来西亚 bbox
+   *        内、半径上限 5000m，逐文件坐标/标题过滤，标题含地点名者优先）
+   *      → Mapillary 兜底（仅当 lat/lon 齐全，按经纬度搜索图片 id 再换取 URL；
+   *        客户端 + 服务端双层马来西亚 bbox 校验，固定署名 Mapillary contributors）；
+   *   4. 仍无 → 返回 null（前端以 Icon 表示无图，不破坏页面）。
+   * 开源协议合规：返回结果携带 attribution（原作者 + 许可声明，如 CC BY-SA
+   * 4.0），前端展示时必须保留（Wikimedia 来源经 Commons extmetadata 获取，
+   * 仅接受来自 Commons 的文件——本地 fair use 图片无开源许可，直接跳过）。
+   * 缓存键：placeId（调用方统一传 place.placeId ?? place.id，如 Geoapify
+   * place_id / json-{jsonId}）；placeId 为空时以地点名作后备键。
+   * 缓存策略（关键）：仅缓存"确定结果"——有图总缓存（mapillary 只缓存 imageId，
+   * attribution 随条目缓存）；"确定无图"仅在所有数据源都**请求成功且确定无图**
+   * 时缓存。瞬时失败（429 限流 / 网络错误 / 密钥未配置）由 API 客户端抛错，
+   * 本方法不写入缓存，下次浏览自动重试，避免配额恢复后图片仍永久缺失。
    * 缓存层级：内存 URL 短期缓存 + 内存/sessionStorage 引用缓存（跨页面导航复用；
    * SSR/隐私模式下安全降级为纯内存）→ Cloudflare KV 引用缓存（跨会话持久，
    * 浏览器端经 Route API 读写；确定结果回写 KV）。
@@ -714,126 +877,183 @@ export class DiscoveryService {
     placeName: string,
     lat?: number,
     lon?: number
-  ): Promise<string> {
-    if (!placeId.trim()) return "";
+  ): Promise<PlaceImageResult | null> {
+    const cacheKey = placeId.trim() || placeName.trim();
+    if (!cacheKey) return null;
 
     // 1. 内存短期 URL 缓存（wikimedia 长期 / mapillary 1 小时）
-    const cached = this.getImageUrlCache().get(placeId);
-    if (cached && cached.expiresAt > Date.now()) return cached.url;
+    const cached = this.getImageUrlCache().get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { url: cached.url, attribution: cached.attribution };
+    }
 
-    const inFlight = this.imageInFlight.get(placeId);
+    const inFlight = this.imageInFlight.get(cacheKey);
     if (inFlight) return inFlight;
 
-    const promise = (async () => {
+    const promise = (async (): Promise<PlaceImageResult | null> => {
       // 2. 引用缓存（内存/sessionStorage 已合并加载，键与 place id 关联）
-      const localRef = this.getImageRefCache().get(placeId);
-      if (localRef) {
-        const url = await this.resolveImageRef(placeId, localRef);
-        return url ?? "";
-      }
+      const localRef = this.getImageRefCache().get(cacheKey);
+      if (localRef) return this.resolveImageRef(cacheKey, localRef);
 
       // 3. Cloudflare KV 引用缓存：命中（含 none 确定无图）回填本地并返回
       //    （KV 不可用时静默降级，按未命中处理）
       try {
-        const remoteRef = await this.placeImageCache.get(placeId);
+        const remoteRef = await this.placeImageCache.get(cacheKey);
         if (remoteRef !== null) {
-          this.getImageRefCache().set(placeId, remoteRef);
+          this.getImageRefCache().set(cacheKey, remoteRef);
           this.persistImageCache();
-          const url = await this.resolveImageRef(placeId, remoteRef);
-          return url ?? "";
+          return this.resolveImageRef(cacheKey, remoteRef);
         }
       } catch {
         // KV 缓存不可用（本地未启动 / 网络错误）：忽略，按未命中处理
       }
 
-      // 4. Geoapify Place Details：wiki_and_media（image + Commons 精确查询入口）
-      let wiki: WikiAndMediaResult | null = null;
-      let wikiDeterminate = true;
-      try {
-        wiki = await this.placeDetailsApi.getWikiAndMedia(placeId);
-      } catch {
-        wikiDeterminate = false; // 瞬时失败：不得据此缓存"无图"
-      }
-
-      let url = wiki?.image ?? "";
+      let result: PlaceImageResult | null = null;
       let source: PlaceImageCacheEntry["source"] = "wikimedia";
       let mapillaryImageId = "";
 
-      // 5. Wikipedia 条目配图兜底（Geoapify wikipedia 条目 → 条目首图；
-      //    无条目时按地点名在 Wikipedia 搜索条目取首图，命中即停）
-      let commonsDeterminate = true;
-      if (!url) {
+      // 4. Wikivoyage 条目配图（前端直连，链首）：旅行指南条目首图
+      //    （API 层强制：intitle:{地点名} Malaysia 标题搜索 → 全文搜索兜底、
+      //    条目标题含地点名关键词校验、仅接受 Commons 文件并携带作者/许可）
+      let wikivoyageDeterminate = true;
+      try {
+        const wikivoyageImage = await this.wikivoyageImageClient.findImage({
+          placeName,
+        });
+        if (wikivoyageImage) result = this.wikimediaResult(wikivoyageImage);
+      } catch {
+        wikivoyageDeterminate = false; // 瞬时失败：不得据此缓存"无图"
+      }
+
+      // 5. Wikipedia 条目配图（前端直连）："地点名 Malaysia" 搜索条目取首图
+      //    （API 层强制马来西亚关键词 + 首图黑名单过滤，排除 logo/flag/map 等）
+      let wikipediaDeterminate = true;
+      if (!result) {
         try {
           const wikipediaImage = await this.wikipediaImageClient.findImage({
-            wikipediaEntry: wiki?.wikipedia,
             placeName,
           });
-          if (wikipediaImage) url = wikipediaImage;
+          if (wikipediaImage) result = this.wikimediaResult(wikipediaImage);
         } catch {
-          commonsDeterminate = false; // 瞬时失败：不得据此缓存"无图"
+          wikipediaDeterminate = false; // 瞬时失败：不得据此缓存"无图"
         }
       }
 
-      // 6. Mapillary 兜底（仅当经纬度齐全且前两级均无图）：
+      // 6. Wikimedia Commons Geosearch（前端直连，仅当经纬度齐全且上一步无图）：
+      //    按经纬度搜索图片（API 层强制：入口坐标须在马来西亚 bbox 内、
+      //    半径上限 5000m、逐文件坐标/标题过滤、标题含地点名者优先）
+      let geosearchDeterminate = true;
+      if (!result && lat != null && lon != null) {
+        try {
+          const geosearchImage =
+            await this.wikimediaGeosearchClient.findImageByCoords({
+              lat,
+              lon,
+              radiusMeters: RECOMMENDED_GEOSEARCH_RADIUS_METERS,
+              placeName,
+            });
+          if (geosearchImage) result = this.wikimediaResult(geosearchImage);
+        } catch {
+          geosearchDeterminate = false; // 瞬时失败：不得据此缓存"无图"
+        }
+      }
+
+      // 7. Mapillary 兜底（仅当经纬度齐全且前级均无图，经本地代理端点）：
       //    按经纬度搜索图片 id → 用 id 换取有时效的 URL；持久化只缓存 id
+      //    （客户端 + 服务端双层马来西亚 bbox 校验，见 MapillaryApi / Route API；
+      //    固定署名 Mapillary contributors, CC BY-SA 4.0）
       let mapillaryDeterminate = true;
-      if (!url && lat != null && lon != null) {
+      if (!result && lat != null && lon != null) {
         try {
           const foundId = await this.mapillaryClient.findImageId(lat, lon);
           if (foundId) {
             mapillaryImageId = foundId;
-            url = await this.mapillaryClient.getImageUrl(foundId);
-            source = "mapillary";
+            const url = await this.mapillaryClient.getImageUrl(foundId);
+            if (url) {
+              result = {
+                url,
+                attribution: { ...MAPILLARY_ATTRIBUTION },
+              };
+              source = "mapillary";
+            }
           }
         } catch {
           mapillaryDeterminate = false; // 瞬时失败：不得据此缓存"无图"
         }
       }
 
-      // 有图总缓存；"" 仅在所有数据源均确定无图时缓存（避免瞬时故障污染缓存）
+      // 有图总缓存；"确定无图"仅在所有数据源均确定无图时缓存（避免瞬时故障污染缓存）
       if (
-        url ||
-        (wikiDeterminate && commonsDeterminate && mapillaryDeterminate)
+        result ||
+        (wikivoyageDeterminate &&
+          wikipediaDeterminate &&
+          geosearchDeterminate &&
+          mapillaryDeterminate)
       ) {
         const entry: PlaceImageCacheEntry =
-          url && source === "mapillary"
-            ? { source: "mapillary", imageId: mapillaryImageId }
-            : url
-              ? { source: "wikimedia", url }
+          result && source === "mapillary"
+            ? {
+                source: "mapillary",
+                imageId: mapillaryImageId,
+                attribution: result.attribution,
+              }
+            : result
+              ? {
+                  source: "wikimedia",
+                  url: result.url,
+                  attribution: result.attribution,
+                }
               : { source: "none" };
-        await this.persistDeterminateImage(placeId, entry);
-        if (url) {
+        await this.persistDeterminateImage(cacheKey, entry);
+        if (result) {
           // 回填内存短期 URL 缓存（mapillary 1 小时，wikimedia 长期）
           this.setImageUrlCache(
-            placeId,
-            url,
-            source === "mapillary" ? Date.now() + MAPILLARY_URL_TTL_MS : Infinity
+            cacheKey,
+            result.url,
+            source === "mapillary"
+              ? Date.now() + MAPILLARY_URL_TTL_MS
+              : Infinity,
+            result.attribution
           );
         }
       }
-      return url;
+      return result;
     })().finally(() => {
-      this.imageInFlight.delete(placeId);
+      this.imageInFlight.delete(cacheKey);
     });
 
-    this.imageInFlight.set(placeId, promise);
+    this.imageInFlight.set(cacheKey, promise);
     return promise;
   }
 
+  /** Wikimedia 客户端结果（缩略图 URL + 作者/许可）→ 领域形态 PlaceImageResult */
+  private wikimediaResult(meta: WikimediaFileMeta): PlaceImageResult {
+    return {
+      url: meta.thumbUrl,
+      attribution: {
+        artist: meta.artist,
+        licenseName: meta.licenseName,
+        licenseUrl: meta.licenseUrl,
+        credit: meta.credit,
+      },
+    };
+  }
+
   /**
-   * 解析引用缓存条目为可展示 URL（并回填内存短期 URL 缓存）。
-   * 返回语义："" = 确定无图（none）；URL = 可展示图片；null = 引用暂时无法
-   * 得到可用 URL（mapillary 换取失败，瞬时状态，不写缓存，下次重试）。
+   * 解析引用缓存条目为可展示结果（并回填内存短期 URL 缓存）。
+   * 返回语义：null = 确定无图（none）；PlaceImageResult = 可展示图片（含署名）；
+   * resolveImageRef 内部对 mapillary 换取失败返回 null（瞬时状态，不写缓存，
+   * 下次重试）。
    */
   private async resolveImageRef(
     placeId: string,
     ref: PlaceImageCacheEntry
-  ): Promise<string | null> {
-    if (ref.source === "none") return "";
+  ): Promise<PlaceImageResult | null> {
+    if (ref.source === "none") return null;
     if (ref.source === "wikimedia") {
       if (ref.url) {
-        this.setImageUrlCache(placeId, ref.url, Infinity);
-        return ref.url;
+        this.setImageUrlCache(placeId, ref.url, Infinity, ref.attribution);
+        return { url: ref.url, attribution: ref.attribution };
       }
       return null;
     }
@@ -841,8 +1061,13 @@ export class DiscoveryService {
     if (ref.imageId) {
       try {
         const url = await this.mapillaryClient.getImageUrl(ref.imageId);
-        this.setImageUrlCache(placeId, url, Date.now() + MAPILLARY_URL_TTL_MS);
-        return url;
+        this.setImageUrlCache(
+          placeId,
+          url,
+          Date.now() + MAPILLARY_URL_TTL_MS,
+          ref.attribution
+        );
+        return { url, attribution: ref.attribution };
       } catch {
         return null; // 瞬时失败：引用缓存保留，下次查询用同一 id 重试
       }
@@ -905,7 +1130,7 @@ export class DiscoveryService {
   private imageRefCache: Map<string, PlaceImageCacheEntry> | null = null;
 
   /** 进行中的图片请求（同一 placeId 并发去重，避免重复消耗免费额度） */
-  private imageInFlight = new Map<string, Promise<string>>();
+  private imageInFlight = new Map<string, Promise<PlaceImageResult | null>>();
 
   /** 懒加载内存短期 URL 缓存 */
   private getImageUrlCache(): Map<string, ImageUrlCacheEntry> {
@@ -915,13 +1140,14 @@ export class DiscoveryService {
     return this.imageUrlCache;
   }
 
-  /** 写入内存短期 URL 缓存 */
+  /** 写入内存短期 URL 缓存（attribution 随条目缓存，开源协议署名展示所需） */
   private setImageUrlCache(
     placeId: string,
     url: string,
-    expiresAt: number
+    expiresAt: number,
+    attribution?: PlaceImageAttribution
   ): void {
-    this.getImageUrlCache().set(placeId, { url, expiresAt });
+    this.getImageUrlCache().set(placeId, { url, expiresAt, attribution });
   }
 
   /** 懒加载引用缓存：内存 Map + 从 sessionStorage 恢复（不可用时纯内存） */
@@ -991,11 +1217,12 @@ export class DiscoveryService {
   /**
    * 推荐地点（Recommended Places）：读取 Cloudflare D1 中官方品质评级数据
    * （浏览器端经 Route API → D1），映射为 PoiItem。
-   * 仅提供 officalQualityRating_hardcode.json 所含信息（公司名/地址/电话/
-   * 评级有效期/品质等级）；场景/体验类型/穆斯林友好等筛选条件对 JSON 数据
-   * 不适用，故不再过滤（filters 参数仅为保持调用方签名兼容而保留，实际忽略）。
+   * 与搜索栏完全解绑：本方法不接受筛选条件，始终返回全部官方评级地点
+   * （仅提供 officalQualityRating_hardcode.json 所含信息：公司名/地址/电话/
+   * 评级有效期/品质等级），Recommended Places 只专注于展示 Offical Quality
+   * Rating，不受搜索词、体验类型、州属、场景等搜索栏状态影响。
    */
-  async getQualityRatedPois(_filters: SearchFilters): Promise<PoiItem[]> {
+  async getQualityRatedPois(): Promise<PoiItem[]> {
     const [items, favorites] = await Promise.all([
       this.qualityRatingRepo.listAll(),
       this.favoritesRepo.listItems(CURRENT_USER_ID),
@@ -1005,34 +1232,6 @@ export class DiscoveryService {
     return this.dedupeQualityRatedItems(items).map((item) =>
       toQualityRatedPoiItem(item, favouriteIds.has(`json-${item.jsonId}`))
     );
-  }
-
-  /**
-   * Recommended Places 卡片图片：使用 Wikimedia Geosearch API 按经纬度坐标
-   * 搜索 Commons 图片（浏览器直连，免费无 key，来源为同步时 Nominatim 补全的坐标）。
-   * 搜索半径固定 5000m：Nominatim 降级命中的是区域中心坐标，需大半径才能覆盖
-   * 附近地标；精确命中也统一使用（geosearch 按距离排序取首图，仍相对相关）。
-   * 返回语义：找到图片返回 URL；无坐标/确定无图/瞬时失败返回 ""（不持久缓存，
-   * 前端以无图 Icon 表示；组件内按地点 id 保留本次会话结果）。
-   */
-  async getRecommendedPlaceImage(
-    companyName: string,
-    lat?: number,
-    lon?: number
-  ): Promise<string> {
-    if (lat == null || lon == null) return "";
-    const trimmed = companyName.trim();
-    if (!trimmed) return "";
-    try {
-      const url = await this.wikimediaGeosearchClient.findImageByCoords({
-        lat,
-        lon,
-        radiusMeters: 5000,
-      });
-      return url ?? "";
-    } catch {
-      return "";
-    }
   }
 
   /**
@@ -1081,19 +1280,13 @@ export class DiscoveryService {
     ]);
     const favouriteIds = new Set(favorites.map((item) => item.id));
 
-    return places
-      .map(toPoiItem)
-      .filter((poi) => {
-        if (filters.scene !== "all" && poi.scene !== filters.scene) return false;
-        if (filters.experienceType && poi.experienceType !== filters.experienceType)
-          return false;
-        if (filters.isMuslimFriendly && !poi.isMuslimFriendly) return false;
-        return true;
-      })
-      .map((poi) => ({
-        ...poi,
-        isFavourite: favouriteIds.has(poi.id),
-      }));
+    return this.applyPoiFilters(
+      places.map(toPoiItem),
+      filters
+    ).map((poi) => ({
+      ...poi,
+      isFavourite: favouriteIds.has(poi.id),
+    }));
   }
 
   /**

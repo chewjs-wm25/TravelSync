@@ -2,6 +2,11 @@
 //1. 搜索与筛选区域 (Bento 卡片)
 // 数据来源：Business Logic Layer（筛选候选项经 Presentation hooks 注入）
 // 搜索联想：真实 Geoapify autocomplete（经 BL discoveryService.getSuggestions）
+// 筛选面板：体验类型 / 场景（室内外）/ 马来西亚州属——
+// 全部经 BL 层基于真实数据（Geoapify category/state 字段）过滤，
+// 跳转搜索结果页时筛选状态序列化到 URL（见 routes.searchPagePath）。
+// 注：Recommended Places（官方品质评级）与搜索栏完全解绑、独立展示，
+// 不在筛选维度内（见 getQualityRatedPois）。
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -27,8 +32,8 @@ interface SearchAndFilterProps {
   onSelectSuggestion: (suggestion: SuggestionItem) => void;
   selectedExperienceType: string;
   setSelectedExperienceType: React.Dispatch<React.SetStateAction<string>>;
-  isMuslimFriendly: boolean;
-  setIsMuslimFriendly: React.Dispatch<React.SetStateAction<boolean>>;
+  selectedState: string;
+  setSelectedState: React.Dispatch<React.SetStateAction<string>>;
   filterOptions: FilterOptions;
 }
 
@@ -42,8 +47,8 @@ export default function SearchAndFilter({
   onSelectSuggestion,
   selectedExperienceType,
   setSelectedExperienceType,
-  isMuslimFriendly,
-  setIsMuslimFriendly,
+  selectedState,
+  setSelectedState,
   filterOptions,
 }: SearchAndFilterProps) {
   const [isFocused, setIsFocused] = useState(false);
@@ -55,13 +60,19 @@ export default function SearchAndFilter({
     searchQuery.trim().length >= 2 &&
     (suggestions.length > 0 || isSuggesting);
 
-  /** 跳转搜索结果页（Enter / 点击联想建议触发） */
+  /** 跳转搜索结果页（Enter / 点击联想建议触发；携带当前全部筛选状态） */
   const goToSearchPage = (query: string) => {
     const q = query.trim();
     if (!q) return;
     setIsFocused(false);
     setHighlightedIndex(-1);
-    router.push(searchPagePath(q));
+    router.push(
+      searchPagePath(q, {
+        experienceType: selectedExperienceType || undefined,
+        scene: activeTab,
+        state: selectedState || undefined,
+      })
+    );
   };
 
   /** 选中联想建议：回填输入框（hooks selectSuggestion）并跳转搜索结果页 */
@@ -99,7 +110,7 @@ export default function SearchAndFilter({
   };
 
   return (
-    <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)]">
+    <section className="relative z-50 rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
       <div className="mb-6 flex flex-col gap-4 md:flex-row">
         {/* 搜索栏（带 Geoapify 自动联想下拉） */}
         <div className="relative flex-1">
@@ -133,12 +144,12 @@ export default function SearchAndFilter({
               }, 120);
             }}
             placeholder="Search destinations, landmarks, or themes..."
-            className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-2xl border border-gray-200 py-3 pr-4 pl-12 text-base text-gray-800 placeholder-gray-500 focus:ring-2 focus:outline-none"
+            className="focus:border-primary-500 focus:ring-primary-500/20 w-full cursor-text rounded-2xl border border-gray-200 py-3 pr-4 pl-12 text-base text-gray-800 placeholder-gray-500 transition-colors duration-150 hover:border-primary-500/60 hover:bg-gray-50/50 focus:ring-2 focus:outline-none"
           />
 
           {/* 联想下拉（真实 Geoapify 建议） */}
           {showDropdown && (
-            <ul className="isolate absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-gray-200 bg-white opacity-100 shadow-2xl">
+            <ul className="isolate absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-gray-200 bg-white opacity-100 shadow-2xl">
               {isSuggesting ? (
                 <li className="px-4 py-3 text-sm text-gray-500">
                   Searching…
@@ -153,7 +164,7 @@ export default function SearchAndFilter({
                       onClick={() => {
                         handleSelectSuggestion(suggestion);
                       }}
-                      className={`group relative flex w-full flex-col items-start overflow-hidden px-4 py-3 text-left transition-all duration-150 ${
+                      className={`group relative flex w-full cursor-pointer flex-col items-start overflow-hidden px-4 py-3 text-left transition-all duration-150 active:scale-[0.99] ${
                         index === highlightedIndex
                           ? "bg-primary-500/10"
                           : "hover:bg-primary-500/10 active:bg-primary-500/20"
@@ -188,12 +199,14 @@ export default function SearchAndFilter({
         </div>
       </div>
 
-      {/* 多维筛选面板 */}
+      {/* 多维筛选面板：体验类型 / 州属（全部经 BL 层真实数据过滤；
+          品质评级不在筛选维度内——Recommended Places 独立展示官方评级） */}
       <div className="flex flex-wrap items-center gap-4">
         <select
           value={selectedExperienceType}
           onChange={(e) => setSelectedExperienceType(e.target.value)}
-          className="focus:border-primary-500 focus:ring-primary-500/20 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-500 focus:ring-2 focus:outline-none"
+          aria-label="Filter by experience type"
+          className="focus:border-primary-500 focus:ring-primary-500/20 cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-500 transition-all duration-150 hover:border-primary-500/60 hover:bg-gray-50 active:scale-[0.97] focus:ring-2 focus:outline-none"
         >
           <option value="">Experience Type</option>
           {filterOptions.experienceTypes.map((type) => (
@@ -202,45 +215,49 @@ export default function SearchAndFilter({
             </option>
           ))}
         </select>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-          <input
-            type="checkbox"
-            checked={isMuslimFriendly}
-            onChange={(e) => setIsMuslimFriendly(e.target.checked)}
-            className="text-primary-500 focus:ring-primary-500 h-4 w-4 rounded-md border-gray-200"
-          />
-          Muslim-Friendly Facilities
-        </label>
+        <select
+          value={selectedState}
+          onChange={(e) => setSelectedState(e.target.value)}
+          aria-label="Filter by state"
+          className="focus:border-primary-500 focus:ring-primary-500/20 cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-500 transition-all duration-150 hover:border-primary-500/60 hover:bg-gray-50 active:scale-[0.97] focus:ring-2 focus:outline-none"
+        >
+          <option value="">State / Region</option>
+          {filterOptions.states.map((state) => (
+            <option key={state} value={state}>
+              {state}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* 场景分类标签页 */}
       <div className="mt-6 flex gap-2 border-t border-gray-200 pt-4">
         <button
           onClick={() => setActiveTab("indoor")}
-          className={`rounded-full px-6 py-3 text-sm font-semibold transition-all duration-150 ${
+          className={`cursor-pointer rounded-full px-6 py-3 text-sm font-semibold transition-all duration-150 active:scale-[0.94] ${
             activeTab === "indoor"
-              ? "bg-primary-500 text-white shadow-md"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              ? "bg-primary-500 text-white shadow-md hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200 active:bg-gray-300"
           }`}
         >
           Indoor Venues
         </button>
         <button
           onClick={() => setActiveTab("outdoor")}
-          className={`rounded-full px-6 py-3 text-sm font-semibold transition-all duration-150 ${
+          className={`cursor-pointer rounded-full px-6 py-3 text-sm font-semibold transition-all duration-150 active:scale-[0.94] ${
             activeTab === "outdoor"
-              ? "bg-primary-500 text-white shadow-md"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              ? "bg-primary-500 text-white shadow-md hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200 active:bg-gray-300"
           }`}
         >
           Outdoor Scenes
         </button>
         <button
           onClick={() => setActiveTab("all")}
-          className={`rounded-full px-6 py-3 text-sm font-semibold transition-all duration-150 ${
+          className={`cursor-pointer rounded-full px-6 py-3 text-sm font-semibold transition-all duration-150 active:scale-[0.94] ${
             activeTab === "all"
-              ? "bg-primary-500 text-white shadow-md"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              ? "bg-primary-500 text-white shadow-md hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200 active:bg-gray-300"
           }`}
         >
           All

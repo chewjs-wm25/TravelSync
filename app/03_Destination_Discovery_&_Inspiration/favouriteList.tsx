@@ -105,7 +105,7 @@ export default function FavouriteList({
       {!isDrawerOpen && (
         <button
           onClick={() => setIsDrawerOpen(true)}
-          className="bg-primary-500 fixed right-8 bottom-8 z-40 flex items-center gap-2 rounded-full px-6 py-3 text-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)]"
+          className="bg-primary-500 fixed right-8 bottom-8 z-40 flex cursor-pointer items-center gap-2 rounded-full px-6 py-3 text-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.95] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
         >
           <StarIcon filled className="h-6 w-6" />
           <span className="font-semibold">Favourite List ({savedItemsCount})</span>
@@ -125,7 +125,7 @@ export default function FavouriteList({
           </h2>
           <button
             onClick={() => setIsDrawerOpen(false)}
-            className="p-2 text-gray-500 transition-colors duration-150 hover:text-gray-800"
+            className="cursor-pointer rounded-full p-2 text-gray-500 transition-all duration-150 hover:bg-gray-200 hover:text-gray-800 active:scale-90"
           >
             <svg
               className="h-6 w-6"
@@ -148,10 +148,10 @@ export default function FavouriteList({
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setActiveType("All")}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
+              className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-150 active:scale-[0.94] ${
                 activeType === "All"
-                  ? "bg-primary-500 text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  ? "bg-primary-500 text-white shadow-md hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
               }`}
             >
               All
@@ -160,10 +160,10 @@ export default function FavouriteList({
               <button
                 key={type}
                 onClick={() => setActiveType(type)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
+                className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-150 active:scale-[0.94] ${
                   activeType === type
-                    ? "bg-primary-500 text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    ? "bg-primary-500 text-white shadow-md hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
                 }`}
               >
                 {type}
@@ -176,7 +176,7 @@ export default function FavouriteList({
             <div
               key={item.id}
               onClick={() => handleOpenPlace(item)}
-              className="flex cursor-pointer gap-4 rounded-2xl border border-gray-200 p-4 transition-colors duration-150 hover:bg-gray-100"
+              className="flex cursor-pointer gap-4 rounded-2xl border border-gray-200 p-4 transition-all duration-150 hover:bg-gray-100 active:scale-[0.99] active:bg-gray-200"
             >
               {item.thumbnailUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -207,7 +207,7 @@ export default function FavouriteList({
                 <button
                   onClick={(e) => handleRemove(e, item.id)}
                   aria-label={`Remove ${item.name} from favourites`}
-                  className="text-primary-500 transition-colors duration-150 hover:text-[#ef4444]"
+                  className="text-primary-500 cursor-pointer transition-all duration-150 hover:text-[#ef4444] active:scale-90"
                 >
                   <StarIcon filled className="h-5 w-5" />
                 </button>
@@ -215,7 +215,7 @@ export default function FavouriteList({
                   onClick={(e) => handleAddToTrip(e, item)}
                   disabled={addingToTripId === item.id}
                   aria-label={`Add ${item.name} to trip`}
-                  className="rounded-full bg-primary-500/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-primary-500 transition-colors duration-150 hover:bg-primary-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer rounded-full bg-primary-500/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-primary-500 transition-all duration-150 hover:bg-primary-500 hover:text-white active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {addingToTripId === item.id ? "Adding…" : "+ Add to Trip"}
                 </button>

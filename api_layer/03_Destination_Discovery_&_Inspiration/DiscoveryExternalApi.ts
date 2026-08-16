@@ -7,39 +7,33 @@
  *
  * 当前状态：
  *   - 地点搜索与自动联想 → 真实 Geoapify Geocoding API（见 ./GeoapifyGeocodingApi.ts）；
- *   - 灵感合辑 / 筛选维度字典 → 暂无免费数据源，暂以硬编码 mock 占位；
+ *   - 灵感合辑 → 已迁至真实 Wikivoyage API（见 ./WikivoyageApi.ts，
+ *     由 Business Logic 层 InspirationsService 编排主题自动发现与内容聚合）；
+ *   - 筛选维度字典 → 暂无免费数据源，暂以硬编码静态候选占位：
+ *       - 体验类型（experienceTypes）：与 BL 层 Geoapify 结果推断映射取值一致；
+ *       - 马来西亚州/直辖区（states）：Geoapify 结果 state 字段的静态地理事实
+ *         （马来西亚 13 州 + 3 联邦直辖区，不含在搜索结果中提取，因候选须完整）。
  *   - 节日活动 → 已迁移至 Cloudflare D1（parsed_events.json 经 DEV 按钮同步），
  *     由 Data Access 层 Event 仓储读取，不再经本 API。
  *
  * 未来对接点（仅需替换各方法内部实现，方法签名保持不变，上层无需改动）：
- *   - fetchCollections   → 官方灵感合辑 / 内容 API
- *   - fetchFilterOptions → 筛选维度字典 API（体验类型 / 品质评级）
+ *   - fetchFilterOptions → 筛选维度字典 API（体验类型）
  */
 
 // ---------------------------------------------------------------------------
 // DTO 类型（外部数据形态，仅描述第三方 API 返回结构）
 // ---------------------------------------------------------------------------
 
-export interface CollectionDto {
-  id: string;
-  title: string;
-  imageUrl: string;
-}
-
 export interface FilterOptionsDto {
   experienceTypes: string[];
+  /** 马来西亚州/联邦直辖区候选（Geoapify state 字段的显示名，如 "Penang"） */
+  states: string[];
 }
 
 // ---------------------------------------------------------------------------
-// Mock 数据（硬编码占位，未来替换为真实第三方 API 响应）
+// 静态候选数据（硬编码占位，未来替换为真实第三方 API 响应）
 // 注：旅游规划范围仅限马来西亚（项目约束）。
 // ---------------------------------------------------------------------------
-
-const MOCK_COLLECTIONS: CollectionDto[] = [
-  { id: "col-george-town-trail", title: "George Town Heritage Trail", imageUrl: "" },
-  { id: "col-penang-food-trail", title: "Penang Hawker Food Trail", imageUrl: "" },
-  { id: "col-kl-art-circuit", title: "KL Art & Museum Circuit", imageUrl: "" },
-];
 
 const MOCK_FILTER_OPTIONS: FilterOptionsDto = {
   // 与 BL 层 Geoapify 结果推断映射（geoapifyToPoiItem）的 experienceType 取值保持一致
@@ -52,6 +46,26 @@ const MOCK_FILTER_OPTIONS: FilterOptionsDto = {
     "Nature & Adventure",
     "Discover Malaysia",
   ],
+  // 马来西亚 13 州 + 3 联邦直辖区（静态地理事实；Geoapify state 字段的实际取值
+  // 与显示名存在差异，如 "Pulau Pinang" ↔ Penang，匹配逻辑在 BL 层别名表处理）
+  states: [
+    "Johor",
+    "Kedah",
+    "Kelantan",
+    "Kuala Lumpur",
+    "Labuan",
+    "Melaka",
+    "Negeri Sembilan",
+    "Pahang",
+    "Penang",
+    "Perak",
+    "Perlis",
+    "Putrajaya",
+    "Sabah",
+    "Sarawak",
+    "Selangor",
+    "Terengganu",
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -59,10 +73,6 @@ const MOCK_FILTER_OPTIONS: FilterOptionsDto = {
 // ---------------------------------------------------------------------------
 
 export class DiscoveryExternalApi {
-  async fetchCollections(): Promise<CollectionDto[]> {
-    return MOCK_COLLECTIONS;
-  }
-
   async fetchFilterOptions(): Promise<FilterOptionsDto> {
     return MOCK_FILTER_OPTIONS;
   }

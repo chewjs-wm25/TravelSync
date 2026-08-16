@@ -5,20 +5,26 @@
  *   - 提供以 place id 为键的地点图片缓存读写接口（Cloudflare KV 实现）；
  *   - 不包含业务判断（缓存策略由 Business Logic Layer 编排）。
  *
- * 键设计：`module03:place-image:v3:{placeId}` —— 图片与 place id 一一关联，
- *         键前缀用于隔离键空间；v3 前缀使 v2 及更早缓存（含脏"无图"结果）
- *         整体失效，避免旧缓存阻挡新查询（数据源有图但被缓存为无图的问题）。
+ * 键设计：`module03:place-image:v5:{placeId}` —— 图片与 place id 一一关联，
+ *         键前缀用于隔离键空间；v5 前缀使 v4 及更早缓存（旧值格式无署名
+ *         信息，且旧查询链的"确定无图"结果会阻挡新增的 Wikivoyage 环节）
+ *         整体失效——图片链路（v5）新增 Wikivoyage 首环节并携带作者/许可
+ *         署名信息，必须升键重新查询。
  *
- * 值语义（v3，来源引用格式，供上层决定缓存策略）：
+ * 值语义（v5，来源引用格式，供上层决定缓存策略）：
  *   - 缓存值为 PlaceImageCacheEntry 的 JSON 序列化字符串：
- *       {"source":"wikimedia","url":"..."}  Geoapify/Wikimedia 永久 URL，可直接使用；
- *       {"source":"mapillary","imageId":"..."}  Mapillary 图片 id（thumb URL 有时效，
- *         每次查询需用 id 换取新 URL，**不得缓存 URL**）；
+ *       {"source":"wikimedia","url":"...","attribution":{...}}
+ *         Wikipedia/Wikivoyage/Commons 永久 URL，可直接使用；attribution 为
+ *         作者/许可信息（CC BY-SA 等开源协议署名展示所需，永久有效）；
+ *       {"source":"mapillary","imageId":"...","attribution":{...}}
+ *         Mapillary 图片 id（thumb URL 有时效，每次查询需用 id 换取新 URL，
+ *         **不得缓存 URL**）；attribution 为固定署名（Mapillary contributors）；
  *   - 空字符串 "" 表示"已确定无图"（等价于 {"source":"none"}）；
  *   - get 返回 null 表示未缓存（键不存在），与"确定无图"（"" / none）严格区分。
  *
  * 序列化兼容：parsePlaceImageEntry 对非 JSON 的纯 URL 字符串仍视为 wikimedia 来源
- * （防御性兼容；v3 键前缀下正常不会出现旧格式数据）。
+ * （防御性兼容；v5 键前缀下正常不会出现旧格式数据，attribution 缺失时上层按
+ * 无署名信息处理）。
  *
  * 实现类：
  *   - CloudflareKvPlaceImageCacheRepository：Worker/Route API 端，直连 KV binding
@@ -31,7 +37,7 @@
  */
 
 /** KV 键前缀（隔离键空间，图片与 place id 关联） */
-export const PLACE_IMAGE_CACHE_KEY_PREFIX = "module03:place-image:v3:";
+export const PLACE_IMAGE_CACHE_KEY_PREFIX = "module03:place-image:v5:";
 
 /** 由 place id 生成 KV 键 */
 export function placeImageCacheKey(placeId: string): string {
@@ -39,11 +45,27 @@ export function placeImageCacheKey(placeId: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// 缓存条目类型与序列化（v3 来源引用格式）
+// 缓存条目类型与序列化（v5 来源引用格式）
 // ---------------------------------------------------------------------------
 
 /** 图片来源：wikimedia（URL 永久可直接用）｜mapillary（URL 有时效，存 id 换新 URL）｜none（确定无图） */
 export type PlaceImageCacheSource = "wikimedia" | "mapillary" | "none";
+
+/**
+ * 图片署名信息（开源协议展示合规，如 CC BY-SA 4.0 的署名要求：
+ * 保留原作者 + 许可声明）。字段与 Wikimedia extmetadata / Mapillary
+ * 固定署名对应；缺失字段为 undefined。
+ */
+export interface PlaceImageAttribution {
+  /** 原作者（纯文本，如 "Chainwit."） */
+  artist?: string;
+  /** 许可短名（如 "CC BY-SA 4.0"） */
+  licenseName?: string;
+  /** 许可链接（如 "https://creativecommons.org/licenses/by-sa/4.0"） */
+  licenseUrl?: string;
+  /** 归属文本（Commons Credit 字段清洗后的纯文本） */
+  credit?: string;
+}
 
 /** 地点图片缓存条目（KV 存 JSON 序列化字符串；"确定无图"存空串兼容旧格式） */
 export interface PlaceImageCacheEntry {
@@ -52,6 +74,8 @@ export interface PlaceImageCacheEntry {
   url?: string;
   /** mapillary 来源的图片 id（source=mapillary 时存在，每次查询换取有时效的 URL） */
   imageId?: string;
+  /** 作者/许可署名信息（开源协议展示所需；none 来源不存在） */
+  attribution?: PlaceImageAttribution;
 }
 
 /** 序列化缓存条目为 KV 存储字符串；确定无图 → ""（兼容旧版 "" 语义） */

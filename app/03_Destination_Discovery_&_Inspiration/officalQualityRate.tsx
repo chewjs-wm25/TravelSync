@@ -3,12 +3,15 @@
 // 数据来源：Business Logic Layer（officalQualityRating_hardcode.json 同步的
 //           官方品质评级数据，经 Presentation hooks 获取）
 // 交互：分页展示；点击卡片 → 新标签页打开 Google Maps（按公司名+地址搜索）；
-//       图片经 Wikimedia Geosearch API 按经纬度坐标搜索获取（坐标来源：同步时 Nominatim 补全）
+//       图片经统一图片链路获取（Wikivoyage 条目配图 → Wikipedia 条目配图 →
+//       Wikimedia Commons Geosearch 按经纬度 → Mapillary 兜底，马来西亚限定，
+//       见 getPlaceImage）；图片底部展示作者与许可署名（开源协议合规）
 
 import React, { useEffect, useState } from "react";
 import type { PoiItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { googleMapsUrl } from "./routes";
-import { useRecommendedPlaceImages } from "./hooks";
+import { usePlaceImages } from "./hooks";
+import PlaceImageAttribution from "./placeImageAttribution";
 import { ImageOff } from "lucide-react";
 
 /** 每页展示的地点数（4 列网格 × 2 行） */
@@ -48,8 +51,8 @@ export default function officalQualityRate({
     (safePage - 1) * PAGE_SIZE,
     safePage * PAGE_SIZE
   );
-  /** 当前页地点图片（懒加载：Wikimedia Geosearch 按经纬度搜索；翻页/重复浏览走组件 state） */
-  const images = useRecommendedPlaceImages(visiblePois);
+  /** 当前页地点图片（懒加载：统一图片链路——Wikivoyage → Wikipedia 条目配图 → Commons Geosearch 按经纬度 → Mapillary 兜底；翻页/重复浏览走缓存） */
+  const images = usePlaceImages(visiblePois);
 
   return (
     <section>
@@ -80,14 +83,14 @@ export default function officalQualityRate({
             href={googleMapsUrl(`${poi.name} ${poi.formatted ?? ""}`.trim())}
             target="_blank"
             rel="noopener noreferrer"
-            className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)]"
+            className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.98] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
           >
             {/* 带质量徽章的图片区（真实图片；加载中/无图时以 Icon 表示无图） */}
             <div className="relative m-2 h-48 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
-              {images[poi.id] ? (
+              {images[poi.id]?.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={images[poi.id]}
+                  src={images[poi.id].url}
                   alt={poi.name}
                   className="h-full w-full object-cover"
                 />
@@ -95,6 +98,12 @@ export default function officalQualityRate({
                 <ImageOff
                   className="absolute top-1/2 left-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 text-gray-400"
                   aria-label="No image available"
+                />
+              )}
+              {/* 作者与许可署名（开源协议合规：CC BY-SA 等要求保留原作者与许可声明） */}
+              {images[poi.id]?.url && (
+                <PlaceImageAttribution
+                  attribution={images[poi.id].attribution}
                 />
               )}
               {/* 官方品质评级徽章（仅匹配 Offical Quality Rating 的地点展示） */}
@@ -144,7 +153,7 @@ export default function officalQualityRate({
                   }}
                   disabled={addingToTripId === poi.id}
                   aria-label={`Add ${poi.name} to trip`}
-                  className="bg-primary-500/10 text-primary-500 hover:bg-primary-500 mt-4 flex w-full items-center justify-center gap-2 rounded-full py-2 text-sm font-semibold transition-colors duration-150 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="bg-primary-500/10 text-primary-500 hover:bg-primary-500 mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full py-2 text-sm font-semibold transition-all duration-150 hover:text-white active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {addingToTripId === poi.id
                     ? "Adding to trip…"
@@ -163,7 +172,7 @@ export default function officalQualityRate({
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={safePage <= 1}
-            className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-colors duration-150 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Prev
           </button>
@@ -172,10 +181,10 @@ export default function officalQualityRate({
               key={n}
               type="button"
               onClick={() => setPage(n)}
-              className={`h-9 w-9 rounded-full text-sm font-semibold transition-colors duration-150 ${
+              className={`h-9 w-9 cursor-pointer rounded-full text-sm font-semibold transition-all duration-150 active:scale-[0.9] ${
                 n === safePage
-                  ? "bg-primary-500 text-white shadow-md"
-                  : "border border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
+                  ? "bg-primary-500 text-white shadow-md hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
+                  : "border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-700 active:bg-gray-200"
               }`}
             >
               {n}
@@ -185,7 +194,7 @@ export default function officalQualityRate({
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={safePage >= totalPages}
-            className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-colors duration-150 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next →
           </button>

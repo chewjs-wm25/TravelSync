@@ -11,6 +11,7 @@ import type { PlaceDetail } from "../../../../business_logic_layer/03_Destinatio
 import { MODULE_03_HOME, SEARCH_PAGE, searchPagePath } from "../../routes";
 import { StarIcon } from "../../favouriteList";
 import { useFavorites, usePlaceImages } from "../../hooks";
+import PlaceImageAttribution from "../../placeImageAttribution";
 import { ImageOff } from "lucide-react";
 
 /** 品质徽章等级 → 展示文案（纯 UI 展示映射） */
@@ -34,7 +35,7 @@ function PlaceDetailView() {
     () => new Set(savedItems.map((item) => item.id)),
     [savedItems]
   );
-  /** 地点大图（懒加载：Geoapify Place Details 维基图 → Wikimedia Commons 兜底；无图以 Icon 表示） */
+  /** 地点大图（懒加载：统一链路——Wikivoyage → Wikipedia 条目配图 → Wikimedia Commons Geosearch → Mapillary 兜底，马来西亚限定；无图以 Icon 表示） */
   const images = usePlaceImages(place ? [place] : []);
 
   useEffect(() => {
@@ -63,13 +64,13 @@ function PlaceDetailView() {
       <div className="flex flex-wrap items-center gap-3">
         <Link
           href={q.trim() ? searchPagePath(q) : SEARCH_PAGE}
-          className="rounded-full bg-gray-100 px-6 py-3 text-sm font-semibold text-gray-500 transition-colors duration-150 hover:bg-gray-200"
+          className="cursor-pointer rounded-full bg-gray-100 px-6 py-3 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-200 hover:text-gray-700 active:scale-[0.94]"
         >
           ← Back to Search Results
         </Link>
         <Link
           href={MODULE_03_HOME}
-          className="rounded-full bg-gray-100 px-6 py-3 text-sm font-semibold text-gray-500 transition-colors duration-150 hover:bg-gray-200"
+          className="cursor-pointer rounded-full bg-gray-100 px-6 py-3 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-200 hover:text-gray-700 active:scale-[0.94]"
         >
           ← Back to Explore
         </Link>
@@ -117,9 +118,9 @@ function PlaceDetailView() {
                     ? `Remove ${place.name} from favourites`
                     : `Add ${place.name} to favourites`
                 }
-                className={`absolute top-3 right-3 rounded-full p-2 shadow-sm backdrop-blur-sm transition-colors duration-150 ${
+                className={`absolute top-3 right-3 cursor-pointer rounded-full p-2 shadow-sm backdrop-blur-sm transition-all duration-150 active:scale-90 ${
                   favouriteIds.has(place.id)
-                    ? "bg-primary-500 text-white"
+                    ? "bg-primary-500 text-white hover:bg-primary-500/90"
                     : "bg-white/90 text-gray-500 hover:bg-white hover:text-primary-500"
                 }`}
               >
@@ -128,15 +129,21 @@ function PlaceDetailView() {
                   className="h-5 w-5"
                 />
               </button>
-              {images[place.id] && (
+              {images[place.id]?.url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={images[place.id]}
+                  src={images[place.id].url}
                   alt={place.name}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
               )}
-              {!images[place.id] && (
+              {/* 作者与许可署名（开源协议合规：CC BY-SA 等要求保留原作者与许可声明） */}
+              {images[place.id]?.url && (
+                <PlaceImageAttribution
+                  attribution={images[place.id].attribution}
+                />
+              )}
+              {!images[place.id]?.url && (
                 <ImageOff
                   className="absolute top-1/2 left-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 text-gray-400"
                   aria-label="No image available"

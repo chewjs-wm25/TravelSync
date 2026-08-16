@@ -29,8 +29,8 @@ export default function TravelInspirationPage() {
     selectSuggestion,
     selectedExperienceType,
     setSelectedExperienceType,
-    isMuslimFriendly,
-    setIsMuslimFriendly,
+    selectedState,
+    setSelectedState,
     filterOptions,
     pois,
     isLoading,
@@ -92,8 +92,8 @@ export default function TravelInspirationPage() {
           onSelectSuggestion={selectSuggestion}
           selectedExperienceType={selectedExperienceType}
           setSelectedExperienceType={setSelectedExperienceType}
-          isMuslimFriendly={isMuslimFriendly}
-          setIsMuslimFriendly={setIsMuslimFriendly}
+          selectedState={selectedState}
+          setSelectedState={setSelectedState}
           filterOptions={filterOptions}
         />
 

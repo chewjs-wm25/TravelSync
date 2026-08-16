@@ -13,7 +13,7 @@
 # 备注
 1. API Layer 指与外部API沟通，不是Route API
 2. 不确定的事项请先询问我
-3. 如果需要编译，使用docker exec -it competent_meninsky <command>
+3. 如果需要使用开发环境，在项目目录下运行devcontainer exec --workspace-folder . <command>
 4. 使用npm run preview而不是npm run build|dev
 5. 谨慎使用sudo|root权限
 
