@@ -17,8 +17,6 @@ import type {
   SuggestionItem,
 } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 
-export type { activeType };
-
 interface SearchAndFilterProps {
   activeTab: activeType;
   setActiveTab: React.Dispatch<React.SetStateAction<activeType>>;

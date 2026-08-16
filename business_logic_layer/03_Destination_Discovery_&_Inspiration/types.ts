@@ -11,13 +11,7 @@
 // re-export 下层类型（BL 可正向依赖下层）
 // ---------------------------------------------------------------------------
 
-export type {
-  FilterOptionsDto,
-} from "../../api_layer/03_Destination_Discovery_&_Inspiration/DiscoveryExternalApi";
-
 export type { GeoapifyPlaceDto } from "../../api_layer/03_Destination_Discovery_&_Inspiration/GeoapifyGeocodingApi";
-
-export type { WikiAndMediaDto } from "../../api_layer/03_Destination_Discovery_&_Inspiration/PlaceDetailsApi";
 
 import type {
   FavoriteItemEntity,
@@ -28,8 +22,6 @@ export type {
   FavoriteItemEntity,
   FavoritesRepository,
 };
-
-export type { FavoriteCacheService } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoriteCacheService";
 
 import type { PlaceImageAttribution } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
 
