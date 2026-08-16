@@ -1,29 +1,31 @@
 # Current Handoff State
 
 **Active Module:** 02_Trip_Planning_&_Itinerary_Management  
-**Current Status:** FR004 remains complete, and the trip card UI now navigates to the itinerary workspace when the card itself is clicked
+**Current Status:** FR004 is complete, the itinerary workspace has been refactored to component-based rendering, and the remaining next milestone is FR005 for itinerary deletion.
 
 ---
 
 ### What Was Built
-1. Added `data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository.ts` with parameterized insert and trip-scoped list queries for `itineraries`.
-2. Extended `data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository.ts` with a module-safe `getTripById` lookup so itinerary validation can confirm trip date bounds.
-3. Added `business_logic_layer/02_Trip_Planning_&_Itinerary_Management/itineraryService.ts` with required trip ID, title length, and trip-window date validation that returns `Invalid date!` for out-of-bounds submissions.
-4. Added `api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryApi.ts` with server actions for itinerary creation and trip-scoped listing.
-5. Added `app/02_Trip_Planning_&_Itinerary_Management/api/itinerary/route.ts` with a module-scoped `POST` handler that persists the itinerary payload.
-6. Added `app/02_Trip_Planning_&_Itinerary_Management/[tripId]/page.tsx` as the trip itinerary workspace with loading, empty, not-found, and success toast states.
-7. Added `app/02_Trip_Planning_&_Itinerary_Management/components/CreateItineraryModal.tsx` with auto-generated title/date defaults, inline date validation, and submit loading state.
-8. Updated `app/02_Trip_Planning_&_Itinerary_Management/components/TripCard.tsx` so the whole card is clickable, keyboard-accessible, and keeps edit/delete menu actions from bubbling into navigation.
-9. Updated `app/02_Trip_Planning_&_Itinerary_Management/page.tsx` to pass `tripId` into each card and remove the now-unused explicit itinerary-open handler.
-10. Updated `worldmap.md` to mark FR004 complete.
+1. Added the trip-scoped itinerary backend flow in `data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository.ts` and `business_logic_layer/02_Trip_Planning_&_Itinerary_Management/itineraryService.ts` for create/list logic and trip-duration validation.
+2. Wired the server action layer in `api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryApi.ts` and the module route in `app/02_Trip_Planning_&_Itinerary_Management/api/itinerary/route.ts`.
+3. Kept the legacy create flow active with the required `Itinerary added!` success toast and `Invalid date!` validation toast behavior.
+4. Refactored the itinerary workspace view into modular UI components:
+   - `app/02_Trip_Planning_&_Itinerary_Management/components/ItineraryHeader.tsx`
+   - `app/02_Trip_Planning_&_Itinerary_Management/components/ItineraryTimeline.tsx`
+   - `app/02_Trip_Planning_&_Itinerary_Management/components/ItineraryDayCard.tsx`
+   - `app/02_Trip_Planning_&_Itinerary_Management/components/CreateItineraryModal.tsx`
+5. Replaced the old monolithic page layout in `app/02_Trip_Planning_&_Itinerary_Management/[tripId]/page.tsx` with the new decomposition while preserving the existing data fetch and modal logic.
+6. Removed the temporary mockup artifacts after extracting the visual structure to the modular components.
+7. Updated the FR tracking in `worldmap.md` to reflect the completed FR004 scope.
 
 ### Current System State
 - FR001, FR002, FR003, and FR004 are now complete in Module 02.
-- The trip collection cards now navigate directly to `/02_Trip_Planning_&_Itinerary_Management/[tripId]` from any non-action area of the card.
-- The inline edit and delete actions on each card now stop event propagation so they do not trigger itinerary navigation.
-- The card exposes hover, focus-visible, and keyboard activation states for better accessibility.
-- The itinerary flow still stays inside the permitted Presentation, BLL, DAL, and API layers.
-- I have not run a full repository TypeScript sweep yet after this navigation polish.
+- The itinerary detail page retrieves the current trip and trip-scoped itinerary list from the DAL/BLL flow and renders the new layout with the same create validation guarantees.
+- The create modal remains constrained by the trip date window check (`C1`) and triggers toast notifications for valid and invalid submissions.
+- The refactor stays within the permitted Presentation, BLL, DAL, and API boundaries.
+- The next feature target is FR005 `Delete Itinerary`, which should follow the same 4-tier pattern and reuse the same route-level action structure.
 
 ### Immediate Next Task
-1. Start FR005 `Delete Itinerary` within the same Module 02 layering pattern.
+1. Implement `Delete Itinerary` in the Module 02 stack, including DAL delete support, BLL validation, API server action, and UI action wiring in the itinerary card list.
+2. Extend the timeline cards with actual delete controls once the backend contract is in place.
+3. Keep the same user messaging pattern and validation discipline used in FR004.

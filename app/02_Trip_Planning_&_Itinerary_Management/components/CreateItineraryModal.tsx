@@ -78,8 +78,12 @@ export default function CreateItineraryModal({
   onSuccess,
   onInvalidDate,
 }: CreateItineraryModalProps) {
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
+  const [title, setTitle] = useState(() =>
+    trip ? getDefaultTitle(trip, itineraries) : ""
+  );
+  const [date, setDate] = useState(() =>
+    trip ? getDefaultDate(trip, itineraries) : ""
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
@@ -88,10 +92,6 @@ export default function CreateItineraryModal({
     if (!isOpen || !trip) {
       return;
     }
-
-    setTitle(getDefaultTitle(trip, itineraries));
-    setDate(getDefaultDate(trip, itineraries));
-    setErrorMessage("");
 
     window.setTimeout(() => {
       titleRef.current?.focus();
@@ -162,9 +162,9 @@ export default function CreateItineraryModal({
         }
       );
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
 
       if (!response.ok) {
         if (payload?.error === "Invalid date!") {
@@ -178,7 +178,8 @@ export default function CreateItineraryModal({
       onSuccess();
       onClose();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to create itinerary";
+      const message =
+        error instanceof Error ? error.message : "Failed to create itinerary";
       setErrorMessage(
         message === "Invalid date!"
           ? "Date must fall within trip duration"
@@ -193,9 +194,10 @@ export default function CreateItineraryModal({
     return null;
   }
 
-  const dateHint = trip.start_date && trip.end_date
-    ? `Must be between ${trip.start_date} and ${trip.end_date}.`
-    : "Trip dates are required before itineraries can be created.";
+  const dateHint =
+    trip.start_date && trip.end_date
+      ? `Must be between ${trip.start_date} and ${trip.end_date}.`
+      : "Trip dates are required before itineraries can be created.";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
@@ -210,7 +212,7 @@ export default function CreateItineraryModal({
         <div className="border-b border-gray-100 bg-gradient-to-r from-[#fff7f4] via-white to-[#fdf2f0] px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#ff6b6b]">
+              <p className="text-xs font-semibold tracking-[0.3em] text-[#ff6b6b] uppercase">
                 Module 02
               </p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">
@@ -227,7 +229,12 @@ export default function CreateItineraryModal({
               className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-900"
               aria-label="Close modal"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -251,7 +258,7 @@ export default function CreateItineraryModal({
                 onChange={(event) => setTitle(event.target.value)}
                 maxLength={60}
                 placeholder="e.g. Day 2 - Batu Caves & City Tour"
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
+                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
                 required
               />
             </label>
@@ -266,7 +273,7 @@ export default function CreateItineraryModal({
                 onChange={(event) => handleDateChange(event.target.value)}
                 min={trip.start_date || undefined}
                 max={trip.end_date || undefined}
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
+                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
                 required
               />
               <p className="text-xs text-gray-500">{dateHint}</p>

@@ -14,6 +14,11 @@
 - [ ] **FR005**: Delete Itinerary
 - [ ] **FR006**: Edit Itinerary
 
+### Refactor / UI Decomposition Status
+- [x] Refactored the trip itinerary workspace into modular components: `ItineraryHeader.tsx`, `ItineraryTimeline.tsx`, `ItineraryDayCard.tsx`, and the existing `CreateItineraryModal.tsx`.
+- [x] Reconnected the dynamic trip + itinerary data fetching and creation validation back into the page shell.
+- [x] Preserved `Itinerary added!` and `Invalid date!` toast flow required by FR004.
+
 ### Phase 3: Itinerary Items & Notes
 - [ ] **FR007–FR009**: Add, Edit, Delete Itinerary Items
 - [ ] **FR010–FR012**: Add, Edit, Delete Travel Notes
