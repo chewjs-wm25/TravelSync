@@ -6,11 +6,11 @@
 
 ### Phase 1: Trip Management
 - [x] **FR001**: Create Trip (BLL, DAL, API, UI Modal)
-- [ ] **FR002**: Delete Trip (BLL, DAL, API, UI Action)
-- [ ] **FR003**: Edit Trip (BLL, DAL, API, UI Modal)
+- [x] **FR002**: Delete Trip (BLL, DAL, API, UI Action)
+- [x] **FR003**: Edit Trip (BLL, DAL, API, UI Modal)
 
 ### Phase 2: Itinerary Management
-- [ ] **FR004**: Create Itinerary
+- [x] **FR004**: Create Itinerary
 - [ ] **FR005**: Delete Itinerary
 - [ ] **FR006**: Edit Itinerary
 

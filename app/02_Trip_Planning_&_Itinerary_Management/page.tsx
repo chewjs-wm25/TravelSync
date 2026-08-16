@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-import { listTripsAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
+import {
+  deleteTripAction,
+  listTripsAction,
+} from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
 import CreateTripCard from "@/app/02_Trip_Planning_&_Itinerary_Management/components/CreateTripCard";
 import CreateTripModal from "@/app/02_Trip_Planning_&_Itinerary_Management/components/CreateTripModal";
+import EditTripModal from "@/app/02_Trip_Planning_&_Itinerary_Management/components/EditTripModal";
 import SearchBar from "@/app/02_Trip_Planning_&_Itinerary_Management/components/SearchBar";
 import SuggestedTripCard from "@/app/02_Trip_Planning_&_Itinerary_Management/components/SuggestedTripCard";
 import TripCard from "@/app/02_Trip_Planning_&_Itinerary_Management/components/TripCard";
@@ -84,6 +88,7 @@ function formatTripDate(value: string | null) {
 
 export default function PlanningPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingTrip, setEditingTrip] = useState<TripRecord | null>(null);
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
@@ -138,12 +143,31 @@ export default function PlanningPage() {
     setToastMessage("Trip Successfully Created!");
   };
 
+  const handleTripUpdated = () => {
+    setEditingTrip(null);
+    setRefreshCounter((value) => value + 1);
+    setToastMessage("Trip Updated Successfully!");
+  };
+
+  const handleTripDeleted = async (tripId: string) => {
+    await deleteTripAction({ tripId });
+    setRefreshCounter((value) => value + 1);
+    setToastMessage("Trip Removed Successfully");
+  };
+
   return (
     <div className="space-y-10 pb-12">
       <CreateTripModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleTripCreated}
+      />
+
+      <EditTripModal
+        isOpen={Boolean(editingTrip)}
+        trip={editingTrip}
+        onClose={() => setEditingTrip(null)}
+        onSuccess={handleTripUpdated}
       />
 
       {toastMessage ? (
@@ -194,10 +218,13 @@ export default function PlanningPage() {
             {trips.map((trip) => (
               <TripCard
                 key={trip.trip_id}
+                tripId={trip.trip_id}
                 name={trip.trip_name}
                 startDate={formatTripDate(trip.start_date)}
                 endDate={formatTripDate(trip.end_date)}
                 locationsCount={0}
+                onEdit={() => setEditingTrip(trip)}
+                onDelete={() => handleTripDeleted(trip.trip_id)}
               />
             ))}
 

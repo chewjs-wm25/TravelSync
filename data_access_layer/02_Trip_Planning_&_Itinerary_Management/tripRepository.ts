@@ -15,6 +15,13 @@ export type CreateTripInput = {
   tripNote: string | null;
 };
 
+export type UpdateTripInput = {
+  tripName: string;
+  startDate: string | null;
+  endDate: string | null;
+  tripNote: string | null;
+};
+
 export async function insertTrip(
   db: D1Database,
   input: CreateTripInput
@@ -73,4 +80,67 @@ export async function listTripsByUser(db: D1Database, userId: string) {
     .all<TripRecord>();
 
   return result.results ?? [];
+}
+
+export async function getTripById(db: D1Database, tripId: string) {
+  return db
+    .prepare(
+      `SELECT
+        trip_id,
+        user_id,
+        trip_name,
+        start_date,
+        end_date,
+        trip_note
+      FROM trips
+      WHERE trip_id = ?`
+    )
+    .bind(tripId)
+    .first<TripRecord>();
+}
+
+export async function deleteTripById(db: D1Database, tripId: string) {
+  await db
+    .prepare(
+      `DELETE FROM trips
+      WHERE trip_id = ?`
+    )
+    .bind(tripId)
+    .run();
+}
+
+export async function updateTrip(
+  db: D1Database,
+  tripId: string,
+  data: UpdateTripInput
+): Promise<TripRecord | null> {
+  const updateResult = await db
+    .prepare(
+      `UPDATE trips
+      SET trip_name = ?, start_date = ?, end_date = ?, trip_note = ?
+      WHERE trip_id = ?`
+    )
+    .bind(data.tripName, data.startDate, data.endDate, data.tripNote, tripId)
+    .run();
+
+  if (updateResult.meta.changes === 0) {
+    return null;
+  }
+
+  const updatedTrip = await db
+    .prepare(
+      `SELECT
+        trip_id,
+        user_id,
+        trip_name,
+        start_date,
+        end_date,
+        trip_note
+      FROM trips
+      WHERE trip_id = ?`
+    )
+    .bind(tripId)
+    .first<TripRecord>();
+
+  return updatedTrip ?? null;
 }

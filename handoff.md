@@ -1,23 +1,29 @@
 # Current Handoff State
 
 **Active Module:** 02_Trip_Planning_&_Itinerary_Management  
-**Current Status:** FR001 implemented end-to-end with create-trip modal, BLL validation, DAL persistence, and API wrapper support
+**Current Status:** FR004 remains complete, and the trip card UI now navigates to the itinerary workspace when the card itself is clicked
 
 ---
 
 ### What Was Built
-1. Added `business_logic_layer/02_Trip_Planning_&_Itinerary_Management/tripService.ts` to validate trip name, ISO dates, Malaysia scope, and default the unauthenticated user fallback to `usr_demo`.
-2. Added `data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository.ts` to insert and list `trips` records through parameterized D1 queries.
-3. Added `api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi.ts` as the Module 02 API wrapper, backed by Cloudflare D1 via `TEST_DB`.
-4. Added `app/02_Trip_Planning_&_Itinerary_Management/components/CreateTripModal.tsx` and wired `page.tsx` plus `CreateTripCard.tsx` to open it from both triggers.
-5. Updated `TripCard.tsx` to support DB-backed trips without an image and refreshed `worldmap.md` to mark FR001 complete.
+1. Added `data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository.ts` with parameterized insert and trip-scoped list queries for `itineraries`.
+2. Extended `data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository.ts` with a module-safe `getTripById` lookup so itinerary validation can confirm trip date bounds.
+3. Added `business_logic_layer/02_Trip_Planning_&_Itinerary_Management/itineraryService.ts` with required trip ID, title length, and trip-window date validation that returns `Invalid date!` for out-of-bounds submissions.
+4. Added `api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryApi.ts` with server actions for itinerary creation and trip-scoped listing.
+5. Added `app/02_Trip_Planning_&_Itinerary_Management/api/itinerary/route.ts` with a module-scoped `POST` handler that persists the itinerary payload.
+6. Added `app/02_Trip_Planning_&_Itinerary_Management/[tripId]/page.tsx` as the trip itinerary workspace with loading, empty, not-found, and success toast states.
+7. Added `app/02_Trip_Planning_&_Itinerary_Management/components/CreateItineraryModal.tsx` with auto-generated title/date defaults, inline date validation, and submit loading state.
+8. Updated `app/02_Trip_Planning_&_Itinerary_Management/components/TripCard.tsx` so the whole card is clickable, keyboard-accessible, and keeps edit/delete menu actions from bubbling into navigation.
+9. Updated `app/02_Trip_Planning_&_Itinerary_Management/page.tsx` to pass `tripId` into each card and remove the now-unused explicit itinerary-open handler.
+10. Updated `worldmap.md` to mark FR004 complete.
 
 ### Current System State
-- Create-trip submissions now persist to `trips` with `trip_id`, `user_id`, `trip_name`, `start_date`, `end_date`, and `trip_note`.
-- The page loads the collection through the API wrapper, refreshes after successful creation, and shows Toast M1 on success.
-- Invalid date ordering returns Toast M6 text: `Invalid Trip date`.
-- `schema.sql` already matched the required Module 02 `trips` shape, so no schema edit was needed in this pass.
+- FR001, FR002, FR003, and FR004 are now complete in Module 02.
+- The trip collection cards now navigate directly to `/02_Trip_Planning_&_Itinerary_Management/[tripId]` from any non-action area of the card.
+- The inline edit and delete actions on each card now stop event propagation so they do not trigger itinerary navigation.
+- The card exposes hover, focus-visible, and keyboard activation states for better accessibility.
+- The itinerary flow still stays inside the permitted Presentation, BLL, DAL, and API layers.
+- I have not run a full repository TypeScript sweep yet after this navigation polish.
 
 ### Immediate Next Task
-1. Implement FR002 delete-trip flow using the same Module 02 layering and persistence path.
-2. If the product needs richer collection visuals for database-only trips, add a dedicated image or metadata strategy in Module 02 without crossing module boundaries.
+1. Start FR005 `Delete Itinerary` within the same Module 02 layering pattern.
