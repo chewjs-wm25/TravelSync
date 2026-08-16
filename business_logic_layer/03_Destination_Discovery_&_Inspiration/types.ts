@@ -12,17 +12,13 @@
 // ---------------------------------------------------------------------------
 
 export type {
-  EventDto,
   CollectionDto,
-  NearbyPlaceDto,
   FilterOptionsDto,
 } from "../../api_layer/03_Destination_Discovery_&_Inspiration/DiscoveryExternalApi";
 
 export type { GeoapifyPlaceDto } from "../../api_layer/03_Destination_Discovery_&_Inspiration/GeoapifyGeocodingApi";
 
 export type { WikiAndMediaDto } from "../../api_layer/03_Destination_Discovery_&_Inspiration/PlaceDetailsApi";
-
-export type { UnsplashPhotoUrlsDto } from "../../api_layer/03_Destination_Discovery_&_Inspiration/UnsplashApi";
 
 import type {
   FavoriteItemEntity,
@@ -77,12 +73,20 @@ export interface FacilityTag {
 /** 地点决策卡片条目（BL 聚合外部数据 + 用户收藏状态后的领域形态） */
 export interface PoiItem {
   id: string;
-  /** Geoapify place_id（跳转地点详情页用；官方评级地点由 D1 数据填充） */
+  /**
+   * 地点标识：搜索来源为 Geoapify place_id（跳转地点详情页用）；
+   * 官方评级（Recommended Places）来源为 JSON 条目 id，placeId 可为空
+   * （sync 不再补全 Geoapify 字段）。
+   */
   placeId?: string;
+  /** 地点坐标（Geoapify 来源填充；官方评级/收藏来源无坐标） */
+  lat?: number;
+  lon?: number;
   name: string;
   imageUrl: string;
   /**
-   * 官方品质评级徽章（数据源：Cloudflare D1 中爬取的 Offical Quality Rating）。
+   * 官方品质评级徽章（数据源：Cloudflare D1 中爬取的 Offical Quality Rating，
+   * 来自 officalQualityRating_hardcode.json 同步）。
    * 仅当地点与官方评级匹配（placeId 命中）时才存在；未匹配的地点不展示徽章。
    */
   qualityBadge?: "platinum" | "gold" | "silver";
@@ -90,6 +94,8 @@ export interface PoiItem {
   ratingDuration?: string;
   /** 完整格式化地址（官方评级地点的展示地址） */
   formatted?: string;
+  /** 联系电话（官方评级数据 company_phone；仅 Recommended Places 提供） */
+  phone?: string;
   /** 是否已被用户收藏（由 BL 合并 Data Access 数据得出） */
   isFavourite: boolean;
   isOpenNow: boolean;
@@ -102,13 +108,19 @@ export interface PoiItem {
   isMuslimFriendly: boolean;
 }
 
-/** 节日/活动条目 */
+/** 节日/活动条目（数据源：Cloudflare D1 中 parsed_events.json 同步的官方活动） */
 export interface EventItem {
   id: string;
-  name: string;
-  dateRange: string;
-  description: string;
-  venue?: string;
+  /** 活动名称 */
+  title: string;
+  /** 活动分类（如 "Arts & Culture"、"Sports"） */
+  categories: string[];
+  /** 活动举办日期区间（如 "19 Jun 2026 - 25 Apr 2027"） */
+  date: string;
+  /** 活动举办地点 */
+  location: string;
+  /** 活动官方页面 URL（点击卡片外部打开） */
+  url: string;
 }
 
 /** 活动场地周边的住宿/餐饮推荐 */
@@ -118,7 +130,7 @@ export interface NearbyPlace {
   distanceKm: number;
 }
 
-/** 节日活动 + 其周边推荐（BL 聚合后的活动流条目） */
+/** 节日活动 + 其周边推荐（BL 聚合后的活动流条目；当前数据源无周边推荐，恒为空） */
 export interface EventFeedItem extends EventItem {
   nearby: NearbyPlace[];
 }

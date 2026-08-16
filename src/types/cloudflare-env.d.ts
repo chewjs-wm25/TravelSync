@@ -6,6 +6,8 @@ declare global {
     TEST_DB: D1Database;
     /** KV binding defined in wrangler.json */
     TEST_KV: KVNamespace;
+    /** KV binding (place image cache) defined in wrangler.json */
+    PLACE_IMAGE_CACHE: KVNamespace;
   }
 }
 

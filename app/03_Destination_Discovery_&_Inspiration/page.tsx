@@ -5,7 +5,7 @@ import React, { useState } from "react";
 // Component（纯展示，数据经 Presentation hooks 从 Business Logic Layer 获取）
 import SearchAndFilter from "./searchAndFilter";
 import CuratedInspirations from "./curatedInspirations";
-import UpcomingFestivalsEvent from "./upcomingFestivalsEvent";
+import UpcomingFestivalsEvent from "./officalQualityRate";
 import FavouriteList from "./favouriteList";
 
 // Presentation hooks
@@ -34,15 +34,8 @@ export default function TravelInspirationPage() {
     filterOptions,
     pois,
     isLoading,
-    toggleFavourite,
   } = useSearchAndFilter();
-  const {
-    typeOptions,
-    activeType,
-    setActiveType,
-    refresh: refreshFavorites,
-    addToTrip,
-  } = useFavorites();
+  const { typeOptions, activeType, setActiveType, addToTrip } = useFavorites();
 
   /** 加入行程反馈（toast）：进行中的地点 id + 结果提示 */
   const [addingToTripId, setAddingToTripId] = useState<string | null>(null);
@@ -50,12 +43,6 @@ export default function TravelInspirationPage() {
     status: "success" | "error";
     message: string;
   } | null>(null);
-
-  /** 收藏/取消收藏：保存到当前用户的收藏夹，并同步收藏状态与列表 */
-  const handleToggleFavourite = async (poi: (typeof pois)[number]) => {
-    await toggleFavourite(poi);
-    await refreshFavorites();
-  };
 
   /**
    * 将地点加入行程（模块 02，当前经 RoutePlannerBridge stub 桥接）：
@@ -142,7 +129,6 @@ export default function TravelInspirationPage() {
           <UpcomingFestivalsEvent
             pois={pois}
             isLoading={isLoading}
-            onToggleFavourite={handleToggleFavourite}
             onAddToTrip={handleAddToTrip}
             addingToTripId={addingToTripId}
           />

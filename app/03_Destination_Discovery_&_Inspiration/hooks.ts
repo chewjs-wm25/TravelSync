@@ -267,18 +267,27 @@ export function useFavorites() {
   };
 }
 
-/** 图片请求并发上限（免费配额保护：Geoapify 3000/天、Unsplash 50/小时） */
+/** 图片请求并发上限（免费配额保护：Geoapify 3000/天、Wikimedia 匿名配额） */
 const IMAGE_FETCH_CONCURRENCY = 4;
 
 /**
  * 地点图片懒加载：对传入地点分批并发（IMAGE_FETCH_CONCURRENCY）请求图片，
- * 返回 id → imageUrl 映射；加载中/无图结果为 ""（前端展示占位图）。
- * 依赖 discoveryService.getPlaceImage 内部缓存（内存 + sessionStorage），
- * 重复浏览/翻页不重复消耗免费 API 额度。
+ * 返回 id → imageUrl 映射；加载中/无图结果为 ""（前端展示无图 Icon）。
+ * 依赖 discoveryService.getPlaceImage 内部缓存（内存 URL 短期缓存 +
+ * 内存/sessionStorage/KV 引用缓存），重复浏览/翻页不重复消耗免费 API 额度。
  * 依赖地点 id 列表（序列化 key）：仅当地点集合变化时重新加载。
+ * lat/lon：可选；有坐标时图片兜底链会追加 Mapillary（按经纬度搜索），无坐标跳过。
  */
 export function usePlaceImages(
-  places: Array<{ id: string; placeId?: string; name: string }>
+  places: Array<{
+    id: string;
+    placeId?: string;
+    name: string;
+    /** 纬度（可选；Mapillary 兜底需要，无坐标时跳过 Mapillary） */
+    lat?: number;
+    /** 经度（可选；Mapillary 兜底需要，无坐标时跳过 Mapillary） */
+    lon?: number;
+  }>
 ): Record<string, string> {
   const [images, setImages] = useState<Record<string, string>>({});
   /** 地点 id 集合序列化键（避免每次渲染的数组引用变化触发重复请求） */
@@ -300,7 +309,9 @@ export function usePlaceImages(
             id: place.id,
             url: await discoveryService.getPlaceImage(
               place.placeId as string,
-              place.name
+              place.name,
+              place.lat,
+              place.lon
             ),
           }))
         );
@@ -313,6 +324,61 @@ export function usePlaceImages(
       }
     };
     // getPlaceImage 内部已全部降级（失败返回 ""），此处仅防御
+    run().catch(() => {
+      if (!cancelled) setImages({});
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeKey]);
+
+  return images;
+}
+
+/**
+ * Recommended Places 卡片图片懒加载：按经纬度坐标调用
+ * discoveryService.getRecommendedPlaceImage（Wikimedia Geosearch API 按坐标
+ * 搜索 Commons 图片，浏览器直连；无坐标时返回 "" 显示无图），返回 id → imageUrl
+ * 映射；加载中/无图结果为 ""。
+ * 结果保留在组件 state 中（同一会话翻页/重复浏览不重复请求），不做持久缓存。
+ */
+export function useRecommendedPlaceImages(
+  pois: Array<{ id: string; name: string; lat?: number; lon?: number }>
+): Record<string, string> {
+  const [images, setImages] = useState<Record<string, string>>({});
+  /** 地点 id 集合序列化键（避免每次渲染的数组引用变化触发重复请求） */
+  const placeKey = useMemo(
+    () => pois.map((poi) => poi.id).join("|"),
+    [pois]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setImages({}); // 地点集合变化时重置，未加载完成的卡片显示占位
+
+    const run = async () => {
+      for (let i = 0; i < pois.length; i += IMAGE_FETCH_CONCURRENCY) {
+        const chunk = pois.slice(i, i + IMAGE_FETCH_CONCURRENCY);
+        const results = await Promise.all(
+          chunk.map(async (poi) => ({
+            id: poi.id,
+            url: await discoveryService.getRecommendedPlaceImage(
+              poi.name,
+              poi.lat,
+              poi.lon
+            ),
+          }))
+        );
+        if (cancelled) return;
+        setImages((prev) => {
+          const next = { ...prev };
+          for (const result of results) next[result.id] = result.url;
+          return next;
+        });
+      }
+    };
+    // getRecommendedPlaceImage 内部已全部降级（失败返回 ""），此处仅防御
     run().catch(() => {
       if (!cancelled) setImages({});
     });

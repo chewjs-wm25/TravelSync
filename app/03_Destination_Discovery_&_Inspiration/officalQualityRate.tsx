@@ -1,22 +1,22 @@
 "use client";
-//3. 兴趣点（POI）决策视图 (Bento 网格)
-// 数据来源：Business Logic Layer（经 Presentation hooks 获取，含收藏状态）
-// 交互：分页展示；点击卡片 → 跳转地点详情页（携带 placeId + 地点名）
+//3. 兴趣点（POI）决策视图 (Bento 网格)——Recommended Places
+// 数据来源：Business Logic Layer（officalQualityRating_hardcode.json 同步的
+//           官方品质评级数据，经 Presentation hooks 获取）
+// 交互：分页展示；点击卡片 → 新标签页打开 Google Maps（按公司名+地址搜索）；
+//       图片经 Wikimedia Geosearch API 按经纬度坐标搜索获取（坐标来源：同步时 Nominatim 补全）
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import type { PoiItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
-import { StarIcon } from "./favouriteList";
-import { placeDetailPath } from "./routes";
-import { usePlaceImages } from "./hooks";
+import { googleMapsUrl } from "./routes";
+import { useRecommendedPlaceImages } from "./hooks";
+import { ImageOff } from "lucide-react";
 
 /** 每页展示的地点数（4 列网格 × 2 行） */
 const PAGE_SIZE = 8;
 
-interface UpcomingFestivalsEventProps {
+interface OfficalQualityRateProps {
   pois: PoiItem[];
   isLoading?: boolean;
-  onToggleFavourite?: (poi: PoiItem) => void;
   /** 将地点加入行程（模块 02，经 stub 桥接）；传入后卡片显示 Add to Trip 按钮 */
   onAddToTrip?: (poi: PoiItem) => void;
   /** 正在加入行程的地点 id（按钮 loading 态） */
@@ -30,13 +30,12 @@ const BADGE_LABEL: Record<NonNullable<PoiItem["qualityBadge"]>, string> = {
   silver: "Silver",
 };
 
-export default function UpcomingFestivalsEvent({
+export default function officalQualityRate({
   pois,
   isLoading,
-  onToggleFavourite,
   onAddToTrip,
   addingToTripId,
-}: UpcomingFestivalsEventProps) {
+}: OfficalQualityRateProps) {
   /** 当前页码（分页为纯前端 UI 行为，状态内聚于组件） */
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(pois.length / PAGE_SIZE));
@@ -49,8 +48,8 @@ export default function UpcomingFestivalsEvent({
     (safePage - 1) * PAGE_SIZE,
     safePage * PAGE_SIZE
   );
-  /** 当前页地点图片（懒加载：仅对可见卡片请求，翻页/重复浏览走缓存） */
-  const images = usePlaceImages(visiblePois);
+  /** 当前页地点图片（懒加载：Wikimedia Geosearch 按经纬度搜索；翻页/重复浏览走组件 state） */
+  const images = useRecommendedPlaceImages(visiblePois);
 
   return (
     <section>
@@ -76,15 +75,14 @@ export default function UpcomingFestivalsEvent({
           </p>
         )}
         {visiblePois.map((poi) => (
-          <Link
+          <a
             key={poi.id}
-            href={placeDetailPath(
-              poi.placeId ?? poi.id.replace(/^geo-/, ""),
-              poi.name
-            )}
+            href={googleMapsUrl(`${poi.name} ${poi.formatted ?? ""}`.trim())}
+            target="_blank"
+            rel="noopener noreferrer"
             className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)]"
           >
-            {/* 带质量徽章的图片区（真实图片；加载中/无图时灰色骨架占位） */}
+            {/* 带质量徽章的图片区（真实图片；加载中/无图时以 Icon 表示无图） */}
             <div className="relative m-2 h-48 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
               {images[poi.id] ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -94,7 +92,10 @@ export default function UpcomingFestivalsEvent({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="absolute inset-0 animate-pulse bg-gray-100"></div>
+                <ImageOff
+                  className="absolute top-1/2 left-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 text-gray-400"
+                  aria-label="No image available"
+                />
               )}
               {/* 官方品质评级徽章（仅匹配 Offical Quality Rating 的地点展示） */}
               {poi.qualityBadge && (
@@ -109,26 +110,6 @@ export default function UpcomingFestivalsEvent({
                   {BADGE_LABEL[poi.qualityBadge]}
                 </div>
               )}
-              {/* 收藏按钮（星星图标）：阻止冒泡避免触发卡片跳转 */}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onToggleFavourite?.(poi);
-                }}
-                aria-label={
-                  poi.isFavourite
-                    ? `Remove ${poi.name} from favourites`
-                    : `Add ${poi.name} to favourites`
-                }
-                className={`absolute top-3 right-3 rounded-full p-2 shadow-sm backdrop-blur-sm transition-colors duration-150 ${
-                  poi.isFavourite
-                    ? "bg-primary-500 text-white"
-                    : "bg-white/90 text-gray-500 hover:bg-white hover:text-primary-500"
-                }`}
-              >
-                <StarIcon filled={poi.isFavourite} className="h-5 w-5" />
-              </button>
             </div>
 
             <div className="p-6 pt-4">
@@ -138,10 +119,13 @@ export default function UpcomingFestivalsEvent({
                 </h3>
               </div>
 
-              {/* 地址与评级有效期（数据来自 Offical Quality Rating） */}
+              {/* 地址、电话与评级有效期（数据来自 Offical Quality Rating） */}
               <div className="mb-4 space-y-2 text-sm text-gray-500">
                 {poi.formatted && (
                   <p className="line-clamp-2">{poi.formatted}</p>
+                )}
+                {poi.phone && (
+                  <p className="flex items-center gap-1">📞 {poi.phone}</p>
                 )}
                 {poi.ratingDuration && (
                   <p className="flex items-center gap-1">
@@ -160,7 +144,7 @@ export default function UpcomingFestivalsEvent({
                   }}
                   disabled={addingToTripId === poi.id}
                   aria-label={`Add ${poi.name} to trip`}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary-500/10 py-2 text-sm font-semibold text-primary-500 transition-colors duration-150 hover:bg-primary-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="bg-primary-500/10 text-primary-500 hover:bg-primary-500 mt-4 flex w-full items-center justify-center gap-2 rounded-full py-2 text-sm font-semibold transition-colors duration-150 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {addingToTripId === poi.id
                     ? "Adding to trip…"
@@ -168,7 +152,7 @@ export default function UpcomingFestivalsEvent({
                 </button>
               )}
             </div>
-          </Link>
+          </a>
         ))}
       </div>
 

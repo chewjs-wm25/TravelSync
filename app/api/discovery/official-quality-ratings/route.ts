@@ -44,3 +44,10 @@ export async function POST(request: Request) {
   const synced = await repo.upsertAll(items);
   return Response.json({ synced }, { status: 201 });
 }
+
+/** DELETE /api/discovery/official-quality-ratings → 清空全部官方评级数据，返回 { cleared } */
+export async function DELETE() {
+  const repo = await qualityRatingRepo();
+  const cleared = await repo.clearAll();
+  return Response.json({ cleared });
+}

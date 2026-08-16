@@ -13,6 +13,10 @@ export const SEARCH_PAGE = `${MODULE_03_HOME}/search`;
 export const placeDetailPath = (placeId: string, q: string): string =>
   `${MODULE_03_HOME}/place/${encodeURIComponent(placeId)}?q=${encodeURIComponent(q)}`;
 
+/** Google Maps 搜索 URL（Recommended Places 卡片点击后新标签页打开） */
+export const googleMapsUrl = (query: string): string =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+
 /** 搜索结果页路径（搜索词） */
 export const searchPagePath = (q: string): string =>
   `${SEARCH_PAGE}?q=${encodeURIComponent(q)}`;

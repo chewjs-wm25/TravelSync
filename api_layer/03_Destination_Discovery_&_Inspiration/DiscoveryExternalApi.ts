@@ -7,32 +7,18 @@
  *
  * 当前状态：
  *   - 地点搜索与自动联想 → 真实 Geoapify Geocoding API（见 ./GeoapifyGeocodingApi.ts）；
- *   - 灵感合辑 / 节日活动 / 筛选维度字典 → 暂无免费数据源，暂以硬编码 mock 占位。
+ *   - 灵感合辑 / 筛选维度字典 → 暂无免费数据源，暂以硬编码 mock 占位；
+ *   - 节日活动 → 已迁移至 Cloudflare D1（parsed_events.json 经 DEV 按钮同步），
+ *     由 Data Access 层 Event 仓储读取，不再经本 API。
  *
  * 未来对接点（仅需替换各方法内部实现，方法签名保持不变，上层无需改动）：
  *   - fetchCollections   → 官方灵感合辑 / 内容 API
- *   - fetchEvents        → 官方节日活动日历 API（含活动场地周边推荐）
  *   - fetchFilterOptions → 筛选维度字典 API（体验类型 / 品质评级）
  */
 
 // ---------------------------------------------------------------------------
 // DTO 类型（外部数据形态，仅描述第三方 API 返回结构）
 // ---------------------------------------------------------------------------
-
-export interface NearbyPlaceDto {
-  name: string;
-  category: "hotel" | "restaurant" | "food";
-  distanceKm: number;
-}
-
-export interface EventDto {
-  id: string;
-  name: string;
-  dateRange: string;
-  description: string;
-  venue?: string;
-  nearby: NearbyPlaceDto[];
-}
 
 export interface CollectionDto {
   id: string;
@@ -55,32 +41,6 @@ const MOCK_COLLECTIONS: CollectionDto[] = [
   { id: "col-kl-art-circuit", title: "KL Art & Museum Circuit", imageUrl: "" },
 ];
 
-const MOCK_EVENTS: EventDto[] = [
-  {
-    id: "evt-rwfm",
-    name: "Rainforest World Music Festival",
-    dateRange: "2025-06-27 ~ 2025-06-29",
-    description:
-      "Experience world-class ethnic music performances at the Sarawak Cultural Village.",
-    venue: "Sarawak Cultural Village, Kuching",
-    nearby: [
-      { name: "Riverside Majestic Hotel", category: "hotel", distanceKm: 4.2 },
-      { name: "Top Spot Food Court", category: "food", distanceKm: 3.8 },
-    ],
-  },
-  {
-    id: "evt-thaipusam",
-    name: "Thaipusam Festival",
-    dateRange: "2025-02-11 ~ 2025-02-11",
-    description: "Witness the spectacular Hindu procession to the Batu Caves temple.",
-    venue: "Batu Caves, Selangor",
-    nearby: [
-      { name: "Batu Caves Hotel", category: "hotel", distanceKm: 0.5 },
-      { name: "Jalan Alor Night Market", category: "food", distanceKm: 0.3 },
-    ],
-  },
-];
-
 const MOCK_FILTER_OPTIONS: FilterOptionsDto = {
   // 与 BL 层 Geoapify 结果推断映射（geoapifyToPoiItem）的 experienceType 取值保持一致
   experienceTypes: [
@@ -101,10 +61,6 @@ const MOCK_FILTER_OPTIONS: FilterOptionsDto = {
 export class DiscoveryExternalApi {
   async fetchCollections(): Promise<CollectionDto[]> {
     return MOCK_COLLECTIONS;
-  }
-
-  async fetchEvents(): Promise<EventDto[]> {
-    return MOCK_EVENTS;
   }
 
   async fetchFilterOptions(): Promise<FilterOptionsDto> {

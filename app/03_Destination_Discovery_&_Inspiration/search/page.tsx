@@ -11,6 +11,7 @@ import type { PlaceDetail } from "../../../business_logic_layer/03_Destination_D
 import { MODULE_03_HOME, placeDetailPath } from "../routes";
 import { StarIcon } from "../favouriteList";
 import { useFavorites, usePlaceImages } from "../hooks";
+import { ImageOff } from "lucide-react";
 
 /** 品质徽章等级 → 展示文案（纯 UI 展示映射） */
 const BADGE_LABEL: Record<NonNullable<PlaceDetail["qualityBadge"]>, string> = {
@@ -32,7 +33,7 @@ function SearchResults() {
     () => new Set(savedItems.map((item) => item.id)),
     [savedItems]
   );
-  /** 地点图片（懒加载：维基图 → Unsplash 兜底 → 渐变占位） */
+  /** 地点图片（懒加载：Geoapify Place Details 维基图 → Wikimedia Commons 兜底；无图以 Icon 表示） */
   const images = usePlaceImages(places);
 
   useEffect(() => {
@@ -127,7 +128,7 @@ function SearchResults() {
               href={placeDetailPath(place.placeId, q)}
               className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)]"
             >
-              {/* 图片区（真实地点图片；加载中/无图时显示品牌色渐变占位） */}
+              {/* 图片区（真实地点图片；加载中/无图时以 Icon 表示无图） */}
               <div className="relative m-2 h-40 overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-primary-500/20 via-secondary-500/20 to-accent-400/30">
               {images[place.id] && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -167,24 +168,10 @@ function SearchResults() {
                   />
                 </button>
                 {!images[place.id] && (
-                <svg
-                  className="absolute top-1/2 left-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 text-gray-500"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  <ImageOff
+                    className="absolute top-1/2 left-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 text-gray-400"
+                    aria-label="No image available"
                   />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
                 )}
               </div>
 

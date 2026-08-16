@@ -10,11 +10,12 @@
  *   - 正向搜索:  https://apidocs.geoapify.com/docs/geocoding/forward-geocoding/
  *
  * 项目约束（见 AGENTS.md）：
- *   - 旅游规划范围仅限马来西亚 → 所有请求强制 filter=countrycode:my；
- *   - API 必须免费、无需信用卡 → 使用 Geoapify 免费套餐（3000 credits/天，1 次请求 = 1 credit），
- *     认证方式为 query 参数 apiKey（官方免费套餐支持浏览器直连）。
+ *   - 旅游规划范围仅限马来西亚 → 马来西亚限制由服务端代理强制
+ *     （filter=countrycode:my，见 app/api/discovery/geocode/route.ts），本客户端无需携带；
+ *   - API 必须免费、无需信用卡 → 使用 Geoapify 免费套餐（3000 credits/天，1 次请求 = 1 credit）。
  *
- * 密钥来源：.env 中的 NEXT_PUBLIC_GEOAPIFY_API_KEY（Next.js 编译时内联，浏览器端可用）。
+ * 安全：API key 不暴露前端——本客户端只与本地代理端点 /api/discovery/geocode 通信，
+ * 由服务端持有 GEOAPIFY_API_KEY（非 NEXT_PUBLIC）并转发到 Geoapify。
  */
 
 // ---------------------------------------------------------------------------
@@ -74,18 +75,8 @@ interface GeoapifyGeoJsonResponse {
 // ---------------------------------------------------------------------------
 
 export class GeoapifyGeocodingApi {
-  private readonly baseUrl = "https://api.geoapify.com/v1/geocode";
-
-  /** API key：.env → NEXT_PUBLIC_GEOAPIFY_API_KEY */
-  private get apiKey(): string {
-    const key = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
-    if (!key) {
-      throw new Error(
-        "Missing NEXT_PUBLIC_GEOAPIFY_API_KEY. Add it to .env to enable Geoapify geocoding."
-      );
-    }
-    return key;
-  }
+  /** 本地代理端点（服务端持有 GEOAPIFY_API_KEY 并转发到 Geoapify，密钥不暴露前端） */
+  private readonly proxyEndpoint = "/api/discovery/geocode";
 
   /**
    * 自动联想（地址/地点自动补全）：输入部分文字即返回候选地点。
@@ -108,16 +99,15 @@ export class GeoapifyGeocodingApi {
     text: string,
     limit: number
   ): Promise<GeoapifyPlaceDto[]> {
-    const url = new URL(`${this.baseUrl}/${endpoint}`);
-    url.searchParams.set("text", text);
-    url.searchParams.set("filter", "countrycode:my");
-    url.searchParams.set("lang", "en");
-    url.searchParams.set("limit", String(limit));
-    url.searchParams.set("apiKey", this.apiKey);
+    const query = new URLSearchParams({
+      type: endpoint,
+      text,
+      limit: String(limit),
+    });
 
     let res: Response;
     try {
-      res = await fetch(url.toString());
+      res = await fetch(`${this.proxyEndpoint}?${query.toString()}`);
     } catch (err) {
       throw new Error(
         `Geoapify ${endpoint} request failed (network error): ${(err as Error).message}`
@@ -125,6 +115,7 @@ export class GeoapifyGeocodingApi {
     }
 
     if (!res.ok) {
+      // 上游错误（含 500 密钥未配置 / 502 上游故障）均视为瞬时失败，由上层决定不缓存
       throw new Error(
         `Geoapify ${endpoint} request failed: HTTP ${res.status} ${res.statusText}`
       );

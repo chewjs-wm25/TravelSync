@@ -59,4 +59,6 @@ export interface OfficialQualityRatingRepository {
   listAll(): Promise<OfficialQualityRatingEntity[]>;
   /** 批量写入/更新（按 jsonId upsert）；返回实际写入条数 */
   upsertAll(items: OfficialQualityRatingEntity[]): Promise<number>;
+  /** 清空全部官方评级数据；返回删除条数 */
+  clearAll(): Promise<number>;
 }

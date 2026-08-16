@@ -3,8 +3,8 @@
  *
  * 职责（单一）：
  *   - 仅负责与 Geoapify Place Details API 交流（按 place_id 查询地点详情）；
- *   - 本客户端只提取地点图片（wiki_and_media.image），不包含业务规则、
- *     不触碰本地持久化、不编排跨模块流程。
+ *   - 本客户端只提取 wiki_and_media 字段（image / wikipedia / wikimedia_commons），
+ *     供地点图片兜底链使用，不包含业务规则、不触碰本地持久化、不编排跨模块流程。
  *
  * 官方文档：
  *   - Place Details API: https://apidocs.geoapify.com/docs/place-details/
@@ -12,10 +12,10 @@
  *
  * 项目约束（见 AGENTS.md）：
  *   - API 必须免费、无需信用卡 → Geoapify 免费套餐（3000 请求/天，
- *     默认 details feature 每次 1 credit），认证方式为 query 参数 apiKey；
- *   - 图片获取在前端完成（浏览器端直连，不经过后端）。
- *
- * 密钥来源：.env 中的 NEXT_PUBLIC_GEOAPIFY_API_KEY（与 Geocoding API 同 key）。
+ *     默认 details feature 每次 1 credit）；
+ *   - 安全：API key 不暴露前端——本客户端只与本地代理端点
+ *     /api/discovery/place-details 通信，由服务端持有 GEOAPIFY_API_KEY
+ *     （非 NEXT_PUBLIC）并转发到 Geoapify。
  */
 
 // ---------------------------------------------------------------------------
@@ -38,6 +38,19 @@ export interface WikiAndMediaDto {
   image_thumb?: string;
 }
 
+/**
+ * Place Details 中供地点图片兜底链使用的 wiki_and_media 字段。
+ * 语义：请求成功时为确定值（字段缺失 → null）；请求失败时抛错。
+ */
+export interface WikiAndMediaResult {
+  /** 地点图片 URL（OSM image 标签，可能缺失） */
+  image: string | null;
+  /** 维基百科条目（如 "en:Petronas Towers"） */
+  wikipedia: string | null;
+  /** 维基共享资源分类（如 "Category:Petronas Towers"） */
+  wikimedia_commons: string | null;
+}
+
 /** Geoapify Place Details 响应结构（仅声明本客户端用到的字段） */
 interface PlaceDetailsGeoJsonResponse {
   features?: Array<{
@@ -55,53 +68,68 @@ interface PlaceDetailsGeoJsonResponse {
 // ---------------------------------------------------------------------------
 
 export class GeoapifyPlaceDetailsApi {
-  private readonly baseUrl = "https://api.geoapify.com/v2/place-details";
-
-  /** API key：.env → NEXT_PUBLIC_GEOAPIFY_API_KEY（与 Geocoding API 共用） */
-  private get apiKey(): string {
-    const key = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
-    if (!key) {
-      throw new Error(
-        "Missing NEXT_PUBLIC_GEOAPIFY_API_KEY. Add it to .env to enable Geoapify place details."
-      );
-    }
-    return key;
-  }
+  /** 本地代理端点（服务端持有 GEOAPIFY_API_KEY 并转发到 Geoapify，密钥不暴露前端） */
+  private readonly proxyEndpoint = "/api/discovery/place-details";
 
   /**
-   * 按 place_id 获取地点的免费图片（wiki_and_media.image）。
-   * 任何失败（网络错误 / HTTP 非 2xx / API 错误 / 无图片字段 / 非 http(s) URL）
-   * 均静默降级返回 null，由上层 Unsplash 兜底或展示占位图。
+   * 按 place_id 获取地点 wiki_and_media 字段（image / wikipedia / wikimedia_commons）。
+   * 一次请求拿全三个字段，供图片兜底链使用（Commons 分类/条目查询的精确入口）。
+   * 返回语义（供上层决定是否缓存）：
+   *   - 返回 WikiAndMediaResult：请求成功，字段缺失时为 null（可安全缓存为无图）；
+   *   - 抛出 Error：请求失败（网络错误 / HTTP 非 2xx 含 429 限流 / 响应异常），
+   *     属瞬时状态，上层不得缓存"无图"结论，应允许下次重试。
    */
-  async getWikiMediaImage(placeId: string): Promise<string | null> {
-    if (!placeId.trim()) return null;
+  async getWikiAndMedia(placeId: string): Promise<WikiAndMediaResult> {
+    if (!placeId.trim()) {
+      return { image: null, wikipedia: null, wikimedia_commons: null };
+    }
 
-    const url = new URL(this.baseUrl);
-    url.searchParams.set("id", placeId);
-    url.searchParams.set("lang", "en");
-    url.searchParams.set("apiKey", this.apiKey);
+    const query = new URLSearchParams({ id: placeId.trim() });
 
     let res: Response;
     try {
-      res = await fetch(url.toString());
-    } catch {
-      return null; // 网络错误：静默降级
+      res = await fetch(`${this.proxyEndpoint}?${query.toString()}`);
+    } catch (err) {
+      throw new Error(
+        `Geoapify place-details request failed (network error): ${(err as Error).message}`
+      );
     }
 
-    if (!res.ok) return null; // HTTP 错误（含 429 限流）：静默降级
+    if (!res.ok) {
+      // 上游错误（含 500 密钥未配置 / 502 上游故障）均视为瞬时失败，由上层决定不缓存
+      throw new Error(
+        `Geoapify place-details request failed: HTTP ${res.status} ${res.statusText}`
+      );
+    }
 
     let data: PlaceDetailsGeoJsonResponse;
     try {
       data = (await res.json()) as PlaceDetailsGeoJsonResponse;
     } catch {
-      return null; // 响应解析失败：静默降级
+      throw new Error("Geoapify place-details response parse failed");
     }
 
-    if (data.error || data.message) return null;
+    if (data.error || data.message) {
+      throw new Error(
+        `Geoapify place-details error: ${data.error ?? data.message}`
+      );
+    }
 
     const wikiAndMedia = data.features?.[0]?.properties?.wiki_and_media;
-    const image = wikiAndMedia?.image ?? wikiAndMedia?.image_thumb;
-    return image && /^https?:\/\//i.test(image) ? image : null;
+    return {
+      image:
+        wikiAndMedia?.image ?? wikiAndMedia?.image_thumb ?? null,
+      wikipedia: this.nonEmptyString(wikiAndMedia?.wikipedia),
+      wikimedia_commons: this.nonEmptyString(
+        wikiAndMedia?.wikimedia_commons
+      ),
+    };
+  }
+
+  /** 规范化可选字符串：空白/空串 → null */
+  private nonEmptyString(value: string | undefined): string | null {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
   }
 }
 

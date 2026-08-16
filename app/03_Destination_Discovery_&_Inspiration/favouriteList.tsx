@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useFavorites } from "./hooks";
 import type { SavedItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { placeDetailPath } from "./routes";
+import { ImageOff } from "lucide-react";
 
 interface ChildProbs {
   isDrawerOpen: boolean;
@@ -185,7 +186,12 @@ export default function FavouriteList({
                   className="h-16 w-16 flex-shrink-0 rounded-2xl object-cover"
                 />
               ) : (
-                <div className="h-16 w-16 flex-shrink-0 rounded-2xl bg-gray-200"></div>
+                <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-200">
+                  <ImageOff
+                    className="h-6 w-6 text-gray-400"
+                    aria-label="No image available"
+                  />
+                </div>
               )}
               <div className="flex-1">
                 <h4 className="line-clamp-1 text-base font-semibold text-gray-800">

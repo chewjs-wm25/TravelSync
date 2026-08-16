@@ -15,6 +15,10 @@
     {
       "binding": "TEST_KV",
       "id": "local-kv-id"
+    },
+    {
+      "binding": "PLACE_IMAGE_CACHE",
+      "id": "local-place-image-kv-id"
     }
   ],
   "assets": {

@@ -24,7 +24,7 @@ const UPSERT_COLUMNS =
 export class D1QualityRatingRepository implements OfficialQualityRatingRepository {
   constructor(private readonly db: D1Database) {}
 
-  /** 懒建表：首次访问时确保 official_quality_ratings 表存在（幂等） */
+  /** 懒建表：首次访问时确保 official_quality_ratings 表存在（幂等，见 schema.sql） */
   private async ensureTable(): Promise<void> {
     await this.db
       .prepare(
@@ -125,5 +125,13 @@ export class D1QualityRatingRepository implements OfficialQualityRatingRepositor
         .run();
     }
     return items.length;
+  }
+
+  /** 清空全部官方评级数据；返回删除条数（表不存在时按 0 处理） */
+  async clearAll(): Promise<number> {
+    const result = await this.db
+      .prepare("DELETE FROM official_quality_ratings")
+      .run();
+    return result.meta.changes;
   }
 }

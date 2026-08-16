@@ -43,6 +43,18 @@ export class RemoteQualityRatingRepository
     const data = (await res.json()) as { synced?: number };
     return data.synced ?? 0;
   }
+
+  /** 清空全部官方评级数据（DELETE Route API），返回删除条数 */
+  async clearAll(): Promise<number> {
+    const res = await fetch(QUALITY_RATINGS_API, { method: "DELETE" });
+    if (!res.ok) {
+      throw new Error(
+        `Failed to clear official quality ratings (HTTP ${res.status})`
+      );
+    }
+    const data = (await res.json()) as { cleared?: number };
+    return data.cleared ?? 0;
+  }
 }
 
 export const remoteQualityRatingRepository = new RemoteQualityRatingRepository();
