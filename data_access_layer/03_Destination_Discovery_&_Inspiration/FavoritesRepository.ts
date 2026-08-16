@@ -6,7 +6,10 @@
  *   - 不包含任何业务判断（业务规则由 Business Logic Layer 负责）。
  *
  * 每个用户只有一个收藏夹：不区分文件夹，条目按 user_id 归属。
- * 所有方法均需携带 userId（当前由 BL 层硬编码注入，见 FavoritesService）。
+ * userId 语义（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）：
+ *   - D1FavoritesRepository（服务端）的 userId 由 Route API 从会话凭证解析后传入，
+ *     不信任任何前端参数；
+ *   - RemoteFavoritesRepository（浏览器端）省略 userId 参数，服务端以会话为准。
  *
  * 实现类：
  *   - D1FavoritesRepository（服务端）：直接操作 Cloudflare D1（SQL 内聚于此）；
@@ -36,13 +39,10 @@ export interface FavoriteItemEntity {
 // ---------------------------------------------------------------------------
 
 export interface FavoritesRepository {
-  /** 列出某用户收藏夹的全部条目 */
-  listItems(userId: string): Promise<FavoriteItemEntity[]>;
+  /** 列出当前用户的收藏夹全部条目（userId 由实现方决定：D1 经构造器注入，Remote 以会话为准） */
+  listItems(): Promise<FavoriteItemEntity[]>;
   /** 新增一条收藏（id 由调用方生成） */
-  addItem(
-    userId: string,
-    item: FavoriteItemEntity
-  ): Promise<FavoriteItemEntity>;
-  /** 按 id 删除某用户的一条收藏 */
-  removeItem(userId: string, id: string): Promise<void>;
+  addItem(item: FavoriteItemEntity): Promise<FavoriteItemEntity>;
+  /** 按 id 删除当前用户的一条收藏 */
+  removeItem(id: string): Promise<void>;
 }

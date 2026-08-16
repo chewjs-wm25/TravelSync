@@ -12,6 +12,7 @@ import { MODULE_03_HOME, SEARCH_PAGE, searchPagePath } from "../../routes";
 import { StarIcon } from "../../favouriteList";
 import { useFavorites, usePlaceImages } from "../../hooks";
 import PlaceImageAttribution from "../../placeImageAttribution";
+import { safeHttpUrl } from "../../safeUrl";
 import { ImageOff } from "lucide-react";
 
 /** 品质徽章等级 → 展示文案（纯 UI 展示映射） */
@@ -132,7 +133,7 @@ function PlaceDetailView() {
               {images[place.id]?.url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={images[place.id].url}
+                  src={safeHttpUrl(images[place.id].url)}
                   alt={place.name}
                   className="absolute inset-0 h-full w-full object-cover"
                 />

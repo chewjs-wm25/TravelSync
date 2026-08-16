@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Compass, Star } from "lucide-react";
 import { useCollections, useEventFeed } from "./hooks";
 import { collectionDetailPath, WIKIVOYAGE_HOME } from "./routes";
+import { safeHttpUrl } from "./safeUrl";
 
 /** 合辑封面占位色块（imageUrl 未就绪时的展示占位；就绪后显示真实图片） */
 const COLLECTION_COVER_CLASSES = [
@@ -107,7 +108,7 @@ export default function CuratedInspirations() {
               {item.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={item.imageUrl}
+                  src={safeHttpUrl(item.imageUrl)}
                   alt={item.title}
                   className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
@@ -193,7 +194,7 @@ export default function CuratedInspirations() {
           {events.map((event) => (
             <a
               key={event.id}
-              href={event.url}
+              href={safeHttpUrl(event.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="min-w-[300px] max-w-[300px] snap-start rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.98] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"

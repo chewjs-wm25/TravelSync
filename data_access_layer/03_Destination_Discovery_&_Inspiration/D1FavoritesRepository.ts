@@ -7,6 +7,10 @@
  *
  * 使用方式：由 Route API（app/api/discovery/favorites）以 D1 binding 实例化，
  *           浏览器端经 RemoteFavoritesRepository → Route API → 本类完成读写。
+ *
+ * 授权（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）：
+ *   当前用户 ID 由 Route API 从服务端会话（Authorization: Bearer token）解析后
+ *   经构造器注入，不信任任何前端参数 —— 杜绝越权读写任意用户收藏。
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
@@ -16,7 +20,11 @@ import type {
 } from "./FavoritesRepository";
 
 export class D1FavoritesRepository implements FavoritesRepository {
-  constructor(private readonly db: D1Database) {}
+  constructor(
+    private readonly db: D1Database,
+    /** 当前请求的用户 ID（Route API 从会话解析注入） */
+    private readonly userId: string
+  ) {}
 
   /** 懒建表：首次访问时确保 favorite_items 表存在（幂等，见 schema.sql） */
   private async ensureTable(): Promise<void> {
@@ -35,7 +43,7 @@ export class D1FavoritesRepository implements FavoritesRepository {
       .run();
   }
 
-  async listItems(userId: string): Promise<FavoriteItemEntity[]> {
+  async listItems(): Promise<FavoriteItemEntity[]> {
     await this.ensureTable();
     const { results } = await this.db
       .prepare(
@@ -43,15 +51,12 @@ export class D1FavoritesRepository implements FavoritesRepository {
           "experience_type AS experienceType " +
           "FROM favorite_items WHERE user_id = ? ORDER BY created_at DESC"
       )
-      .bind(userId)
+      .bind(this.userId)
       .all<FavoriteItemEntity>();
     return results;
   }
 
-  async addItem(
-    userId: string,
-    item: FavoriteItemEntity
-  ): Promise<FavoriteItemEntity> {
+  async addItem(item: FavoriteItemEntity): Promise<FavoriteItemEntity> {
     await this.ensureTable();
     await this.db
       .prepare(
@@ -61,7 +66,7 @@ export class D1FavoritesRepository implements FavoritesRepository {
       )
       .bind(
         item.id,
-        userId,
+        this.userId,
         item.placeId,
         item.name,
         item.thumbnailUrl,
@@ -72,11 +77,11 @@ export class D1FavoritesRepository implements FavoritesRepository {
     return item;
   }
 
-  async removeItem(userId: string, id: string): Promise<void> {
+  async removeItem(id: string): Promise<void> {
     await this.ensureTable();
     await this.db
       .prepare("DELETE FROM favorite_items WHERE id = ? AND user_id = ?")
-      .bind(id, userId)
+      .bind(id, this.userId)
       .run();
   }
 }

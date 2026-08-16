@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useFavorites } from "./hooks";
 import type { SavedItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { placeDetailPath } from "./routes";
+import { safeHttpUrl } from "./safeUrl";
 import { ImageOff } from "lucide-react";
 
 interface ChildProbs {
@@ -181,7 +182,7 @@ export default function FavouriteList({
               {item.thumbnailUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={item.thumbnailUrl}
+                  src={safeHttpUrl(item.thumbnailUrl)}
                   alt={item.name}
                   className="h-16 w-16 flex-shrink-0 rounded-2xl object-cover"
                 />

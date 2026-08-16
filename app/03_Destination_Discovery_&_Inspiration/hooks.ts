@@ -125,9 +125,16 @@ export function useSearchAndFilter(initial?: SearchAndFilterInitial) {
   // 切换收藏状态后刷新列表（重新合并收藏标记；仅空搜索时主页展示列表）
   const toggleFavourite = useCallback(
     async (poi: PoiItem) => {
-      await favoritesService.togglePoiFavourite(poi);
-      if (!searchQuery.trim()) {
-        setPois(await discoveryService.getQualityRatedPois());
+      try {
+        await favoritesService.togglePoiFavourite(poi);
+        if (!searchQuery.trim()) {
+          setPois(await discoveryService.getQualityRatedPois());
+        }
+      } catch (err) {
+        // 未登录（401）等失败：提示用户，不中断页面、不刷新列表
+        window.alert(
+          err instanceof Error ? err.message : "Failed to toggle favourite"
+        );
       }
     },
     [searchQuery]
@@ -418,20 +425,32 @@ export function useFavorites() {
     [savedItems]
   );
 
-  /** 删除一条收藏 */
+  /** 删除一条收藏（未登录/会话失效时提示用户，不中断页面） */
   const removeItem = useCallback(
     async (id: string) => {
-      await favoritesService.removeSavedItem(id);
-      await refresh();
+      try {
+        await favoritesService.removeSavedItem(id);
+        await refresh();
+      } catch (err) {
+        window.alert(
+          err instanceof Error ? err.message : "Failed to remove favourite"
+        );
+      }
     },
     [refresh]
   );
 
-  /** 切换地点收藏状态（收藏/取消收藏）并刷新列表 */
+  /** 切换地点收藏状态（收藏/取消收藏）并刷新列表（未登录时提示用户） */
   const toggleItem = useCallback(
     async (poi: PoiItem) => {
-      await favoritesService.togglePoiFavourite(poi);
-      await refresh();
+      try {
+        await favoritesService.togglePoiFavourite(poi);
+        await refresh();
+      } catch (err) {
+        window.alert(
+          err instanceof Error ? err.message : "Failed to toggle favourite"
+        );
+      }
     },
     [refresh]
   );

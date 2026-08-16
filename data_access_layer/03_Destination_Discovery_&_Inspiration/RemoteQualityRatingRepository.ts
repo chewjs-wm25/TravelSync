@@ -5,6 +5,11 @@
  *       OfficialQualityRatingRepository，仅做参数序列化与响应解析，不含任何 SQL / 数据库逻辑
  *       （数据库操作由服务端 D1QualityRatingRepository 承担）。
  *
+ * 授权（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）：
+ *   - upsertAll / clearAll 为危险写操作，携带当前会话凭证
+ *     （Authorization: Bearer <token>），服务端要求管理员会话
+ *     （未登录 401 / 非 admin 403），失败在此抛出 Error。
+ *
  * 依赖方向：浏览器端 BL → 本类 → Route API → D1QualityRatingRepository → D1。
  */
 
@@ -12,6 +17,7 @@ import type {
   OfficialQualityRatingEntity,
   OfficialQualityRatingRepository,
 } from "./OfficialQualityRatingRepository";
+import { sessionAuthHeaders } from "./sessionAuth";
 
 /** Route API 端点（模块 03 官方品质评级） */
 const QUALITY_RATINGS_API = "/api/discovery/official-quality-ratings";
@@ -29,10 +35,14 @@ export class RemoteQualityRatingRepository
     return res.json();
   }
 
+  /** 批量 upsert（管理员会话） */
   async upsertAll(items: OfficialQualityRatingEntity[]): Promise<number> {
     const res = await fetch(QUALITY_RATINGS_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...sessionAuthHeaders(),
+      },
       body: JSON.stringify({ items }),
     });
     if (!res.ok) {
@@ -44,9 +54,12 @@ export class RemoteQualityRatingRepository
     return data.synced ?? 0;
   }
 
-  /** 清空全部官方评级数据（DELETE Route API），返回删除条数 */
+  /** 清空全部官方评级数据（DELETE Route API，管理员会话），返回删除条数 */
   async clearAll(): Promise<number> {
-    const res = await fetch(QUALITY_RATINGS_API, { method: "DELETE" });
+    const res = await fetch(QUALITY_RATINGS_API, {
+      method: "DELETE",
+      headers: sessionAuthHeaders(),
+    });
     if (!res.ok) {
       throw new Error(
         `Failed to clear official quality ratings (HTTP ${res.status})`

@@ -45,8 +45,9 @@ import { mapillaryApi } from "../../api_layer/03_Destination_Discovery_&_Inspira
 import { MALAYSIA_BBOX } from "../../api_layer/03_Destination_Discovery_&_Inspiration/MalaysiaBounds";
 import type { WikimediaFileMeta } from "../../api_layer/03_Destination_Discovery_&_Inspiration/WikimediaFileMetaApi";
 import type { FavoritesRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
+import type { FavoriteItemEntity } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
 import {
-  CURRENT_USER_ID,
+  currentUserId,
   sharedFavoritesRepository,
 } from "./FavoritesService";
 import type { OfficialQualityRatingEntity } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/OfficialQualityRatingRepository";
@@ -1215,6 +1216,15 @@ export class DiscoveryService {
   }
 
   /**
+   * 当前登录用户的收藏数据（未登录返回空集，避免无意义的远程读取）。
+   * 用户 ID 来自会话（currentUserId），服务端以会话凭证为准。
+   */
+  private async currentFavorites(): Promise<FavoriteItemEntity[]> {
+    if (!currentUserId()) return [];
+    return this.favoritesRepo.listItems();
+  }
+
+  /**
    * 推荐地点（Recommended Places）：读取 Cloudflare D1 中官方品质评级数据
    * （浏览器端经 Route API → D1），映射为 PoiItem。
    * 与搜索栏完全解绑：本方法不接受筛选条件，始终返回全部官方评级地点
@@ -1225,7 +1235,7 @@ export class DiscoveryService {
   async getQualityRatedPois(): Promise<PoiItem[]> {
     const [items, favorites] = await Promise.all([
       this.qualityRatingRepo.listAll(),
-      this.favoritesRepo.listItems(CURRENT_USER_ID),
+      this.currentFavorites(),
     ]);
     const favouriteIds = new Set(favorites.map((item) => item.id));
 
@@ -1276,7 +1286,7 @@ export class DiscoveryService {
   async searchPois(filters: SearchFilters): Promise<PoiItem[]> {
     const [places, favorites] = await Promise.all([
       this.fetchPlaces(filters.query),
-      this.favoritesRepo.listItems(CURRENT_USER_ID),
+      this.currentFavorites(),
     ]);
     const favouriteIds = new Set(favorites.map((item) => item.id));
 

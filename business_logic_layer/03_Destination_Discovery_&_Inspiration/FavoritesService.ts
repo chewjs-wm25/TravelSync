@@ -8,21 +8,26 @@
  *
  * 依赖方向：Business Logic → Data Access Layer（FavoritesRepository）
  *
- * 每个用户只有一个收藏夹（不区分文件夹）：用户 ID 当前由本层硬编码
- * （CURRENT_USER_ID），未来接入真实用户体系时替换为会话来源即可，
- * 上层调用无需改动。
+ * 每个用户只有一个收藏夹（不区分文件夹）：用户 ID 从账号状态
+ * （authUser store，会话来源）动态读取（currentUserId），不再硬编码；
+ * 未登录时读操作返回空收藏集，写操作抛出"请先登录"错误。
+ * 服务端 Route API 以会话凭证（token）为准解析用户 ID，不信任前端参数。
  */
 
 import type { FavoritesRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
 import { RemoteFavoritesRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/RemoteFavoritesRepository";
+import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
 import {
   RoutePlannerBridge,
   type PushToRoutePlannerResult,
 } from "./RoutePlannerBridge";
 import type { PoiItem, SavedItem } from "./types";
 
-/** 当前登录用户 ID（硬编码占位，未来替换为真实会话用户） */
-export const CURRENT_USER_ID = "dev-user-001";
+/** 当前登录用户 ID（会话来源；未登录返回 null） */
+export function currentUserId(): string | null {
+  const user = useAuthStore.getState().user;
+  return user?.id ?? null;
+}
 
 /**
  * 模块内共享的收藏仓储单例（浏览器端远程实现）：
@@ -38,34 +43,47 @@ export class FavoritesService {
     private readonly routePlanner: RoutePlannerBridge = new RoutePlannerBridge(),
   ) {}
 
-  /** 当前用户收藏夹全部条目 */
+  /** 写操作前置：要求已登录（未登录抛出提示，由上层 UI 捕获展示） */
+  private requireUserId(): string {
+    const userId = currentUserId();
+    if (!userId) {
+      throw new Error("Please log in first");
+    }
+    return userId;
+  }
+
+  /** 当前用户收藏夹全部条目（未登录返回空列表） */
   async getSavedItems(): Promise<SavedItem[]> {
-    return this.repo.listItems(CURRENT_USER_ID);
+    if (!currentUserId()) return [];
+    return this.repo.listItems();
   }
 
-  /** 删除一条收藏 */
+  /** 删除一条收藏（要求登录） */
   async removeSavedItem(id: string): Promise<void> {
-    await this.repo.removeItem(CURRENT_USER_ID, id);
+    this.requireUserId();
+    await this.repo.removeItem(id);
   }
 
-  /** 指定 POI 是否已收藏 */
+  /** 指定 POI 是否已收藏（未登录视为未收藏） */
   async isPoiFavourite(poiId: string): Promise<boolean> {
-    const items = await this.repo.listItems(CURRENT_USER_ID);
+    if (!currentUserId()) return false;
+    const items = await this.repo.listItems();
     return items.some((item) => item.id === poiId);
   }
 
   /**
-   * 切换 POI 收藏状态：
+   * 切换 POI 收藏状态（要求登录）：
    * 未收藏 → 加入收藏夹（保存 placeId 与体验类型，供详情跳转与类型过滤）；
    * 已收藏 → 移除。返回切换后的收藏状态。
    */
   async togglePoiFavourite(poi: PoiItem): Promise<boolean> {
+    this.requireUserId();
     const favourite = await this.isPoiFavourite(poi.id);
     if (favourite) {
-      await this.repo.removeItem(CURRENT_USER_ID, poi.id);
+      await this.repo.removeItem(poi.id);
       return false;
     }
-    await this.repo.addItem(CURRENT_USER_ID, {
+    await this.repo.addItem({
       id: poi.id,
       placeId: poi.id.startsWith("geo-") ? poi.id.slice("geo-".length) : poi.id,
       name: poi.name,

@@ -15,6 +15,7 @@ import {
   searchPagePath,
   WIKIVOYAGE_HOME,
 } from "../../routes";
+import { safeHttpUrl } from "../../safeUrl";
 
 /** 距离格式化：<1000m 显示米，否则保留一位小数的公里 */
 function formatDistance(meters: number): string {
@@ -117,7 +118,7 @@ function CollectionDetailView() {
             {detail.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={detail.imageUrl}
+                src={safeHttpUrl(detail.imageUrl)}
                 alt={detail.title}
                 className="absolute inset-0 h-full w-full object-cover"
               />
@@ -160,7 +161,7 @@ function CollectionDetailView() {
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={item.imageUrl}
+                      src={safeHttpUrl(item.imageUrl)}
                       alt={item.title}
                       className="h-full w-full object-cover"
                     />
@@ -218,7 +219,7 @@ function CollectionDetailView() {
                       Search in TravelSync
                     </Link>
                     <a
-                      href={item.wikivoyageUrl}
+                      href={safeHttpUrl(item.wikivoyageUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex cursor-pointer items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-2.5 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94]"
@@ -252,7 +253,7 @@ function CollectionDetailView() {
                 {nearby.map((place) => (
                   <a
                     key={place.title}
-                    href={place.wikivoyageUrl}
+                    href={safeHttpUrl(place.wikivoyageUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="min-w-[220px] max-w-[220px] snap-start overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.98] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
@@ -261,7 +262,7 @@ function CollectionDetailView() {
                       {place.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={place.imageUrl}
+                          src={safeHttpUrl(place.imageUrl)}
                           alt={place.title}
                           className="h-full w-full object-cover"
                         />

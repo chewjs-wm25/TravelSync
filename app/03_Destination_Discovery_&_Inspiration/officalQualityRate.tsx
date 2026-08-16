@@ -12,6 +12,7 @@ import type { PoiItem } from "../../business_logic_layer/03_Destination_Discover
 import { googleMapsUrl } from "./routes";
 import { usePlaceImages } from "./hooks";
 import PlaceImageAttribution from "./placeImageAttribution";
+import { safeHttpUrl } from "./safeUrl";
 import { ImageOff } from "lucide-react";
 
 /** 每页展示的地点数（4 列网格 × 2 行） */
@@ -90,7 +91,7 @@ export default function officalQualityRate({
               {images[poi.id]?.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={images[poi.id].url}
+                  src={safeHttpUrl(images[poi.id].url)}
                   alt={poi.name}
                   className="h-full w-full object-cover"
                 />
