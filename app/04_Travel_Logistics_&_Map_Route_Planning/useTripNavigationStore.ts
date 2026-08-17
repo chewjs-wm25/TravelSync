@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export type VehicleType = 'car' | 'walk' | 'public transport';
 export type OptimizationMode = 'fastest' | 'shortest' | 'cheapest';
@@ -37,12 +36,15 @@ export interface Vehicle {
 export interface SavedRoute {
   id: string;
   name: string;
+  userId?: string; // Track which user saved this route
   origin?: Stop;
   destination?: Stop;
   summary: RouteSummary;
   vehicleType: VehicleType;
   optimizationMode: OptimizationMode;
   routePoints: RoutePoint[];
+  vehicleId?: string; // Link to specific vehicle used
+  createdAt?: string;
 }
 
 interface TripNavigationState {
@@ -56,6 +58,8 @@ interface TripNavigationState {
   activeField: RouteField | null;
   optimizationMode: OptimizationMode;
   vehicles: Vehicle[];
+  selectedVehicleId: string; // Track currently selected vehicle
+  currentUserId: string | null; // Track current logged-in user
   setVehicleType: (value: VehicleType) => void;
   setRoutePickerOpen: (open: boolean) => void;
   setActiveField: (field: RouteField | null) => void;
@@ -63,12 +67,14 @@ interface TripNavigationState {
   generateRoute: () => Promise<void>;
   applyOptimization: (mode: OptimizationMode) => void;
   loadSavedRoute: (id: string) => void;
-  saveRoute: (name: string) => void;
-  deleteSavedRoute: (id: string) => void;
+  saveRoute: (name: string) => Promise<void>;
+  deleteSavedRoute: (id: string) => Promise<void>;
   addVehicle: (vehicle: Omit<Vehicle, 'id' | 'isDefault'>) => void;
   editVehicle: (id: string, updates: Partial<Omit<Vehicle, 'id' | 'isDefault'>>) => void;
   deleteVehicle: (id: string) => void;
   setDefaultVehicle: (id: string) => void;
+  setSelectedVehicleId: (id: string) => void;
+  setCurrentUserId: (userId: string | null) => Promise<void>;
 }
 
 const defaultVehicle: Vehicle = {
@@ -242,221 +248,233 @@ const buildRoutePoints = async (
     const route = await fetchRouteShape(origin, destination, vehicleType);
     
     if (optimizationMode === 'shortest') {
-      // For shortest path, try to get direct route
-      try {
-        const shortestRoute = await fetchRouteShape(origin, destination, vehicleType);
-        return shortestRoute.points.length > 1 ? shortestRoute.points : [origin, destination];
-      } catch {
-        return [origin, destination];
+      // For shortest path, reduce waypoints to create more direct route
+      if (route.points.length > 20) {
+        const step = Math.ceil(route.points.length / 10);
+        const shortened = route.points.filter((_: any, i: number) => i % step === 0 || i === route.points.length - 1);
+        return shortened.length > 1 ? shortened : [origin, destination];
       }
+      return route.points.length > 1 ? route.points : [origin, destination];
     }
     
     if (optimizationMode === 'cheapest') {
-      // Keep the same route geometry for cheapest mode to avoid excessive detours.
+      // For cheapest, keep full route but it's calculated differently in summary
       return route.points.length > 1 ? route.points : [origin, destination];
     }
 
-    // Fastest - use the actual route
+    // Fastest - use the actual full-detail route
     return route.points.length > 1 ? route.points : [origin, destination];
   } catch {
     return [origin, destination];
   }
 };
 
-export const useTripNavigationStore = create<TripNavigationState>()(
-  persist(
-    (set, get) => ({
-      vehicleType: 'car',
-      origin: null,
-      destination: null,
-      generatedRoute: [],
-      summary: {
-        distanceKm: 0,
-        timeMinutes: 0,
-        fuelLiters: 0,
-        fuelCost: 0,
-      },
-      savedRoutes: [],
-      routePickerOpen: true,
-      activeField: null,
-      optimizationMode: 'fastest',
-      vehicles: [defaultVehicle],
+export const useTripNavigationStore = create<TripNavigationState>()((set, get) => ({
+  vehicleType: 'car',
+  origin: null,
+  destination: null,
+  generatedRoute: [],
+  summary: {
+    distanceKm: 0,
+    timeMinutes: 0,
+    fuelLiters: 0,
+    fuelCost: 0,
+  },
+  savedRoutes: [],
+  routePickerOpen: true,
+  activeField: null,
+  optimizationMode: 'fastest',
+  vehicles: [defaultVehicle],
+  selectedVehicleId: 'default-vehicle',
+  currentUserId: null,
 
-      setVehicleType: (value) => {
-        const { origin, destination, optimizationMode } = get();
-        set({
-          vehicleType: value,
-          summary: calculateSummary(origin, destination, value, optimizationMode),
-        });
-        if (origin && destination) {
-          void get().generateRoute();
-        }
-      },
+  setVehicleType: (value: VehicleType) => {
+    const { origin, destination, optimizationMode } = get();
+    set({
+      vehicleType: value,
+      summary: calculateSummary(origin, destination, value, optimizationMode),
+    });
+    if (origin && destination) {
+      void get().generateRoute();
+    }
+  },
 
-      setRoutePickerOpen: (open) => set({ routePickerOpen: open }),
-      setActiveField: (field) => set({ activeField: field }),
+  setRoutePickerOpen: (open: boolean) => set({ routePickerOpen: open }),
+  setActiveField: (field: RouteField | null) => set({ activeField: field }),
 
-      setRouteLocation: (field, stop) => {
-        const nextState = field === 'origin' ? { origin: stop } : { destination: stop };
-        const { origin, destination, vehicleType, optimizationMode } = get();
-        const nextOrigin = field === 'origin' ? stop : origin;
-        const nextDestination = field === 'destination' ? stop : destination;
+  setRouteLocation: (field: RouteField, stop: Stop) => {
+    const nextState = field === 'origin' ? { origin: stop } : { destination: stop };
+    const { origin, destination, vehicleType, optimizationMode } = get();
+    const nextOrigin = field === 'origin' ? stop : origin;
+    const nextDestination = field === 'destination' ? stop : destination;
 
-        set({
-          ...nextState,
-          generatedRoute: [
-            ...(nextOrigin ? [nextOrigin] : []),
-            ...(nextDestination ? [nextDestination] : []),
-          ],
-          summary: calculateSummary(nextOrigin, nextDestination, vehicleType, optimizationMode),
-        });
+    set({
+      ...nextState,
+      generatedRoute: [
+        ...(nextOrigin ? [nextOrigin] : []),
+        ...(nextDestination ? [nextDestination] : []),
+      ],
+      summary: calculateSummary(nextOrigin, nextDestination, vehicleType, optimizationMode),
+    });
 
-        if (nextOrigin && nextDestination) {
-          void get().generateRoute();
-        }
-      },
+    if (nextOrigin && nextDestination) {
+      void get().generateRoute();
+    }
+  },
 
-      generateRoute: async () => {
-        const { origin, destination, vehicleType, optimizationMode } = get();
-        if (!origin || !destination) return;
+  generateRoute: async () => {
+    const { origin, destination, vehicleType, optimizationMode } = get();
+    if (!origin || !destination) return;
 
-        try {
-          const routePoints = await buildRoutePoints(
-            origin,
-            destination,
-            vehicleType,
-            optimizationMode
-          );
+    try {
+      const routePoints = await buildRoutePoints(
+        origin,
+        destination,
+        vehicleType,
+        optimizationMode
+      );
 
-          const actualDistanceKm = routePoints.reduce(
-            (sum: number, point: RoutePoint, index: number, points: RoutePoint[]) => {
-              if (index === 0) return 0;
-              const previous = points[index - 1];
-              return sum + getDistanceKm(previous as Stop, point as Stop);
-            },
-            0
-          );
+      const actualDistanceKm = routePoints.reduce(
+        (sum: number, point: RoutePoint, index: number, points: RoutePoint[]) => {
+          if (index === 0) return 0;
+          const previous = points[index - 1];
+          return sum + getDistanceKm(previous as Stop, point as Stop);
+        },
+        0
+      );
 
-          set({
-            generatedRoute: routePoints,
-            summary: calculateSummary(
-              origin,
-              destination,
-              vehicleType,
-              optimizationMode,
-              actualDistanceKm
-            ),
-          });
-        } catch {
-          set({
-            generatedRoute: [origin, destination],
-            summary: calculateSummary(origin, destination, vehicleType, optimizationMode),
-          });
-        }
-      },
-
-      applyOptimization: (mode) => {
-        const { origin, destination, vehicleType } = get();
-        set({
-          optimizationMode: mode,
-          summary: calculateSummary(origin, destination, vehicleType, mode),
-        });
-        if (origin && destination) {
-          void get().generateRoute();
-        }
-      },
-
-      loadSavedRoute: (id) => {
-        const { savedRoutes } = get();
-        const route = savedRoutes.find((item) => item.id === id);
-        if (!route) return;
-
-        set({
-          origin: route.origin ?? null,
-          destination: route.destination ?? null,
-          vehicleType: route.vehicleType,
-          optimizationMode: route.optimizationMode,
-          generatedRoute: route.routePoints,
-          summary: route.summary,
-        });
-      },
-
-      saveRoute: (name) => {
-        const { origin, destination, summary, vehicleType, optimizationMode, generatedRoute, savedRoutes } = get();
-        if (!origin || !destination) return;
-
-        const trimmedName = name.trim() || `${origin.name} → ${destination.name}`;
-        const newRoute: SavedRoute = {
-          id: `${Date.now()}`,
-          name: trimmedName,
+      set({
+        generatedRoute: routePoints,
+        summary: calculateSummary(
           origin,
           destination,
-          summary,
           vehicleType,
           optimizationMode,
-          routePoints: generatedRoute,
-        };
-
-        set({
-          savedRoutes: [newRoute, ...savedRoutes],
-        });
-      },
-
-      deleteSavedRoute: (id) => {
-        set((state) => ({
-          savedRoutes: state.savedRoutes.filter((route) => route.id !== id),
-        }));
-      },
-
-      addVehicle: (vehicle) => {
-        const nextVehicle: Vehicle = {
-          id: `${Date.now()}`,
-          name: vehicle.name,
-          fuelConsumption: vehicle.fuelConsumption,
-          fuelType: vehicle.fuelType,
-          isDefault: false,
-        };
-
-        set((state) => ({
-          vehicles: [...state.vehicles, nextVehicle],
-        }));
-      },
-
-      editVehicle: (id, updates) => {
-        set((state) => ({
-          vehicles: state.vehicles.map((vehicle) =>
-            vehicle.id === id
-              ? {
-                  ...vehicle,
-                  ...updates,
-                  fuelConsumption: updates.fuelConsumption ?? vehicle.fuelConsumption,
-                  fuelType: updates.fuelType ?? vehicle.fuelType,
-                  name: updates.name ?? vehicle.name,
-                }
-              : vehicle
-          ),
-        }));
-      },
-
-      deleteVehicle: (id) => {
-        set((state) => ({
-          vehicles: state.vehicles.filter((vehicle) => vehicle.id !== id),
-        }));
-      },
-
-      setDefaultVehicle: (id) => {
-        set((state) => ({
-          vehicles: state.vehicles.map((vehicle) => ({
-            ...vehicle,
-            isDefault: vehicle.id === id,
-          })),
-        }));
-      },
-    }),
-    {
-      name: 'travelsync-trip-navigation-storage',
+          actualDistanceKm
+        ),
+      });
+    } catch {
+      set({
+        generatedRoute: [origin, destination],
+        summary: calculateSummary(origin, destination, vehicleType, optimizationMode),
+      });
     }
-  )
-);
+  },
+
+  applyOptimization: (mode: OptimizationMode) => {
+    const { origin, destination, vehicleType } = get();
+    set({
+      optimizationMode: mode,
+      summary: calculateSummary(origin, destination, vehicleType, mode),
+    });
+    if (origin && destination) {
+      void get().generateRoute();
+    }
+  },
+
+  loadSavedRoute: (id: string) => {
+    const { savedRoutes } = get();
+    const route = savedRoutes.find((item: SavedRoute) => item.id === id);
+    if (!route) return;
+
+    set({
+      origin: route.origin ?? null,
+      destination: route.destination ?? null,
+      vehicleType: route.vehicleType,
+      optimizationMode: route.optimizationMode,
+      generatedRoute: route.routePoints,
+      summary: route.summary,
+    });
+  },
+
+  saveRoute: async (name: string) => {
+    const { origin, destination, summary, vehicleType, optimizationMode, generatedRoute, savedRoutes, currentUserId, selectedVehicleId } = get();
+    if (!origin || !destination) return;
+
+    const trimmedName = name.trim() || `${origin.name} → ${destination.name}`;
+    const newRoute: SavedRoute = {
+      id: `${Date.now()}`,
+      name: trimmedName,
+      origin,
+      destination,
+      summary,
+      vehicleType,
+      optimizationMode,
+      routePoints: generatedRoute,
+      userId: currentUserId || 'anonymous',
+      vehicleId: selectedVehicleId,
+      createdAt: new Date().toISOString(),
+    };
+
+    set({ savedRoutes: [newRoute, ...savedRoutes] });
+  },
+
+  deleteSavedRoute: async (id: string) => {
+    const { savedRoutes } = get();
+
+    set({
+      savedRoutes: savedRoutes.filter((routeItem: SavedRoute) => routeItem.id !== id),
+    });
+  },
+
+  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'isDefault'>) => {
+    const nextVehicle: Vehicle = {
+      id: `${Date.now()}`,
+      name: vehicle.name,
+      fuelConsumption: vehicle.fuelConsumption,
+      fuelType: vehicle.fuelType,
+      isDefault: false,
+    };
+
+    set((state: TripNavigationState) => ({
+      vehicles: [...state.vehicles, nextVehicle],
+    }));
+  },
+
+  editVehicle: (id: string, updates: Partial<Omit<Vehicle, 'id' | 'isDefault'>>) => {
+    set((state: TripNavigationState) => ({
+      vehicles: state.vehicles.map((vehicle: Vehicle) =>
+        vehicle.id === id
+          ? {
+              ...vehicle,
+              ...updates,
+              fuelConsumption: updates.fuelConsumption ?? vehicle.fuelConsumption,
+              fuelType: updates.fuelType ?? vehicle.fuelType,
+              name: updates.name ?? vehicle.name,
+            }
+          : vehicle
+      ),
+    }));
+  },
+
+  deleteVehicle: (id: string) => {
+    set((state: TripNavigationState) => ({
+      vehicles: state.vehicles.filter((vehicle: Vehicle) => vehicle.id !== id),
+    }));
+  },
+
+  setDefaultVehicle: (id: string) => {
+    set((state: TripNavigationState) => ({
+      vehicles: state.vehicles.map((vehicle: Vehicle) => ({
+        ...vehicle,
+        isDefault: vehicle.id === id,
+      })),
+    }));
+  },
+
+  setSelectedVehicleId: (id: string) => {
+    set({ selectedVehicleId: id });
+  },
+
+  setCurrentUserId: async (userId: string | null) => {
+    set({ currentUserId: userId });
+    if (!userId) {
+      set({ savedRoutes: [] });
+      return;
+    }
+
+    set({ savedRoutes: [] });
+  },
+}));
 
 export type { TripNavigationState };
