@@ -11,8 +11,8 @@
 
 ### Phase 2: Itinerary Management
 - [x] **FR004**: Create Itinerary
-- [ ] **FR005**: Delete Itinerary
-- [ ] **FR006**: Edit Itinerary
+- [x] **FR005**: Delete Itinerary
+- [x] **FR006**: Edit Itinerary
 
 ### Refactor / UI Decomposition Status
 - [x] Refactored the trip itinerary workspace into modular components: `ItineraryHeader.tsx`, `ItineraryTimeline.tsx`, `ItineraryDayCard.tsx`, and the existing `CreateItineraryModal.tsx`.

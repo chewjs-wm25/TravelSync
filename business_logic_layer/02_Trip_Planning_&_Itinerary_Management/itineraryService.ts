@@ -1,6 +1,9 @@
 import {
   createItinerary as createItineraryInRepository,
+  deleteItinerary as deleteItineraryInRepository,
+  getItineraryById,
   getItinerariesByTripId,
+  updateItinerary as updateItineraryInRepository,
   type CreateItineraryInput,
   type ItineraryRecord,
 } from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
@@ -29,8 +32,32 @@ type ItineraryServiceFailure = {
 };
 
 export type ItineraryServiceResult =
-  | ItineraryServiceSuccess
-  | ItineraryServiceFailure;
+  ItineraryServiceSuccess | ItineraryServiceFailure;
+
+export type DeleteItineraryInput = {
+  itineraryId?: string | null;
+};
+
+export type UpdateItineraryInput = {
+  itineraryId?: string | null;
+  title?: string | null;
+  date?: string | null;
+};
+
+type DeleteItinerarySuccess = {
+  ok: true;
+};
+
+type UpdateItinerarySuccess = {
+  ok: true;
+  itinerary: ItineraryRecord;
+};
+
+export type DeleteItineraryResult =
+  DeleteItinerarySuccess | ItineraryServiceFailure;
+
+export type UpdateItineraryResult =
+  UpdateItinerarySuccess | ItineraryServiceFailure;
 
 function normalizeText(value: string | null | undefined) {
   const trimmed = value?.trim();
@@ -192,7 +219,10 @@ export async function createItinerary(
     return validation;
   }
 
-  const itinerary = await createItineraryInRepository(db, validation.normalized);
+  const itinerary = await createItineraryInRepository(
+    db,
+    validation.normalized
+  );
   return {
     ok: true,
     itinerary,
@@ -210,4 +240,143 @@ export async function getItinerariesForTrip(
   }
 
   return getItinerariesByTripId(db, normalizedTripId);
+}
+
+export async function deleteItinerary(
+  db: D1Database,
+  input: DeleteItineraryInput
+): Promise<DeleteItineraryResult> {
+  const itineraryId = normalizeText(input.itineraryId);
+
+  if (!itineraryId) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary ID is required",
+    };
+  }
+
+  const existingItinerary = await getItineraryById(db, itineraryId);
+  if (!existingItinerary) {
+    return {
+      ok: false,
+      status: 404,
+      message: "Itinerary not found",
+    };
+  }
+
+  const wasDeleted = await deleteItineraryInRepository(db, itineraryId);
+  if (!wasDeleted) {
+    return {
+      ok: false,
+      status: 404,
+      message: "Itinerary not found",
+    };
+  }
+
+  return { ok: true };
+}
+
+export async function updateItinerary(
+  db: D1Database,
+  input: UpdateItineraryInput
+): Promise<UpdateItineraryResult> {
+  const itineraryId = normalizeText(input.itineraryId);
+  const title = normalizeText(input.title);
+  const date = normalizeText(input.date);
+
+  if (!itineraryId) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary ID is required",
+    };
+  }
+
+  const existingItinerary = await getItineraryById(db, itineraryId);
+  if (!existingItinerary) {
+    return {
+      ok: false,
+      status: 404,
+      message: "Itinerary not found",
+    };
+  }
+
+  if (!title) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary title is required",
+    };
+  }
+
+  if (title.length > MAX_ITINERARY_TITLE_LENGTH) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary title must be 60 characters or fewer",
+    };
+  }
+
+  if (!date) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary date is required",
+    };
+  }
+
+  if (!isValidIsoDate(date)) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Invalid date!",
+    };
+  }
+
+  const trip = await getTripById(db, existingItinerary.trip_id);
+  if (!trip || !trip.start_date || !trip.end_date) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Invalid date!",
+    };
+  }
+
+  if (date < trip.start_date || date > trip.end_date) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Invalid date!",
+    };
+  }
+
+  const wasUpdated = await updateItineraryInRepository(
+    db,
+    itineraryId,
+    title,
+    date
+  );
+
+  if (!wasUpdated) {
+    return {
+      ok: false,
+      status: 404,
+      message: "Itinerary not found",
+    };
+  }
+
+  const itinerary = await getItineraryById(db, itineraryId);
+  if (!itinerary) {
+    return {
+      ok: false,
+      status: 404,
+      message: "Itinerary not found",
+    };
+  }
+
+  return {
+    ok: true,
+    itinerary,
+  };
 }

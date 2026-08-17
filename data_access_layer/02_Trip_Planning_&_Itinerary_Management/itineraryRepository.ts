@@ -37,10 +37,22 @@ export async function createItinerary(
   };
 }
 
-export async function getItinerariesByTripId(
-  db: D1Database,
-  tripId: string
-) {
+export async function getItineraryById(db: D1Database, itineraryId: string) {
+  return db
+    .prepare(
+      `SELECT
+        itinerary_id,
+        trip_id,
+        title,
+        date
+      FROM itineraries
+      WHERE itinerary_id = ?`
+    )
+    .bind(itineraryId)
+    .first<ItineraryRecord>();
+}
+
+export async function getItinerariesByTripId(db: D1Database, tripId: string) {
   const result = await db
     .prepare(
       `SELECT
@@ -56,4 +68,37 @@ export async function getItinerariesByTripId(
     .all<ItineraryRecord>();
 
   return result.results ?? [];
+}
+
+export async function deleteItinerary(
+  db: D1Database,
+  itineraryId: string
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `DELETE FROM itineraries
+      WHERE itinerary_id = ?`
+    )
+    .bind(itineraryId)
+    .run();
+
+  return (result.meta?.changes ?? 0) > 0;
+}
+
+export async function updateItinerary(
+  db: D1Database,
+  itineraryId: string,
+  title: string,
+  date: string
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE itineraries
+      SET title = ?, date = ?
+      WHERE itinerary_id = ?`
+    )
+    .bind(title, date, itineraryId)
+    .run();
+
+  return (result.meta?.changes ?? 0) > 0;
 }

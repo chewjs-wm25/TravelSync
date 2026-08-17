@@ -37,15 +37,16 @@ export default function EditTripModal({
       return;
     }
 
-    setTripName(trip.trip_name);
-    setTripNote(trip.trip_note ?? "");
-    setStartDate(trip.start_date ?? "");
-    setEndDate(trip.end_date ?? "");
-    setErrorMessage("");
-
-    window.setTimeout(() => {
+    const timerId = window.setTimeout(() => {
+      setTripName(trip.trip_name);
+      setTripNote(trip.trip_note ?? "");
+      setStartDate(trip.start_date ?? "");
+      setEndDate(trip.end_date ?? "");
+      setErrorMessage("");
       tripNameRef.current?.focus();
     }, 0);
+
+    return () => window.clearTimeout(timerId);
   }, [isOpen, trip]);
 
   useEffect(() => {
@@ -90,9 +91,9 @@ export default function EditTripModal({
         }
       );
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
 
       if (!response.ok) {
         throw new Error(payload?.error ?? "Failed to update trip");
@@ -126,14 +127,15 @@ export default function EditTripModal({
         <div className="border-b border-gray-100 bg-gradient-to-r from-[#fff7f4] via-white to-[#fdf2f0] px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#ff6b6b]">
+              <p className="text-xs font-semibold tracking-[0.3em] text-[#ff6b6b] uppercase">
                 Module 02
               </p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">
                 Edit Trip
               </h2>
               <p className="mt-1 text-sm text-gray-600">
-                Update the current trip details and keep the itinerary workspace aligned.
+                Update the current trip details and keep the itinerary workspace
+                aligned.
               </p>
             </div>
 
@@ -143,7 +145,12 @@ export default function EditTripModal({
               className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-900"
               aria-label="Close modal"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -167,7 +174,7 @@ export default function EditTripModal({
                 onChange={(event) => setTripName(event.target.value)}
                 maxLength={100}
                 placeholder="e.g. Langkawi Island Escape"
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
+                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
                 required
               />
             </label>
@@ -181,7 +188,7 @@ export default function EditTripModal({
                 onChange={(event) => setTripNote(event.target.value)}
                 rows={4}
                 placeholder="Short summary, destination ideas, or Malaysia travel context"
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
+                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
               />
             </label>
 
@@ -194,7 +201,7 @@ export default function EditTripModal({
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
                 max={endDate || undefined}
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
+                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
               />
             </label>
 
@@ -207,13 +214,14 @@ export default function EditTripModal({
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
                 min={startDate || undefined}
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
+                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
               />
             </label>
           </div>
 
           <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Malaysia scope only. Keep the note aligned to destinations and ideas within Malaysia.
+            Malaysia scope only. Keep the note aligned to destinations and ideas
+            within Malaysia.
           </div>
 
           {errorMessage ? (

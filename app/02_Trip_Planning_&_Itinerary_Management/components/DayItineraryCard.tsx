@@ -24,6 +24,7 @@ type DayItineraryCardProps = {
   onToggleCollapse: (collapseValue?: boolean) => void;
   onToggleItemNoteEdit: (itemId: string) => void;
   onSaveItemNote: (itemId: string, note: string) => void;
+  onEditDay: (title: string, date: string) => void;
 };
 
 function formatDate(value: string) {
@@ -53,8 +54,12 @@ export function DayItineraryCard({
   onToggleCollapse,
   onToggleItemNoteEdit,
   onSaveItemNote,
+  onEditDay,
 }: DayItineraryCardProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(day.title);
+  const [draftDate, setDraftDate] = useState(day.date);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,6 +97,31 @@ export function DayItineraryCard({
 
           {isDropdownOpen && (
             <div className="absolute top-9 right-0 z-20 w-40 rounded-xl border border-gray-100 bg-white p-1.5 shadow-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftTitle(day.title);
+                  setDraftDate(day.date);
+                  setIsEditing(true);
+                  setIsDropdownOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              >
+                <svg
+                  className="h-4 w-4 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.232 5.232l3.536 3.536M9 13l6.5-6.5 3.5 3.5L12.5 16.5 9 13zm-5 5h4l8.5-8.5-4-4L5 14v4z"
+                  />
+                </svg>
+                Edit
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -167,6 +197,15 @@ export function DayItineraryCard({
               <button
                 type="button"
                 onClick={() => {
+                  const shouldDelete = window.confirm(
+                    `Delete "${day.title}"? This action cannot be undone.`
+                  );
+
+                  if (!shouldDelete) {
+                    setIsDropdownOpen(false);
+                    return;
+                  }
+
                   onDeleteDay();
                   setIsDropdownOpen(false);
                 }}
@@ -192,11 +231,52 @@ export function DayItineraryCard({
         </div>
       </div>
 
-      <div className="mt-2 text-xs font-semibold tracking-[0.2em] text-[#ff6b6b] uppercase">
-        {formatDate(day.date)}
-      </div>
+      {isEditing ? (
+        <div className="border-primary-500/20 mt-3 space-y-3 rounded-xl border bg-white p-3 shadow-sm">
+          <label className="block space-y-1 text-xs font-semibold text-gray-700">
+            <span>Title</span>
+            <input
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-800 outline-none focus:ring-2"
+            />
+          </label>
+          <label className="block space-y-1 text-xs font-semibold text-gray-700">
+            <span>Date</span>
+            <input
+              type="date"
+              value={draftDate}
+              onChange={(event) => setDraftDate(event.target.value)}
+              className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-800 outline-none focus:ring-2"
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditing(false);
+                onEditDay(draftTitle, draftDate);
+              }}
+              className="bg-primary-500 hover:bg-primary-500/90 rounded-lg px-3 py-2 text-xs font-semibold text-white"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-primary-500 mt-2 text-xs font-semibold tracking-[0.2em] uppercase">
+          {formatDate(day.date)}
+        </div>
+      )}
 
-      {!day.isCollapsed && (
+      {!day.isCollapsed && !isEditing && (
         <>
           <div className="my-4 space-y-3">
             {day.items.length === 0 ? (
@@ -228,12 +308,12 @@ export function DayItineraryCard({
                     onAddItem();
                   }
                 }}
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-10 pl-4 text-xs text-gray-800 shadow-2xs focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 focus:outline-none"
+                className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-10 pl-4 text-xs text-gray-800 shadow-2xs focus:ring-2 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={onAddItem}
-                className="absolute right-2 flex h-7 w-7 items-center justify-center rounded-lg bg-[#ff6b6b] text-white transition-colors hover:bg-[#ff5252]"
+                className="bg-primary-500 hover:bg-primary-500/90 absolute right-2 flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors"
                 aria-label="Add location"
               >
                 <svg

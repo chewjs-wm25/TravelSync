@@ -3,7 +3,11 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { listItinerariesAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryApi";
+import {
+  deleteItineraryAction,
+  listItinerariesAction,
+  updateItineraryAction,
+} from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryApi";
 import { listTripsAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
 import CreateItineraryModal from "../components/CreateItineraryModal";
 import {
@@ -255,8 +259,102 @@ export default function TripItineraryPage() {
     );
   };
 
-  const handleDeleteDay = (dayId: string) => {
-    setDayCards((previous) => previous.filter((day) => day.id !== dayId));
+  const handleDeleteDay = async (dayId: string) => {
+    const targetDay = dayCards.find((day) => day.id === dayId);
+
+    if (!targetDay) {
+      return;
+    }
+
+    if (dayId.startsWith("local-")) {
+      setDayCards((previous) => previous.filter((day) => day.id !== dayId));
+      return;
+    }
+
+    try {
+      await deleteItineraryAction({ itineraryId: dayId });
+      setDayCards((previous) => previous.filter((day) => day.id !== dayId));
+      setItineraries((previous) =>
+        previous.filter((itinerary) => itinerary.itinerary_id !== dayId)
+      );
+      setRefreshCounter((value) => value + 1);
+      setToastMessage("Itinerary deleted!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to delete itinerary"
+      );
+    }
+  };
+
+  const handleEditDay = async (
+    dayId: string,
+    nextTitle: string,
+    nextDate: string
+  ) => {
+    const trimmedTitle = nextTitle.trim();
+    const normalizedDate = nextDate.trim();
+
+    if (!trimmedTitle) {
+      setToastMessage("Itinerary title is required");
+      return;
+    }
+
+    if (dayId.startsWith("local-")) {
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            title: trimmedTitle,
+            date: normalizedDate,
+          };
+        })
+      );
+      setToastMessage("Itinerary updated!");
+      return;
+    }
+
+    try {
+      const updatedItinerary = await updateItineraryAction({
+        itineraryId: dayId,
+        title: trimmedTitle,
+        date: normalizedDate,
+      });
+
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            title: updatedItinerary.title,
+            date: updatedItinerary.date,
+          };
+        })
+      );
+      setItineraries((previous) =>
+        previous.map((itinerary) =>
+          itinerary.itinerary_id === dayId
+            ? {
+                ...itinerary,
+                title: updatedItinerary.title,
+                date: updatedItinerary.date,
+              }
+            : itinerary
+        )
+      );
+      setRefreshCounter((value) => value + 1);
+      setToastMessage("Itinerary updated!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to update itinerary"
+      );
+    }
   };
 
   const handleToggleCollapse = (dayId: string, collapseValue?: boolean) => {
@@ -426,7 +524,9 @@ export default function TripItineraryPage() {
                 }
                 onAddItem={() => handleAddItem(day.id)}
                 onDeleteItem={(itemId) => handleDeleteItem(day.id, itemId)}
-                onDeleteDay={() => handleDeleteDay(day.id)}
+                onDeleteDay={() => {
+                  void handleDeleteDay(day.id);
+                }}
                 onAddDayBefore={() => handleAddDay("before")}
                 onAddDayAfter={() => handleAddDay("after")}
                 onToggleCollapse={(collapseValue) =>
@@ -437,6 +537,9 @@ export default function TripItineraryPage() {
                 }
                 onSaveItemNote={(itemId, note) =>
                   handleSaveItemNote(day.id, itemId, note)
+                }
+                onEditDay={(nextTitle, nextDate) =>
+                  void handleEditDay(day.id, nextTitle, nextDate)
                 }
               />
             ))}

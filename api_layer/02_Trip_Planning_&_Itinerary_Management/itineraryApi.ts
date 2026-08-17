@@ -4,8 +4,12 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 import {
   createItinerary,
+  deleteItinerary,
   getItinerariesForTrip,
+  updateItinerary,
+  type DeleteItineraryInput,
   type ItineraryServiceInput,
+  type UpdateItineraryInput,
 } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/itineraryService";
 import type { ItineraryRecord } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 
@@ -38,4 +42,32 @@ export async function listItinerariesAction(
 ): Promise<ItineraryRecord[]> {
   const db = await getDb();
   return getItinerariesForTrip(db, tripId);
+}
+
+export async function deleteItineraryAction(
+  input: DeleteItineraryInput
+): Promise<void> {
+  const db = await getDb();
+  const result = await deleteItinerary(db, input);
+
+  if (!result.ok) {
+    const error = new Error(result.message);
+    (error as Error & { status?: number }).status = result.status;
+    throw error;
+  }
+}
+
+export async function updateItineraryAction(
+  input: UpdateItineraryInput
+): Promise<ItineraryRecord> {
+  const db = await getDb();
+  const result = await updateItinerary(db, input);
+
+  if (!result.ok) {
+    const error = new Error(result.message);
+    (error as Error & { status?: number }).status = result.status;
+    throw error;
+  }
+
+  return result.itinerary;
 }
