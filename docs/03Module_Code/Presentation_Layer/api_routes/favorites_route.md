@@ -2,7 +2,7 @@
 
 > - 所属模块：03 Destination Discovery & Inspiration
 > - 所属 Layer：Presentation Layer
-> - 源文件：`app/api/discovery/favorites/route.ts`
+> - 源文件：`app/03_Destination_Discovery_&_Inspiration/api/favorites/route.ts`
 > - 类型：服务端 Route API（Next.js App Router Route Handler，薄传输桥）
 
 ## 责任

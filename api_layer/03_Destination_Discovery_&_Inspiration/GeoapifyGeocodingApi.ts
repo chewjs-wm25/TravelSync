@@ -11,10 +11,10 @@
  *
  * 项目约束（见 AGENTS.md）：
  *   - 旅游规划范围仅限马来西亚 → 马来西亚限制由服务端代理强制
- *     （filter=countrycode:my，见 app/api/discovery/geocode/route.ts），本客户端无需携带；
+ *     （filter=countrycode:my，见 app/03_Destination_Discovery_&_Inspiration/api/geocode/route.ts），本客户端无需携带；
  *   - API 必须免费、无需信用卡 → 使用 Geoapify 免费套餐（3000 credits/天，1 次请求 = 1 credit）。
  *
- * 安全：API key 不暴露前端——本客户端只与本地代理端点 /api/discovery/geocode 通信，
+ * 安全：API key 不暴露前端——本客户端只与本地代理端点 /03_Destination_Discovery_&_Inspiration/api/geocode 通信，
  * 由服务端持有 GEOAPIFY_API_KEY（非 NEXT_PUBLIC）并转发到 Geoapify。
  */
 
@@ -76,13 +76,17 @@ interface GeoapifyGeoJsonResponse {
 
 export class GeoapifyGeocodingApi {
   /** 本地代理端点（服务端持有 GEOAPIFY_API_KEY 并转发到 Geoapify，密钥不暴露前端） */
-  private readonly proxyEndpoint = "/api/discovery/geocode";
+  private readonly proxyEndpoint =
+    "/03_Destination_Discovery_&_Inspiration/api/geocode";
 
   /**
    * 自动联想（地址/地点自动补全）：输入部分文字即返回候选地点。
    * 用于搜索框输入联想下拉。
    */
-  async autocompletePlaces(text: string, limit = 6): Promise<GeoapifyPlaceDto[]> {
+  async autocompletePlaces(
+    text: string,
+    limit = 6
+  ): Promise<GeoapifyPlaceDto[]> {
     return this.request("autocomplete", text, limit);
   }
 
@@ -129,8 +133,19 @@ export class GeoapifyGeocodingApi {
     return (data.features ?? [])
       .map((feature) => feature.properties)
       .filter(
-        (p): p is NonNullable<typeof p> & { place_id: string; lat: number; lon: number } =>
-          Boolean(p && p.place_id && typeof p.lat === "number" && typeof p.lon === "number")
+        (
+          p
+        ): p is NonNullable<typeof p> & {
+          place_id: string;
+          lat: number;
+          lon: number;
+        } =>
+          Boolean(
+            p &&
+            p.place_id &&
+            typeof p.lat === "number" &&
+            typeof p.lon === "number"
+          )
       )
       .map((p) => ({
         placeId: p.place_id,

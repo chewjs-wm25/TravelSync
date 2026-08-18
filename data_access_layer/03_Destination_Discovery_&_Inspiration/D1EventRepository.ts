@@ -5,7 +5,7 @@
  *       实现 EventRepository 接口。全部数据库操作（建表、查询、批量 upsert）
  *       内聚在本类，不包含任何 HTTP / 路由逻辑（传输由 Route API 承担）。
  *
- * 使用方式：由 Route API（app/api/discovery/events）以 D1 binding 实例化，
+ * 使用方式：由 Route API（app/03_Destination_Discovery_&_Inspiration/api/events）以 D1 binding 实例化，
  *           浏览器端经 RemoteEventRepository → Route API → 本类完成读写。
  */
 

@@ -28,7 +28,7 @@
  *
  * 实现类：
  *   - CloudflareKvPlaceImageCacheRepository：Worker/Route API 端，直连 KV binding
- *     （env.PLACE_IMAGE_CACHE），由 Route API（app/api/discovery/place-image）实例化；
+ *     （env.PLACE_IMAGE_CACHE），由 Route API（app/03_Destination_Discovery_&_Inspiration/api/place-image）实例化；
  *   - RemotePlaceImageCacheRepository（见同目录 RemotePlaceImageCacheRepository.ts）：
  *     浏览器端，经 Route API 完成读写。
  *
@@ -139,10 +139,7 @@ export interface PlaceImageCacheRepository {
 export interface PlaceImageKvBinding {
   get(key: string): Promise<string | null>;
   put(key: string, value: string): Promise<void>;
-  list(options?: {
-    prefix?: string;
-    cursor?: string;
-  }): Promise<{
+  list(options?: { prefix?: string; cursor?: string }): Promise<{
     keys: Array<{ name: string }>;
     list_complete?: boolean;
     cursor?: string;
@@ -151,9 +148,7 @@ export interface PlaceImageKvBinding {
 }
 
 /** Cloudflare KV 实现（服务端直连 KV binding，无 HTTP 逻辑） */
-export class CloudflareKvPlaceImageCacheRepository
-  implements PlaceImageCacheRepository
-{
+export class CloudflareKvPlaceImageCacheRepository implements PlaceImageCacheRepository {
   constructor(private readonly kv: PlaceImageKvBinding) {}
 
   async get(placeId: string): Promise<PlaceImageCacheEntry | null> {

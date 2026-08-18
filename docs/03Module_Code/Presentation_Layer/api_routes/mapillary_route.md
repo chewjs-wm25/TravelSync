@@ -2,7 +2,7 @@
 
 > - 所属模块：03 Destination Discovery & Inspiration
 > - 所属 Layer：Presentation Layer
-> - 源文件：`app/api/discovery/mapillary/route.ts`
+> - 源文件：`app/03_Destination_Discovery_&_Inspiration/api/mapillary/route.ts`
 > - 类型：服务端 Route API（Next.js App Router Route Handler，Mapillary 代理）
 
 ## 责任

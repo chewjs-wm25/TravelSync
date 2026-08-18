@@ -1,7 +1,7 @@
 /**
  * RemoteEventRepository — 模块 03 节日/活动仓储的远程实现（Data Access Layer, 浏览器端）
  *
- * 职责：以 HTTP 调用 Route API（app/03_Destination_Discovery_&_Inspiration/api/discovery/events）实现 EventRepository，
+ * 职责：以 HTTP 调用 Route API（app/03_Destination_Discovery_&_Inspiration/api/events）实现 EventRepository，
  *       仅做参数序列化与响应解析，不含任何 SQL / 数据库逻辑
  *       （数据库操作由服务端 D1EventRepository 承担）。
  *

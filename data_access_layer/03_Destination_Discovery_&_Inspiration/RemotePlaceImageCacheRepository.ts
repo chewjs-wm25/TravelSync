@@ -1,7 +1,7 @@
 /**
  * RemotePlaceImageCacheRepository — 模块 03 地点图片缓存仓储的远程实现（Data Access Layer, 浏览器端）
  *
- * 职责：以 HTTP 调用 Route API（app/api/discovery/place-image）实现
+ * 职责：以 HTTP 调用 Route API（app/03_Destination_Discovery_&_Inspiration/api/place-image）实现
  *       PlaceImageCacheRepository，仅做参数序列化与响应解析，
  *       不含任何 KV 读写逻辑（KV 操作由服务端 CloudflareKvPlaceImageCacheRepository 承担）。
  *
@@ -63,7 +63,7 @@ export class RemotePlaceImageCacheRepository implements PlaceImageCacheRepositor
     }
   }
 
-  /** 清空全部地点图片缓存（DELETE /api/discovery/place-image，管理员会话），返回清除的条目数 */
+  /** 清空全部地点图片缓存（DELETE 03_Destination_Discovery_&_Inspiration/api/place-image，管理员会话），返回清除的条目数 */
   async clearAll(): Promise<number> {
     const res = await fetch(PLACE_IMAGE_API, {
       method: "DELETE",

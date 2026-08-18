@@ -1,7 +1,7 @@
 /**
  * RemoteFavoritesRepository — 模块 03 收藏夹仓储的远程实现（Data Access Layer, 浏览器端）
  *
- * 职责：以 HTTP 调用 Route API（app/api/discovery/favorites）实现 FavoritesRepository，
+ * 职责：以 HTTP 调用 Route API（app/03_Destination_Discovery_&_Inspiration/api/favorites）实现 FavoritesRepository，
  *       仅做参数序列化与响应解析，不含任何 SQL / 数据库逻辑
  *       （数据库操作由服务端 D1FavoritesRepository 承担）。
  *
