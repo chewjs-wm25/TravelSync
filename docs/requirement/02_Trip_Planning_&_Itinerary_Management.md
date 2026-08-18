@@ -25,4 +25,4 @@
 
 #### 5. Validation & Scheduling
 * **Detect Conflict Schedule**
-* An automated schedule shift
+* An automated schedule shift between each itinerary items
