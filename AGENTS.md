@@ -1,8 +1,7 @@
 # 项目限制
 1. 旅游规划范围仅限定于马来西亚
 2. 轻量级网站
-3. API必须免费，无需信用卡
-4. 在不违反Layer Architecture原则情况下，前端能实现的功能绝不交给后端
+3. 在不违反Layer Architecture原则情况下，前端能实现的功能绝不交给后端
 
 # 各Layer
 - Presentation Layer: @/app/
