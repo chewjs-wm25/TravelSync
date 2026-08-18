@@ -1,5 +1,5 @@
 /**
- * app/api/discovery/mapillary/route.ts — 模块 03 Mapillary 代理 Route API
+ * app/03_Destination_Discovery_&_Inspiration/api/discovery/mapillary/route.ts — 模块 03 Mapillary 代理 Route API
  *
  * 职责（单一）：服务端代理传输层。
  *   - 白名单校验请求参数（action / bbox / imageId），拒绝非法输入；
@@ -17,9 +17,7 @@
  * 认证说明：access token 从服务端环境变量读取（本地 .env / Cloudflare vars 或 secrets）。
  */
 
-import {
-  MALAYSIA_BBOX,
-} from "../../../../api_layer/03_Destination_Discovery_&_Inspiration/MalaysiaBounds";
+import { MALAYSIA_BBOX } from "@/api_layer/03_Destination_Discovery_&_Inspiration/MalaysiaBounds";
 
 /** Mapillary Graph API 端点 */
 const MAPILLARY_GRAPH_BASE_URL = "https://graph.mapillary.com";
@@ -129,10 +127,7 @@ export async function GET(request: Request) {
   try {
     token = mapillaryAccessToken();
   } catch (err) {
-    return Response.json(
-      { error: (err as Error).message },
-      { status: 500 }
-    );
+    return Response.json({ error: (err as Error).message }, { status: 500 });
   }
   url.searchParams.set("access_token", token);
 
@@ -141,7 +136,9 @@ export async function GET(request: Request) {
     res = await fetch(url.toString());
   } catch (err) {
     return Response.json(
-      { error: `Mapillary request failed (network error): ${(err as Error).message}` },
+      {
+        error: `Mapillary request failed (network error): ${(err as Error).message}`,
+      },
       { status: 502 }
     );
   }

@@ -1,5 +1,5 @@
 /**
- * app/api/discovery/events/route.ts — 模块 03 节日/活动 Route API（薄传输桥）
+ * app/03_Destination_Discovery_&_Inspiration/api/discovery/events_route.ts — 模块 03 节日/活动 Route API（薄传输桥）
  *
  * 职责（单一）：HTTP 传输层。
  *   - 解析 / 校验请求参数；
@@ -17,9 +17,9 @@
  */
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { D1EventRepository } from "../../../../data_access_layer/03_Destination_Discovery_&_Inspiration/D1EventRepository";
-import type { EventEntity } from "../../../../data_access_layer/03_Destination_Discovery_&_Inspiration/EventRepository";
-import { requireAdmin } from "../../DEV-ACCOUNT-STATE/session";
+import { D1EventRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1EventRepository";
+import type { EventEntity } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/EventRepository";
+import { requireAdmin } from "@/app/DEV-ACCOUNT-STATE/api/session";
 
 /** 以当前环境 D1 binding 构建仓储实例 */
 async function eventRepo(): Promise<D1EventRepository> {

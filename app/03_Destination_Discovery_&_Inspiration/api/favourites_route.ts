@@ -1,5 +1,5 @@
 /**
- * app/api/discovery/favorites/route.ts — 模块 03 收藏夹 Route API（薄传输桥）
+ * app/03_Destination_Discovery_&_Inspiration/api/discovery/favorites_route.ts — 模块 03 收藏夹 Route API（薄传输桥）
  *
  * 职责（单一）：HTTP 传输层。
  *   - 解析 / 校验请求参数；
@@ -18,9 +18,9 @@
  */
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { D1FavoritesRepository } from "../../../../data_access_layer/03_Destination_Discovery_&_Inspiration/D1FavoritesRepository";
-import type { FavoriteItemEntity } from "../../../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
-import { getAuthSession } from "../../DEV-ACCOUNT-STATE/session";
+import { D1FavoritesRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1FavoritesRepository";
+import type { FavoriteItemEntity } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
+import { getAuthSession } from "@/app/DEV-ACCOUNT-STATE/api/session";
 
 /** 以当前环境 D1 binding 构建仓储实例（userId 由会话解析，构造器注入） */
 async function favoritesRepo(userId: string): Promise<D1FavoritesRepository> {

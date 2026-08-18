@@ -1,5 +1,5 @@
 /**
- * app/api/discovery/geocode/route.ts — 模块 03 Geoapify Geocoding 代理 Route API
+ * app/03_Destination_Discovery_&_Inspiration/api/discovery/geocode_route.ts — 模块 03 Geoapify Geocoding 代理 Route API
  *
  * 职责（单一）：服务端代理传输层。
  *   - 白名单校验请求参数（type / text / limit），拒绝非法输入；
@@ -64,7 +64,9 @@ export async function GET(request: Request) {
     limit = Number(rawLimit);
     if (!Number.isInteger(limit) || limit < LIMIT_MIN || limit > LIMIT_MAX) {
       return Response.json(
-        { error: `limit must be an integer between ${LIMIT_MIN} and ${LIMIT_MAX}` },
+        {
+          error: `limit must be an integer between ${LIMIT_MIN} and ${LIMIT_MAX}`,
+        },
         { status: 400 }
       );
     }
@@ -74,10 +76,7 @@ export async function GET(request: Request) {
   try {
     apiKey = geoapifyApiKey();
   } catch (err) {
-    return Response.json(
-      { error: (err as Error).message },
-      { status: 500 }
-    );
+    return Response.json({ error: (err as Error).message }, { status: 500 });
   }
 
   // ---- 服务端拼装外部请求（强制马来西亚限制，前端不可绕过） ----
@@ -93,7 +92,9 @@ export async function GET(request: Request) {
     res = await fetch(url.toString());
   } catch (err) {
     return Response.json(
-      { error: `Geoapify ${type} request failed (network error): ${(err as Error).message}` },
+      {
+        error: `Geoapify ${type} request failed (network error): ${(err as Error).message}`,
+      },
       { status: 502 }
     );
   }

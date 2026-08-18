@@ -1,5 +1,5 @@
 /**
- * app/api/discovery/place-image/route.ts — 模块 03 地点图片缓存 Route API（薄传输桥）
+ * app/03_Destination_Discovery_&_Inspiration/api/discovery/place-image/route.ts — 模块 03 地点图片缓存 Route API（薄传输桥）
  *
  * 职责（单一）：HTTP 传输层。
  *   - 解析 / 校验请求参数；
@@ -25,9 +25,9 @@
  */
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { CloudflareKvPlaceImageCacheRepository } from "../../../../data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
-import type { PlaceImageCacheEntry } from "../../../../data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
-import { requireAdmin, requireUser } from "../../DEV-ACCOUNT-STATE/session";
+import { CloudflareKvPlaceImageCacheRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
+import type { PlaceImageCacheEntry } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
+import { requireAdmin, requireUser } from "@/app/DEV-ACCOUNT-STATE/api/session";
 
 /** 仅允许 http/https 协议的绝对 URL（防 javascript:、data: 等异常协议） */
 const HTTP_URL_PATTERN = /^https?:\/\/\S+$/i;
