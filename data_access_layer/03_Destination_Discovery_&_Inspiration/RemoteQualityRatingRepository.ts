@@ -20,11 +20,10 @@ import type {
 import { sessionAuthHeaders } from "./sessionAuth";
 
 /** Route API 端点（模块 03 官方品质评级） */
-const QUALITY_RATINGS_API = "/api/discovery/official-quality-ratings";
+const QUALITY_RATINGS_API =
+  "03_Destination_Discovery_&_Inspiration/api/official-quality-ratings";
 
-export class RemoteQualityRatingRepository
-  implements OfficialQualityRatingRepository
-{
+export class RemoteQualityRatingRepository implements OfficialQualityRatingRepository {
   async listAll(): Promise<OfficialQualityRatingEntity[]> {
     const res = await fetch(QUALITY_RATINGS_API);
     if (!res.ok) {
@@ -70,4 +69,5 @@ export class RemoteQualityRatingRepository
   }
 }
 
-export const remoteQualityRatingRepository = new RemoteQualityRatingRepository();
+export const remoteQualityRatingRepository =
+  new RemoteQualityRatingRepository();

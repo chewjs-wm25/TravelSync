@@ -11,7 +11,7 @@ import { useState } from "react";
 import {
   eventSyncService,
   type EventSyncResult,
-} from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/EventSyncService";
+} from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/EventSyncService";
 
 export default function SyncEventsBTN() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -41,7 +41,7 @@ export default function SyncEventsBTN() {
       <button
         onClick={handleSync}
         disabled={isSyncing}
-        className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 hover:shadow-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+        className="bg-primary-500 hover:shadow-hover rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSyncing ? "Syncing…" : "Sync Events"}
       </button>

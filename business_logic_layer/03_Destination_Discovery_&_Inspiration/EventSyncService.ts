@@ -9,8 +9,8 @@
  * 依赖方向：Business Logic → Data Access Layer（JSON 仓储 / 远程 D1 仓储）
  */
 
-import { hardcodedEventRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/HardcodedEventRepository";
-import { remoteEventRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/RemoteEventRepository";
+import { hardcodedEventRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/HardcodedEventRepository";
+import { remoteEventRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/RemoteEventRepository";
 
 /** 同步结果统计（供 UI 反馈展示） */
 export interface EventSyncResult {
@@ -35,9 +35,7 @@ export class EventSyncService {
     const toUpsert = jsonItems.map((item) => ({ ...item, syncedAt: now }));
 
     const synced =
-      toUpsert.length > 0
-        ? await remoteEventRepository.upsertAll(toUpsert)
-        : 0;
+      toUpsert.length > 0 ? await remoteEventRepository.upsertAll(toUpsert) : 0;
 
     return {
       total: jsonItems.length,

@@ -26,11 +26,10 @@ import type {
 import { sessionAuthHeaders } from "./sessionAuth";
 
 /** Route API 端点（模块 03 地点图片缓存） */
-const PLACE_IMAGE_API = "/api/discovery/place-image";
+const PLACE_IMAGE_API =
+  "03_Destination_Discovery_&_Inspiration/api/place-image";
 
-export class RemotePlaceImageCacheRepository
-  implements PlaceImageCacheRepository
-{
+export class RemotePlaceImageCacheRepository implements PlaceImageCacheRepository {
   /** 读取缓存条目；null = 未缓存；{source:"none"} = 确定无图（公开读） */
   async get(placeId: string): Promise<PlaceImageCacheEntry | null> {
     const trimmed = placeId.trim();

@@ -48,7 +48,7 @@ export const DEV_USER_ACCOUNT: UserAccount = {
 };
 
 /** DEV 登录 Route API 端点（01 模块真实认证 API 的 DEV 替身） */
-const DEV_LOGIN_API = "/api/DEV-ACCOUNT-STATE/login";
+const DEV_LOGIN_API = "DEV-ACCOUNT-STATE/api/login";
 
 /**
  * 模拟从 01 模块获取账号相关数据 + 会话凭证。

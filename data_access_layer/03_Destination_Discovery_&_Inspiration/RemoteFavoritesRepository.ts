@@ -23,7 +23,7 @@ import type {
 import { sessionAuthHeaders } from "./sessionAuth";
 
 /** Route API 端点（模块 03 收藏夹） */
-const FAVORITES_API = "/api/discovery/favorites";
+const FAVORITES_API = "03_Destination_Discovery_&_Inspiration/api/favorites";
 
 export class RemoteFavoritesRepository implements FavoritesRepository {
   /**

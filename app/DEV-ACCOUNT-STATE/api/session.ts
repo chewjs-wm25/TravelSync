@@ -1,5 +1,5 @@
 /**
- * app/api/DEV-ACCOUNT-STATE/session.ts — DEV 会话凭证工具（服务端）
+ * app/DEV-ACCOUNT-STATE/api/session.ts — DEV 会话凭证工具（服务端）
  *
  * 职责（单一）：签发 / 校验登录会话 token（HMAC-SHA256 签名，无状态）。
  *   - createSessionToken：为账号签发带签名与过期时间的 token；
@@ -26,8 +26,7 @@ export interface AuthSession {
 
 /** 授权结果：成功携带会话；失败携带可直接返回的 HTTP 响应 */
 export type AuthResult =
-  | { ok: true; session: AuthSession }
-  | { ok: false; response: Response };
+  { ok: true; session: AuthSession } | { ok: false; response: Response };
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -64,7 +63,10 @@ async function hmacSign(secret: string, data: string): Promise<Uint8Array> {
 function base64urlEncode(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 /** base64url → 字节数组（容忍缺 padding） */
