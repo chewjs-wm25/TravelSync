@@ -1,7 +1,7 @@
 "use client";
 
 import { History } from "lucide-react";
-import { useCollabStore } from "@/src/store/collab/CollabStore";
+import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 
 function timeAgo(at: number): string {
   const diff = Date.now() - at;
@@ -16,7 +16,7 @@ function timeAgo(at: number): string {
 
 export default function ActivityFeed() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId)
+    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
   );
   if (!trip) return null;
 

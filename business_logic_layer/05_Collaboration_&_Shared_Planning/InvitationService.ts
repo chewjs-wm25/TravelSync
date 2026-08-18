@@ -1,4 +1,4 @@
-import type { InviteRole } from "@/src/store/collab/CollabStore";
+import type { InviteRole } from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
 
 export const INVITE_TTL_DAYS = 30;
 export const INVITE_TTL_MS = INVITE_TTL_DAYS * 24 * 60 * 60 * 1000;

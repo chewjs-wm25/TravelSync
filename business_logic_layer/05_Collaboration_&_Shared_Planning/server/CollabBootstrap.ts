@@ -1,10 +1,10 @@
-import * as TripRepo from "@/src/lib/db/repositories/collab/TripRepo";
-import * as ItineraryRepo from "@/src/lib/db/repositories/collab/ItineraryRepo";
-import * as ItemRepo from "@/src/lib/db/repositories/collab/ItemRepo";
-import * as CollaboratorRepo from "@/src/lib/db/repositories/collab/CollaboratorRepo";
-import * as InviteRepo from "@/src/lib/db/repositories/collab/InviteRepo";
-import * as MessageRepo from "@/src/lib/db/repositories/collab/MessageRepo";
-import * as ActivityLogRepo from "@/src/lib/db/repositories/collab/ActivityLogRepo";
+import * as TripRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/TripRepo";
+import * as ItineraryRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItineraryRepo";
+import * as ItemRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItemRepo";
+import * as CollaboratorRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
+import * as InviteRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo";
+import * as MessageRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/MessageRepo";
+import * as ActivityLogRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ActivityLogRepo";
 import {
   mapActivity,
   mapChat,
@@ -12,7 +12,7 @@ import {
   mapItem,
   mapMember,
 } from "./ReplyMapper";
-import type { CollabTrip } from "@/src/store/collab/CollabStore";
+import type { CollabTrip } from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
 
 export interface BootstrapOutput {
   trip: CollabTrip;

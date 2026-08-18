@@ -14,18 +14,18 @@ import {
 import {
   can,
   type CollabRole,
-} from "@/src/lib/client/collab/RolePermissions";
+} from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
 import {
   useCollabStore,
   type CollabMember,
-} from "@/src/store/collab/CollabStore";
+} from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 import RoleBadge from "./RoleBadge";
 
 const ROLE_OPTIONS: Exclude<CollabRole, "Owner">[] = ["Editor", "Viewer"];
 
 export default function MemberManagementPanel() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId)
+    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const changeRole = useCollabStore((s) => s.changeRole);

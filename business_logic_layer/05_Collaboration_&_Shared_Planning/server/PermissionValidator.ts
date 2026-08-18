@@ -1,5 +1,5 @@
-import type { CollabRole } from "@/src/lib/client/collab/RolePermissions";
-import * as CollaboratorRepo from "@/src/lib/db/repositories/collab/CollaboratorRepo";
+import type { CollabRole } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
+import * as CollaboratorRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
 
 /**
  * 服务端权限校验（单层，模块 05 范围）：

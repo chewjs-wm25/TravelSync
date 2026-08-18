@@ -1,4 +1,4 @@
-import * as InviteRepo from "@/src/lib/db/repositories/collab/InviteRepo";
+import * as InviteRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo";
 
 export const INVITE_TTL_DAYS = 30;
 export const INVITE_TTL_MS = INVITE_TTL_DAYS * 24 * 60 * 60 * 1000;

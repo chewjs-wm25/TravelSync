@@ -1,10 +1,10 @@
-import * as MessageRepo from "@/src/lib/db/repositories/collab/MessageRepo";
-import { resolveDemoUser, extractUserId } from "@/src/lib/server/collab/DemoSession";
-import { requirePermission } from "@/src/lib/server/collab/PermissionValidator";
-import { mapChat } from "@/src/lib/server/collab/ReplyMapper";
-import { ACTIVE_TRIP_ID, json, error } from "@/src/lib/server/collab/collab-route";
+﻿import * as MessageRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/MessageRepo";
+import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
+import { requirePermission } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/PermissionValidator";
+import { mapChat } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ReplyMapper";
+import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
-/** POST { text } 发评论 */
+/** POST { text } 鍙戣瘎璁?*/
 export async function POST(req: Request) {
   try {
     const me = await resolveDemoUser(extractUserId(req));
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   }
 }
 
-/** GET 返回全部评论（demo 简单全量拉取，不做 cursor 分页） */
+/** GET 杩斿洖鍏ㄩ儴璇勮锛坉emo 绠€鍗曞叏閲忔媺鍙栵紝涓嶅仛 cursor 鍒嗛〉锛?*/
 export async function GET(req: Request) {
   try {
     const me = await resolveDemoUser(extractUserId(req));

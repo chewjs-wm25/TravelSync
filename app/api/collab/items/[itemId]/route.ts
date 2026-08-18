@@ -1,8 +1,8 @@
-import * as ItemRepo from "@/src/lib/db/repositories/collab/ItemRepo";
-import { resolveDemoUser, extractUserId } from "@/src/lib/server/collab/DemoSession";
-import { requirePermission } from "@/src/lib/server/collab/PermissionValidator";
-import { logActivity } from "@/src/lib/server/collab/ActivityLogger";
-import { ACTIVE_TRIP_ID, json, error } from "@/src/lib/server/collab/collab-route";
+﻿import * as ItemRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItemRepo";
+import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
+import { requirePermission } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/PermissionValidator";
+import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
+import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
 type Ctx = { params: Promise<{ itemId: string }> };
 

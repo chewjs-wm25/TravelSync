@@ -1,4 +1,6 @@
-export type CollabRole = "Owner" | "Editor" | "Viewer";
+import type { CollabRole } from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
+
+export type { CollabRole };
 
 export type Permission =
   | "view"

@@ -1,6 +1,6 @@
-import { loadBootstrap } from "@/src/lib/server/collab/CollabBootstrap";
-import { extractUserId, resolveDemoUser } from "@/src/lib/server/collab/DemoSession";
-import { ACTIVE_TRIP_ID, json, error } from "@/src/lib/server/collab/collab-route";
+﻿import { loadBootstrap } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/CollabBootstrap";
+import { extractUserId, resolveDemoUser } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
+import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
 export async function GET(req: Request) {
   try {

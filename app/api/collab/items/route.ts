@@ -1,11 +1,11 @@
-import * as ItineraryRepo from "@/src/lib/db/repositories/collab/ItineraryRepo";
-import * as ItemRepo from "@/src/lib/db/repositories/collab/ItemRepo";
-import { resolveDemoUser, extractUserId } from "@/src/lib/server/collab/DemoSession";
-import { requirePermission } from "@/src/lib/server/collab/PermissionValidator";
-import { logActivity } from "@/src/lib/server/collab/ActivityLogger";
-import { ACTIVE_TRIP_ID, json, error } from "@/src/lib/server/collab/collab-route";
+﻿import * as ItineraryRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItineraryRepo";
+import * as ItemRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItemRepo";
+import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
+import { requirePermission } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/PermissionValidator";
+import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
+import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
-/** POST { day, title, note? } 新增明细（落在对应 day 的 Itinerary） */
+/** POST { day, title, note? } 鏂板鏄庣粏锛堣惤鍦ㄥ搴?day 鐨?Itinerary锛?*/
 export async function POST(req: Request) {
   try {
     const me = await resolveDemoUser(extractUserId(req));

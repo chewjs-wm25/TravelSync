@@ -8,7 +8,12 @@ export interface ChatRow {
   created_at: string;
 }
 
-export async function findByTrip(tripId: string): Promise<(ChatRow & { username: string; profile_picture: string | null })[]> {
+export interface ChatWithAccount extends ChatRow {
+  username: string;
+  profile_picture: string | null;
+}
+
+export async function findByTrip(tripId: string): Promise<ChatWithAccount[]> {
   const db = await getDB();
   const res = await db
     .prepare(
@@ -19,7 +24,7 @@ export async function findByTrip(tripId: string): Promise<(ChatRow & { username:
        ORDER BY m.id ASC`
     )
     .bind(tripId)
-    .all<ChatRow & { username: string; profile_picture: string | null }>();
+    .all<ChatWithAccount>();
   return res.results;
 }
 

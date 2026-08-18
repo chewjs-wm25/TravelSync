@@ -12,10 +12,14 @@ export interface CollaboratorRow {
   invited_by: string | null;
 }
 
+export interface CollaboratorWithAccount extends CollaboratorRow {
+  username: string;
+  email: string;
+  profile_picture: string | null;
+}
+
 /** 行程所有协作者（join Account 取展示字段） */
-export async function findByTrip(tripId: string): Promise<
-  (CollaboratorRow & { username: string; email: string; profile_picture: string | null })[]
-> {
+export async function findByTrip(tripId: string): Promise<CollaboratorWithAccount[]> {
   const db = await getDB();
   const res = await db
     .prepare(
@@ -26,11 +30,7 @@ export async function findByTrip(tripId: string): Promise<
        ORDER BY c.joined_at ASC`
     )
     .bind(tripId)
-    .all<CollaboratorRow & {
-      username: string;
-      email: string;
-      profile_picture: string | null;
-    }>();
+    .all<CollaboratorWithAccount>();
   return res.results;
 }
 

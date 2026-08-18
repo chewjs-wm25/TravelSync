@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Users, UserRound } from "lucide-react";
-import { useCollabStore } from "@/src/store/collab/CollabStore";
+import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 
 /**
  * Demo-only control: switch which member the UI is "acting as".
@@ -10,7 +10,7 @@ import { useCollabStore } from "@/src/store/collab/CollabStore";
  */
 export default function DemoIdentitySwitcher() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId)
+    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const setCurrentUser = useCollabStore((s) => s.setCurrentUser);

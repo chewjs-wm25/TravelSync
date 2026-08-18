@@ -1,4 +1,4 @@
-import * as AccountRepo from "@/src/lib/db/repositories/collab/AccountRepo";
+import * as AccountRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/AccountRepo";
 
 /**
  * Demo 会话：前端通过 `x-demo-user-id` 头声明"当前用户"。

@@ -5,14 +5,14 @@ import {
   PERMISSION_LABELS,
   PERMISSION_MATRIX,
   type CollabRole,
-} from "@/src/lib/client/collab/RolePermissions";
-import { useCollabStore } from "@/src/store/collab/CollabStore";
+} from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
+import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 
 const ROLES: CollabRole[] = ["Owner", "Editor", "Viewer"];
 
 export default function PermissionMatrixCard() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId)
+    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const me = trip?.members.find((m) => m.id === currentUserId);

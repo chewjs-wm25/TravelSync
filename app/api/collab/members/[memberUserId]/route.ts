@@ -1,12 +1,12 @@
-import * as CollaboratorRepo from "@/src/lib/db/repositories/collab/CollaboratorRepo";
-import { resolveDemoUser, extractUserId } from "@/src/lib/server/collab/DemoSession";
-import { requirePermission } from "@/src/lib/server/collab/PermissionValidator";
-import { logActivity } from "@/src/lib/server/collab/ActivityLogger";
-import { ACTIVE_TRIP_ID, json, error } from "@/src/lib/server/collab/collab-route";
+﻿import * as CollaboratorRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
+import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
+import { requirePermission } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/PermissionValidator";
+import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
+import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
 type Ctx = { params: Promise<{ memberUserId: string }> };
 
-/** PATCH { role } 改角色；DELETE 移除成员 */
+/** PATCH { role } 鏀硅鑹诧紱DELETE 绉婚櫎鎴愬憳 */
 export async function PATCH(req: Request, ctx: Ctx) {
   try {
     const { memberUserId } = await ctx.params;

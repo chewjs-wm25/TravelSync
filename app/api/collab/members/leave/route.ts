@@ -1,9 +1,9 @@
-import * as CollaboratorRepo from "@/src/lib/db/repositories/collab/CollaboratorRepo";
-import { resolveDemoUser, extractUserId } from "@/src/lib/server/collab/DemoSession";
-import { logActivity } from "@/src/lib/server/collab/ActivityLogger";
-import { ACTIVE_TRIP_ID, json, error } from "@/src/lib/server/collab/collab-route";
+﻿import * as CollaboratorRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
+import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
+import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
+import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
-/** 当前用户退出行程（Owner 不可退出） */
+/** 褰撳墠鐢ㄦ埛閫€鍑鸿绋嬶紙Owner 涓嶅彲閫€鍑猴級 */
 export async function DELETE(req: Request) {
   try {
     const me = await resolveDemoUser(extractUserId(req));

@@ -8,7 +8,11 @@ export interface ActivityRow {
   created_at: string;
 }
 
-export async function findByTrip(tripId: string): Promise<(ActivityRow & { username: string })[]> {
+export interface ActivityWithUser extends ActivityRow {
+  username: string;
+}
+
+export async function findByTrip(tripId: string): Promise<ActivityWithUser[]> {
   const db = await getDB();
   const res = await db
     .prepare(
@@ -20,7 +24,7 @@ export async function findByTrip(tripId: string): Promise<(ActivityRow & { usern
        LIMIT 50`
     )
     .bind(tripId)
-    .all<ActivityRow & { username: string }>();
+    .all<ActivityWithUser>();
   return res.results;
 }
 

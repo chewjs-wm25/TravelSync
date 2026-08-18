@@ -1,11 +1,11 @@
 import type {
-  CollabTrip,
   CollabInvite,
   InviteRole,
   InviteResult,
   CollabComment,
   ItineraryItem,
-} from "@/src/store/collab/CollabStore";
+  BootstrapResponse,
+} from "./types";
 
 const BASE = "/api/collab";
 
@@ -20,12 +20,6 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(url, init);
   const data = (await res.json()) as T;
   return data;
-}
-
-export interface BootstrapResponse {
-  ok: boolean;
-  trip: CollabTrip;
-  meUserId: string;
 }
 
 export const collabApi = {

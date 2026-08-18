@@ -1,15 +1,14 @@
-import * as InviteRepo from "@/src/lib/db/repositories/collab/InviteRepo";
-import * as CollaboratorRepo from "@/src/lib/db/repositories/collab/CollaboratorRepo";
-import * as AccountRepo from "@/src/lib/db/repositories/collab/AccountRepo";
-import { logActivity } from "@/src/lib/server/collab/ActivityLogger";
-import { ACTIVE_TRIP_ID, json, error } from "@/src/lib/server/collab/collab-route";
+﻿import * as InviteRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo";
+import * as CollaboratorRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
+import * as AccountRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/AccountRepo";
+import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
+import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
 type Ctx = { params: Promise<{ inviteId: string }> };
 
 /**
  * PATCH { status: 'accepted' | 'rejected' }
- * demo 模式：不管是谁，只要邀请存在且 pending 就能接受/拒绝（模拟受邀者操作）。
- */
+ * demo 妯″紡锛氫笉绠℃槸璋侊紝鍙閭€璇峰瓨鍦ㄤ笖 pending 灏辫兘鎺ュ彈/鎷掔粷锛堟ā鎷熷彈閭€鑰呮搷浣滐級銆? */
 export async function PATCH(req: Request, ctx: Ctx) {
   try {
     const { inviteId } = await ctx.params;

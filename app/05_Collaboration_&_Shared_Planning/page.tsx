@@ -24,24 +24,24 @@ import {
 import {
   can,
   ROLE_DESCRIPTIONS,
-} from "@/src/lib/client/collab/RolePermissions";
+} from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
 import {
   daysRemaining,
   formatDate,
-} from "@/src/lib/client/collab/InvitationService";
-import { useCollabStore } from "@/src/store/collab/CollabStore";
+} from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/InvitationService";
+import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 
-import DemoIdentitySwitcher from "@/src/components/collab/DemoIdentitySwitcher";
-import InviteCollaboratorsPanel from "@/src/components/collab/InviteCollaboratorsPanel";
-import PendingInvitesPanel from "@/src/components/collab/PendingInvitesPanel";
-import MemberManagementPanel from "@/src/components/collab/MemberManagementPanel";
-import PermissionMatrixCard from "@/src/components/collab/PermissionMatrixCard";
-import ItineraryPermissionDemo from "@/src/components/collab/ItineraryPermissionDemo";
-import ActivityFeed from "@/src/components/collab/ActivityFeed";
+import DemoIdentitySwitcher from "./components/DemoIdentitySwitcher";
+import InviteCollaboratorsPanel from "./components/InviteCollaboratorsPanel";
+import PendingInvitesPanel from "./components/PendingInvitesPanel";
+import MemberManagementPanel from "./components/MemberManagementPanel";
+import PermissionMatrixCard from "./components/PermissionMatrixCard";
+import ItineraryPermissionDemo from "./components/ItineraryPermissionDemo";
+import ActivityFeed from "./components/ActivityFeed";
 
 export default function CollaborationPage() {
-  const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId)
+  const trip = useCollabStore(
+    (s) => s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const comments = trip?.comments ?? [];

@@ -1,67 +1,30 @@
 import { create } from "zustand";
-import type { CollabRole } from "@/src/lib/client/collab/RolePermissions";
-import { collabApi } from "@/src/lib/api/collab";
+import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab";
+import type {
+  CollabRole,
+  InviteRole,
+  InviteStatus,
+  CollabMember,
+  CollabInvite,
+  ItineraryItem,
+  CollabComment,
+  ActivityEntry,
+  CollabTrip,
+  InviteResult,
+} from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
 
-export type InviteRole = "Editor" | "Viewer";
-export type InviteStatus = "pending" | "accepted" | "rejected" | "expired";
-
-export interface CollabMember {
-  id: string;
-  name: string;
-  email: string;
-  role: CollabRole;
-  avatar: string;
-  online: boolean;
-}
-
-export interface CollabInvite {
-  id: string;
-  token: string;
-  email: string;
-  role: InviteRole;
-  status: InviteStatus;
-  invitedAt: number;
-  expiresAt: number;
-  invitedBy: string;
-}
-
-export interface ItineraryItem {
-  id: string;
-  day: number;
-  title: string;
-  note?: string;
-}
-
-export interface CollabComment {
-  id: string;
-  authorId: string;
-  authorName: string;
-  avatar: string;
-  time: string;
-  text: string;
-  own: boolean;
-}
-
-export interface ActivityEntry {
-  id: string;
-  actor: string;
-  action: string;
-  at: number;
-}
-
-export interface CollabTrip {
-  id: string;
-  name: string;
-  dates: string;
-  region: string;
-  members: CollabMember[];
-  invites: CollabInvite[];
-  items: ItineraryItem[];
-  comments: CollabComment[];
-  activity: ActivityEntry[];
-}
-
-export type InviteResult = { ok: boolean; message?: string; invite?: CollabInvite };
+export type {
+  CollabRole,
+  InviteRole,
+  InviteStatus,
+  CollabMember,
+  CollabInvite,
+  ItineraryItem,
+  CollabComment,
+  ActivityEntry,
+  CollabTrip,
+  InviteResult,
+};
 
 interface CollabState {
   currentUserId: string;
@@ -90,8 +53,9 @@ interface CollabState {
 }
 
 /**
- * 模块 05 状态：数据源为 D1（经 collabApi），store 仅作内存缓存。
- * demo 会话：currentUserId 决定"当前用户"，通过 x-demo-user-id 头传给后端。
+ * 模块 05 客户端状态（Business Logic Layer）：数据源为 D1（经 collabApi），
+ * store 仅作内存缓存与业务编排。demo 会话：currentUserId 决定"当前用户"，
+ * 通过 x-demo-user-id 头传给后端。
  */
 export const useCollabStore = create<CollabState>()((set, get) => ({
   currentUserId: "m_marcus",
@@ -104,7 +68,12 @@ export const useCollabStore = create<CollabState>()((set, get) => ({
     set({ loading: true, error: null });
     try {
       const data = await collabApi.bootstrap(get().currentUserId);
-      set({ trips: [data.trip], loading: false });
+      const trips = [data.trip];
+      // 若 activeTripId 在已加载行程中不存在，退回第一个行程，避免 UI 拿不到行程。
+      const activeTripId = trips.some((t) => t.id === get().activeTripId)
+        ? get().activeTripId
+        : (trips[0]?.id ?? "");
+      set({ trips, activeTripId, loading: false });
     } catch (e) {
       set({
         loading: false,

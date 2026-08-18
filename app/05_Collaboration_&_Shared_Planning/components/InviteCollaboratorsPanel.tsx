@@ -5,16 +5,16 @@ import { Mail, Send, ShieldCheck } from "lucide-react";
 import {
   can,
   ROLE_LABELS,
-} from "@/src/lib/client/collab/RolePermissions";
-import { useCollabStore, type InviteRole } from "@/src/store/collab/CollabStore";
-import { sendInviteEmail } from "@/src/lib/client/collab/EmailService";
-import { daysRemaining } from "@/src/lib/client/collab/InvitationService";
+} from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
+import { useCollabStore, type InviteRole } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
+import { sendInviteEmail } from "@/api_layer/05_Collaboration_&_Shared_Planning/email";
+import { daysRemaining } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/InvitationService";
 
 const ROLE_OPTIONS: InviteRole[] = ["Editor", "Viewer"];
 
 export default function InviteCollaboratorsPanel() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId)
+    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const inviteCollaborator = useCollabStore((s) => s.inviteCollaborator);

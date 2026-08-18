@@ -1,4 +1,4 @@
-import type { CollabRole } from "@/src/lib/client/collab/RolePermissions";
+import type { CollabRole } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
 
 const ROLE_STYLES: Record<CollabRole, string> = {
   Owner: "bg-red-50 text-primary-500",

@@ -4,18 +4,14 @@ import type {
   CollabMember,
   ItineraryItem,
   ActivityEntry,
-} from "@/src/store/collab/CollabStore";
-import type { CollabRole } from "@/src/lib/client/collab/RolePermissions";
-import type { CollaboratorRow } from "@/src/lib/db/repositories/collab/CollaboratorRepo";
-import type { InviteWithSender } from "@/src/lib/db/repositories/collab/InviteRepo";
-import type { ItemRow } from "@/src/lib/db/repositories/collab/ItemRepo";
-import type { ActivityRow } from "@/src/lib/db/repositories/collab/ActivityLogRepo";
+} from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
+import type { CollabRole } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
+import type { CollaboratorWithAccount } from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
+import type { InviteWithSender } from "@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo";
+import type { ItemRow } from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItemRepo";
+import type { ActivityWithUser } from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ActivityLogRepo";
 
-type MemberRow = CollaboratorRow & {
-  username: string;
-  email: string;
-  profile_picture: string | null;
-};
+type MemberRow = CollaboratorWithAccount;
 
 type ChatRow = {
   id: number;
@@ -77,8 +73,6 @@ export function mapChat(row: ChatRow, currentUserId: string): CollabComment {
     own: row.user_id === currentUserId,
   };
 }
-
-type ActivityWithUser = ActivityRow & { username: string };
 
 /** DB 动态 → UI ActivityEntry */
 export function mapActivity(row: ActivityWithUser): ActivityEntry {

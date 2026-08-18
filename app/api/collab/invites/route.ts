@@ -1,10 +1,10 @@
-import * as InviteRepo from "@/src/lib/db/repositories/collab/InviteRepo";
-import { resolveDemoUser, extractUserId } from "@/src/lib/server/collab/DemoSession";
-import { requirePermission } from "@/src/lib/server/collab/PermissionValidator";
-import { createInvite } from "@/src/lib/server/collab/InviteService";
-import { logActivity } from "@/src/lib/server/collab/ActivityLogger";
-import { mapInvite } from "@/src/lib/server/collab/ReplyMapper";
-import { ACTIVE_TRIP_ID, json, error } from "@/src/lib/server/collab/collab-route";
+﻿import * as InviteRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo";
+import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
+import { requirePermission } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/PermissionValidator";
+import { createInvite } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/InviteService";
+import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
+import { mapInvite } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ReplyMapper";
+import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
 export async function POST(req: Request) {
   try {
