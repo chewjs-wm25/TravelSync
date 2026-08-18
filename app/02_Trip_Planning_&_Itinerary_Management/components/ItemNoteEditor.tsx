@@ -2,70 +2,139 @@
 
 import { useState } from "react";
 
+type ItemEditPayload = {
+  name: string;
+  note: string;
+  position?: number;
+};
+
 type ItemNoteEditorProps = {
+  initialName: string;
   initialNote: string;
-  onSaveNote: (note: string) => void;
+  initialPosition?: number;
+  onSaveItem: (payload: ItemEditPayload) => void | Promise<void>;
   onCancel: () => void;
 };
 
 export function ItemNoteEditor({
+  initialName,
   initialNote,
-  onSaveNote,
+  initialPosition,
+  onSaveItem,
   onCancel,
 }: ItemNoteEditorProps) {
+  const [tempName, setTempName] = useState(initialName);
   const [tempNote, setTempNote] = useState(initialNote);
+  const [tempPosition, setTempPosition] = useState(
+    initialPosition?.toString() ?? ""
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    const trimmedName = tempName.trim();
+    if (!trimmedName) {
+      setErrorMessage("Item name is required");
+      return;
+    }
+
+    const trimmedPosition = tempPosition.trim();
+    let parsedPosition: number | undefined;
+
+    if (trimmedPosition.length > 0) {
+      const nextPosition = Number.parseInt(trimmedPosition, 10);
+      if (!Number.isInteger(nextPosition) || nextPosition <= 0) {
+        setErrorMessage("Position must be a positive integer");
+        return;
+      }
+
+      parsedPosition = nextPosition;
+    }
+
+    setErrorMessage(null);
+    setIsSaving(true);
+
+    try {
+      await onSaveItem({
+        name: trimmedName,
+        note: tempNote,
+        position: parsedPosition,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
-    <div className="mt-2 flex flex-col gap-2 border-t border-gray-100 pt-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-700">Note</span>
-        {tempNote.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setTempNote("")}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Clear note text"
-            aria-label="Clear note text"
-          >
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </button>
-        )}
+    <div className="mt-2 flex flex-col gap-3 border-t border-gray-100 pt-2">
+      <label className="block space-y-1 text-xs font-semibold text-gray-700">
+        <span>Item Name</span>
+        <input
+          type="text"
+          value={tempName}
+          onChange={(event) => {
+            setTempName(event.target.value);
+            setErrorMessage(null);
+          }}
+          placeholder="Enter item name"
+          className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+          disabled={isSaving}
+        />
+      </label>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block space-y-1 text-xs font-semibold text-gray-700">
+          <span>Position</span>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={tempPosition}
+            onChange={(event) => {
+              setTempPosition(event.target.value);
+              setErrorMessage(null);
+            }}
+            placeholder="1"
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            disabled={isSaving}
+          />
+        </label>
+
+        <label className="block space-y-1 text-xs font-semibold text-gray-700 sm:col-span-1">
+          <span>Note</span>
+          <input
+            type="text"
+            value={tempNote}
+            onChange={(event) => setTempNote(event.target.value)}
+            placeholder="Add a note for this place..."
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            disabled={isSaving}
+          />
+        </label>
       </div>
 
-      <input
-        type="text"
-        value={tempNote}
-        onChange={(event) => setTempNote(event.target.value)}
-        placeholder="Add a note for this place..."
-        className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
-      />
+      {errorMessage ? (
+        <p className="text-xs font-medium text-red-500">{errorMessage}</p>
+      ) : null}
 
       <div className="flex justify-end gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100"
+          className="rounded-lg px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSaving}
         >
           Cancel
         </button>
         <button
           type="button"
-          onClick={() => onSaveNote(tempNote)}
-          className="rounded-lg bg-[#ff6b6b] px-3 py-1 text-xs font-semibold text-white hover:bg-[#ff5252]"
+          onClick={() => {
+            void handleSave();
+          }}
+          disabled={isSaving}
+          className="rounded-lg bg-[#ff6b6b] px-3 py-1 text-xs font-semibold text-white hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:bg-gray-300"
         >
-          Save Note
+          {isSaving ? "Saving..." : "Save Item"}
         </button>
       </div>
     </div>

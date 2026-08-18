@@ -20,6 +20,8 @@
 - [x] Preserved `Itinerary added!` and `Invalid date!` toast flow required by FR004.
 
 ### Phase 3: Itinerary Items & Notes
-- [ ] **FR007–FR009**: Add, Edit, Delete Itinerary Items
+- [x] **FR007**: Add Itinerary Item (realigned to UC02-03, `itm_...` IDs, and `position`/`order_index` handling)
+- [x] **FR008**: Delete Itinerary Item
+- [x] **FR009**: Edit Itinerary Item
 - [ ] **FR010–FR012**: Add, Edit, Delete Travel Notes
 - [ ] **FR013**: Detect Schedule Conflicts

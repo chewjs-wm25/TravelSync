@@ -17,13 +17,16 @@ type DayItineraryCardProps = {
   searchValue: string;
   onSearchChange: (value: string) => void;
   onAddItem: () => void;
-  onDeleteItem: (itemId: string) => void;
+  onDeleteItem: (itemId: string) => void | Promise<void>;
   onDeleteDay: () => void;
   onAddDayBefore: () => void;
   onAddDayAfter: () => void;
   onToggleCollapse: (collapseValue?: boolean) => void;
-  onToggleItemNoteEdit: (itemId: string) => void;
-  onSaveItemNote: (itemId: string, note: string) => void;
+  onToggleItemEdit: (itemId: string) => void;
+  onSaveItem: (
+    itemId: string,
+    payload: { name: string; note: string; position?: number }
+  ) => void | Promise<void>;
   onEditDay: (title: string, date: string) => void;
 };
 
@@ -52,8 +55,8 @@ export function DayItineraryCard({
   onAddDayBefore,
   onAddDayAfter,
   onToggleCollapse,
-  onToggleItemNoteEdit,
-  onSaveItemNote,
+  onToggleItemEdit,
+  onSaveItem,
   onEditDay,
 }: DayItineraryCardProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -289,8 +292,8 @@ export function DayItineraryCard({
                   key={item.id}
                   item={item}
                   onDelete={() => onDeleteItem(item.id)}
-                  onToggleNoteEdit={() => onToggleItemNoteEdit(item.id)}
-                  onSaveNote={(note) => onSaveItemNote(item.id, note)}
+                  onToggleEdit={() => onToggleItemEdit(item.id)}
+                  onSaveItem={(payload) => onSaveItem(item.id, payload)}
                 />
               ))
             )}
@@ -304,7 +307,7 @@ export function DayItineraryCard({
                 value={searchValue}
                 onChange={(event) => onSearchChange(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") {
+                  if (event.key === "Enter" && searchValue.trim()) {
                     onAddItem();
                   }
                 }}
@@ -313,7 +316,8 @@ export function DayItineraryCard({
               <button
                 type="button"
                 onClick={onAddItem}
-                className="bg-primary-500 hover:bg-primary-500/90 absolute right-2 flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors"
+                disabled={!searchValue.trim()}
+                className="bg-primary-500 hover:bg-primary-500/90 absolute right-2 flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors disabled:cursor-not-allowed disabled:bg-gray-300"
                 aria-label="Add location"
               >
                 <svg

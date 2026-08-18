@@ -33,11 +33,13 @@ CREATE TABLE IF NOT EXISTS itinerary_items (
     item_id TEXT PRIMARY KEY,                 -- VARCHAR / UUID
     itinerary_id TEXT NOT NULL,               -- FK to itineraries.itinerary_id
     item_name TEXT NOT NULL,                  -- VARCHAR
+    image_url TEXT,                           -- VARCHAR / optional image reference
+    itinerary_note TEXT,                      -- TEXT
+    position INTEGER DEFAULT 0,                -- item sequence in day
     type TEXT CHECK(type IN ('activity', 'food', 'lodging', 'transit', 'other')), -- ENUM
     reference_id TEXT,                        -- VARCHAR (External API / POI ID)
     destination TEXT,                         -- VARCHAR (Malaysia location / address)
     start_time TEXT,                          -- DATETIME (ISO8601 YYYY-MM-DD HH:MM)
     end_time TEXT,                            -- DATETIME (ISO8601 YYYY-MM-DD HH:MM)
-    itinerary_note TEXT,                      -- TEXT
     FOREIGN KEY (itinerary_id) REFERENCES itineraries(itinerary_id) ON DELETE CASCADE
 );

@@ -8,6 +8,7 @@ import {
   listItinerariesAction,
   updateItineraryAction,
 } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryApi";
+import { deleteItineraryItemAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemApi";
 import { listTripsAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
 import CreateItineraryModal from "../components/CreateItineraryModal";
 import {
@@ -21,6 +22,22 @@ import type { TripRecord } from "@/data_access_layer/02_Trip_Planning_&_Itinerar
 
 type RouteParams = {
   tripId?: string | string[];
+};
+
+type ItemApiPayload = {
+  id?: string;
+  item_id?: string;
+  place?: string;
+  name?: string;
+  item_name?: string;
+  destination?: string;
+  image?: string;
+  image_url?: string;
+  note?: string;
+  itinerary_note?: string;
+  position?: number;
+  order_index?: number;
+  type?: string;
 };
 
 function formatTripDate(value: string | null) {
@@ -51,6 +68,40 @@ function addDaysToDate(date: string, days: number) {
   return parsed.toISOString().slice(0, 10);
 }
 
+const defaultItemImage =
+  "https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&w=400&q=80";
+
+function sortDayItems(items: DayItinerary["items"]) {
+  return [...items].sort((left, right) => {
+    const leftPosition = left.position ?? left.order_index ?? Number.MAX_SAFE_INTEGER;
+    const rightPosition = right.position ?? right.order_index ?? Number.MAX_SAFE_INTEGER;
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function mapItemResponse(
+  item: ItemApiPayload,
+  fallbackName: string,
+  fallbackImage = defaultItemImage
+) {
+  const position = item.position ?? item.order_index;
+
+  return {
+    id: item.id ?? item.item_id ?? `${fallbackName}-${Date.now()}`,
+    name: item.name ?? item.item_name ?? item.place ?? fallbackName,
+    image: item.image ?? item.image_url ?? fallbackImage,
+    note: item.note ?? item.itinerary_note ?? undefined,
+    position,
+    order_index: item.order_index ?? item.position ?? position,
+    isEditingItem: false,
+  };
+}
+
 function createDayState(
   itinerary: ItineraryRecord,
   index: number
@@ -60,14 +111,15 @@ function createDayState(
     title: itinerary.title || `Day ${index + 1}`,
     date: itinerary.date,
     isCollapsed: false,
-    items: [
+    items: sortDayItems([
       {
         id: `${itinerary.itinerary_id}-sample`,
         name: itinerary.title || `Day ${index + 1}`,
-        image:
-          "https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&w=400&q=80",
+        image: defaultItemImage,
+        position: 1,
+        order_index: 1,
       },
-    ],
+    ]),
   };
 }
 
@@ -214,49 +266,134 @@ export default function TripItineraryPage() {
     });
   };
 
-  const handleAddItem = (dayId: string) => {
+  const handleAddItem = async (dayId: string) => {
     const query = searchInputs[dayId]?.trim();
     if (!query) {
+      setToastMessage("Place Not Found!");
       return;
     }
 
-    setDayCards((previous) =>
-      previous.map((day) => {
-        if (day.id !== dayId) {
-          return day;
+    if (dayId.startsWith("local-")) {
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          const newItem = {
+            id: `${day.id}-${Date.now()}`,
+            name: query,
+            image: defaultItemImage,
+            note: undefined,
+            position: day.items.length + 1,
+            order_index: day.items.length + 1,
+            isEditingItem: false,
+          };
+
+          return {
+            ...day,
+            items: sortDayItems([...day.items, newItem]),
+          };
+        })
+      );
+
+      setSearchInputs((previous) => ({ ...previous, [dayId]: "" }));
+      setToastMessage("Place Added!");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/itineraries/${encodeURIComponent(dayId)}/items`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            place: query,
+            image: defaultItemImage,
+            note: "",
+          }),
         }
+      );
 
-        return {
-          ...day,
-          items: [
-            ...day.items,
-            {
-              id: `${day.id}-${Date.now()}`,
-              name: query,
-              image:
-                "https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&w=400&q=80",
-            },
-          ],
-        };
-      })
-    );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        item?: ItemApiPayload;
+      };
 
-    setSearchInputs((previous) => ({ ...previous, [dayId]: "" }));
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Failed to add item");
+      }
+
+      const item = payload.item;
+      const newItem = mapItemResponse(item ?? {}, query);
+
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: sortDayItems([...day.items, newItem]),
+          };
+        })
+      );
+
+      setSearchInputs((previous) => ({ ...previous, [dayId]: "" }));
+      setToastMessage("Place Added!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to add item"
+      );
+    }
   };
 
-  const handleDeleteItem = (dayId: string, itemId: string) => {
-    setDayCards((previous) =>
-      previous.map((day) => {
-        if (day.id !== dayId) {
-          return day;
-        }
+  const handleDeleteItem = async (dayId: string, itemId: string) => {
+    if (itemId.endsWith("-sample") || itemId.startsWith("local-")) {
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
 
-        return {
-          ...day,
-          items: day.items.filter((item) => item.id !== itemId),
-        };
-      })
-    );
+          return {
+            ...day,
+            items: day.items.filter((item) => item.id !== itemId),
+          };
+        })
+      );
+      setToastMessage("Item removed from itinerary!");
+      return;
+    }
+
+    try {
+      await deleteItineraryItemAction({
+        itineraryId: dayId,
+        itemId,
+      });
+
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: day.items.filter((item) => item.id !== itemId),
+          };
+        })
+      );
+      setToastMessage("Item removed from itinerary!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to delete item"
+      );
+    }
   };
 
   const handleDeleteDay = async (dayId: string) => {
@@ -373,7 +510,7 @@ export default function TripItineraryPage() {
     );
   };
 
-  const handleToggleItemNoteEdit = (dayId: string, itemId: string) => {
+  const handleToggleItemEdit = (dayId: string, itemId: string) => {
     setDayCards((previous) =>
       previous.map((day) => {
         if (day.id !== dayId) {
@@ -389,7 +526,7 @@ export default function TripItineraryPage() {
 
             return {
               ...item,
-              isEditingNote: !item.isEditingNote,
+              isEditingItem: !item.isEditingItem,
             };
           }),
         };
@@ -397,29 +534,130 @@ export default function TripItineraryPage() {
     );
   };
 
-  const handleSaveItemNote = (dayId: string, itemId: string, note: string) => {
-    setDayCards((previous) =>
-      previous.map((day) => {
-        if (day.id !== dayId) {
-          return day;
-        }
+  const handleSaveItem = async (
+    dayId: string,
+    itemId: string,
+    payload: { name: string; note: string; position?: number }
+  ) => {
+    const trimmedName = payload.name.trim();
 
-        return {
-          ...day,
-          items: day.items.map((item) => {
-            if (item.id !== itemId) {
-              return item;
-            }
+    if (!trimmedName) {
+      setToastMessage("Itinerary item name is required");
+      return;
+    }
 
-            return {
-              ...item,
-              note,
-              isEditingNote: false,
-            };
+    const applyLocalUpdate = () => {
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: sortDayItems(
+              day.items.map((item) => {
+                if (item.id !== itemId) {
+                  return item;
+                }
+
+                return {
+                  ...item,
+                  name: trimmedName,
+                  note: payload.note,
+                  position: payload.position ?? item.position,
+                  order_index: payload.position ?? item.order_index,
+                  isEditingItem: false,
+                };
+              })
+            ),
+          };
+        })
+      );
+    };
+
+    if (itemId.endsWith("-sample") || itemId.startsWith("local-")) {
+      applyLocalUpdate();
+      setToastMessage("Itinerary item updated!");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/itineraries/${encodeURIComponent(dayId)}/items/${encodeURIComponent(itemId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: trimmedName,
+            note: payload.note,
+            position: payload.position,
           }),
-        };
-      })
-    );
+        }
+      );
+
+      const responsePayload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        item?: ItemApiPayload;
+      };
+
+      if (!response.ok) {
+        throw new Error(responsePayload.error ?? "Failed to update item");
+      }
+
+      const updatedItem = responsePayload.item ?? {};
+      const updatedPosition = updatedItem.position ?? updatedItem.order_index;
+
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: sortDayItems(
+              day.items.map((item) => {
+                if (item.id !== itemId) {
+                  return item;
+                }
+
+                return {
+                  ...item,
+                  name:
+                    updatedItem.name ??
+                    updatedItem.item_name ??
+                    updatedItem.place ??
+                    trimmedName,
+                  image:
+                    updatedItem.image ??
+                    updatedItem.image_url ??
+                    item.image,
+                  note:
+                    updatedItem.note ??
+                    updatedItem.itinerary_note ??
+                    undefined,
+                  position: updatedPosition ?? payload.position ?? item.position,
+                  order_index:
+                    updatedItem.order_index ??
+                    updatedItem.position ??
+                    payload.position ??
+                    item.order_index,
+                  isEditingItem: false,
+                };
+              })
+            ),
+          };
+        })
+      );
+      setToastMessage("Itinerary item updated!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to update item"
+      );
+    }
   };
 
   const tripTitle = trip?.trip_name ?? "Trip itinerary";
@@ -523,7 +761,7 @@ export default function TripItineraryPage() {
                   }))
                 }
                 onAddItem={() => handleAddItem(day.id)}
-                onDeleteItem={(itemId) => handleDeleteItem(day.id, itemId)}
+                onDeleteItem={(itemId) => void handleDeleteItem(day.id, itemId)}
                 onDeleteDay={() => {
                   void handleDeleteDay(day.id);
                 }}
@@ -532,11 +770,11 @@ export default function TripItineraryPage() {
                 onToggleCollapse={(collapseValue) =>
                   handleToggleCollapse(day.id, collapseValue)
                 }
-                onToggleItemNoteEdit={(itemId) =>
-                  handleToggleItemNoteEdit(day.id, itemId)
+                onToggleItemEdit={(itemId) =>
+                  handleToggleItemEdit(day.id, itemId)
                 }
-                onSaveItemNote={(itemId, note) =>
-                  handleSaveItemNote(day.id, itemId, note)
+                onSaveItem={(itemId, payload) =>
+                  handleSaveItem(day.id, itemId, payload)
                 }
                 onEditDay={(nextTitle, nextDate) =>
                   void handleEditDay(day.id, nextTitle, nextDate)
