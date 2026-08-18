@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTripNavigationStore } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import { useTripNavigationStore } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 
 export default function ExportRouteClient() {
   const { origin, destination, savedRoutes } = useTripNavigationStore();

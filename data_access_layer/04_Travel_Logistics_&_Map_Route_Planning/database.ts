@@ -9,7 +9,7 @@
  * These functions are prepared for Sprint 3 when we move to full database backend
  */
 
-import type { SavedRoute, Vehicle } from './useTripNavigationStore';
+import type { SavedRoute, Vehicle } from '@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
 
 /**
  * API endpoint base - update this when backend is ready

@@ -16,11 +16,11 @@ import type { LatLngExpression, LeafletMouseEvent } from "leaflet";
 
 const AnyMapContainer = MapContainer as unknown as ComponentType<any>;
 const AnyTileLayer = TileLayer as unknown as ComponentType<any>;
-import { useTripNavigationStore } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import { useTripNavigationStore } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 import type {
   Stop,
   VehicleType,
-} from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+} from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 import RouteAnalysisClient from "./RouteAnalysisClient";
 import SavedRoutesClient from "./SavedRoutesClient";
 import ExportRouteClient from "./ExportRouteClient";

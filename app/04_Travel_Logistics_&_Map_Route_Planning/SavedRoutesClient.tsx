@@ -1,6 +1,6 @@
 "use client";
 
-import { useTripNavigationStore } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import { useTripNavigationStore } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 import { useShallow } from 'zustand/react/shallow';
 
 export default function SavedRoutesClient({
