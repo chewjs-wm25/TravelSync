@@ -14,6 +14,7 @@ type ItineraryRecord = {
   trip_id: string;
   title: string;
   date: string;
+  note?: string | null;
 };
 
 type CreateItineraryModalProps = {
@@ -84,6 +85,7 @@ export default function CreateItineraryModal({
   const [date, setDate] = useState(() =>
     trip ? getDefaultDate(trip, itineraries) : ""
   );
+  const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
@@ -92,6 +94,11 @@ export default function CreateItineraryModal({
     if (!isOpen || !trip) {
       return;
     }
+
+    setTitle(getDefaultTitle(trip, itineraries));
+    setDate(getDefaultDate(trip, itineraries));
+    setNote("");
+    setErrorMessage("");
 
     window.setTimeout(() => {
       titleRef.current?.focus();
@@ -158,6 +165,7 @@ export default function CreateItineraryModal({
             tripId: trip.trip_id,
             title,
             date,
+            note,
           }),
         }
       );
@@ -277,6 +285,19 @@ export default function CreateItineraryModal({
                 required
               />
               <p className="text-xs text-gray-500">{dateHint}</p>
+            </label>
+
+            <label className="space-y-2 md:col-span-2">
+              <span className="text-sm font-semibold text-gray-700">
+                Itinerary Note
+              </span>
+              <textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                rows={4}
+                placeholder="Add reminders, route context, or day-specific notes"
+                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
+              />
             </label>
           </div>
 

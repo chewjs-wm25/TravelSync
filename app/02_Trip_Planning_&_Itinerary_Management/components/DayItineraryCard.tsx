@@ -8,6 +8,7 @@ export type DayItinerary = {
   id: string;
   title: string;
   date: string;
+  note?: string | null;
   isCollapsed?: boolean;
   items: ItineraryItem[];
 };
@@ -27,6 +28,7 @@ type DayItineraryCardProps = {
     itemId: string,
     payload: { name: string; note: string; position?: number }
   ) => void | Promise<void>;
+  onSaveNote: (note: string) => Promise<boolean> | boolean;
   onEditDay: (title: string, date: string) => void;
 };
 
@@ -57,12 +59,16 @@ export function DayItineraryCard({
   onToggleCollapse,
   onToggleItemEdit,
   onSaveItem,
+  onSaveNote,
   onEditDay,
 }: DayItineraryCardProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(day.title);
   const [draftDate, setDraftDate] = useState(day.date);
+  const [draftNote, setDraftNote] = useState(day.note ?? "");
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [isSavingNote, setIsSavingNote] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,10 +87,34 @@ export function DayItineraryCard({
     };
   }, []);
 
+  const handleOpenNoteEditor = () => {
+    setDraftNote(day.note ?? "");
+    setIsEditingNote(true);
+  };
+
+  const handleSaveNote = async (nextNote: string) => {
+    setIsSavingNote(true);
+
+    try {
+      const wasSaved = await onSaveNote(nextNote);
+      if (wasSaved) {
+        setIsEditingNote(false);
+        setDraftNote(nextNote);
+      }
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
   return (
     <div className="flex flex-col rounded-2xl border border-gray-200 bg-gray-50/50 p-5 shadow-2xs">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-gray-800">{day.title}</h3>
+        <div>
+          <h3 className="text-base font-bold text-gray-800">{day.title}</h3>
+          <div className="mt-1 text-xs font-semibold tracking-[0.18em] text-[#ff6b6b] uppercase">
+            {formatDate(day.date)}
+          </div>
+        </div>
 
         <div ref={dropdownRef} className="relative">
           <button
@@ -274,8 +304,86 @@ export function DayItineraryCard({
           </div>
         </div>
       ) : (
-        <div className="text-primary-500 mt-2 text-xs font-semibold tracking-[0.2em] uppercase">
-          {formatDate(day.date)}
+        <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-white/70 p-3">
+          {isEditingNote ? (
+            <div className="space-y-3">
+              <label className="block space-y-1 text-xs font-semibold text-gray-700">
+                <span>Itinerary Note</span>
+                <textarea
+                  rows={4}
+                  value={draftNote}
+                  onChange={(event) => setDraftNote(event.target.value)}
+                  placeholder="Add reminders or day-specific context"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20"
+                  disabled={isSavingNote}
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isSavingNote) {
+                      setDraftNote(day.note ?? "");
+                      setIsEditingNote(false);
+                    }
+                  }}
+                  disabled={isSavingNote}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleSaveNote(draftNote);
+                  }}
+                  disabled={isSavingNote}
+                  className="rounded-lg bg-[#ff6b6b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:bg-gray-300"
+                >
+                  {isSavingNote ? "Saving..." : "Save Note"}
+                </button>
+              </div>
+            </div>
+          ) : day.note ? (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#ff6b6b] uppercase">
+                  Itinerary Note
+                </p>
+                <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-gray-700">
+                  {day.note}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleOpenNoteEditor}
+                  className="text-right text-xs font-medium text-[#ff6b6b] hover:underline"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleSaveNote("");
+                  }}
+                  disabled={isSavingNote}
+                  className="text-right text-xs font-medium text-red-500 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleOpenNoteEditor}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-[#ff6b6b] hover:underline"
+            >
+              <span className="text-base leading-none">+</span>
+              Add Itinerary Note
+            </button>
+          )}
         </div>
       )}
 

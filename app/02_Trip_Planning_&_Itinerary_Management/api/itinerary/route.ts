@@ -13,6 +13,7 @@ async function handleCreate(request: Request) {
       tripId: typeof body.tripId === "string" ? body.tripId : null,
       title: typeof body.title === "string" ? body.title : null,
       date: typeof body.date === "string" ? body.date : null,
+      note: typeof body.note === "string" ? body.note : null,
     });
 
     return NextResponse.json({ itinerary }, { status: 201 });
@@ -56,6 +57,7 @@ async function handleUpdate(request: Request) {
         typeof body.itineraryId === "string" ? body.itineraryId : null,
       title: typeof body.title === "string" ? body.title : null,
       date: typeof body.date === "string" ? body.date : null,
+      note: typeof body.note === "string" ? body.note : null,
     });
 
     return NextResponse.json({ itinerary });

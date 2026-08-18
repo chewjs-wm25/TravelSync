@@ -7,6 +7,10 @@ import {
   type ItineraryItemRecord,
 } from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
 import { getItineraryById } from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
+import {
+  hasMalaysiaBlocklistMatch,
+  normalizeText,
+} from "./textValidation";
 
 export type ItineraryItemServiceInput = {
   itineraryId?: string | null;
@@ -59,11 +63,6 @@ export type DeleteItineraryItemResult =
   | DeleteItineraryItemSuccess
   | ItineraryItemServiceFailure;
 
-function normalizeText(value: string | null | undefined) {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : null;
-}
-
 function normalizeUpdatePosition(
   value: number | string | null | undefined
 ): number | null {
@@ -104,6 +103,14 @@ export function validateItineraryItemPayload(
   const place = normalizeText(input.place ?? input.name ?? input.destination);
   const image = normalizeText(input.image);
   const note = normalizeText(input.note);
+
+  if (note && hasMalaysiaBlocklistMatch(note)) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary item note must stay within Malaysia",
+    };
+  }
 
   if (!resolvedItineraryId) {
     return {
@@ -250,6 +257,16 @@ export async function updateItineraryItemById(
   }
 
   const normalizedName = hasNameUpdate ? normalizeText(input.name) : null;
+  const normalizedNote = hasNoteUpdate ? normalizeText(input.note) : null;
+
+  if (hasNoteUpdate && normalizedNote && hasMalaysiaBlocklistMatch(normalizedNote)) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary item note must stay within Malaysia",
+    };
+  }
+
   if (hasNameUpdate && !normalizedName) {
     return {
       ok: false,
@@ -281,7 +298,7 @@ export async function updateItineraryItemById(
     normalizedUpdates.item_name = normalizedName;
   }
   if (hasNoteUpdate) {
-    normalizedUpdates.itinerary_note = normalizeText(input.note) ?? "";
+    normalizedUpdates.itinerary_note = normalizedNote ?? "";
   }
   if (hasImageUpdate) {
     normalizedUpdates.image_url = normalizeText(input.image) ?? "";

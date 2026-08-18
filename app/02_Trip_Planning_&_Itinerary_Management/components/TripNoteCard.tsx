@@ -1,50 +1,85 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type TripNoteCardProps = {
-  initialNote?: string;
+  note: string;
+  onSaveNote: (note: string) => Promise<boolean> | boolean;
 };
 
-export function TripNoteCard({ initialNote = "" }: TripNoteCardProps) {
-  const [noteText, setNoteText] = useState(initialNote);
+export function TripNoteCard({ note, onSaveNote }: TripNoteCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
-  const [tempNoteText, setTempNoteText] = useState(initialNote);
+  const [draftNote, setDraftNote] = useState(note);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEditingNote) {
+      setDraftNote(note);
+    }
+  }, [note, isEditingNote]);
 
   const handleOpenNoteField = () => {
-    setTempNoteText(noteText);
+    setDraftNote(note);
     setIsEditingNote(true);
   };
 
-  const handleSaveNote = () => {
-    setNoteText(tempNoteText);
-    setIsEditingNote(false);
-  };
+  const handleSaveNote = async (nextNote: string) => {
+    setIsSaving(true);
 
-  const handleClearNote = () => {
-    setNoteText("");
-    setTempNoteText("");
-    setIsEditingNote(false);
+    try {
+      const wasSaved = await onSaveNote(nextNote);
+      if (wasSaved) {
+        setIsEditingNote(false);
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-800">Notes</h2>
+        <div>
+          <p className="text-xs font-semibold tracking-[0.2em] text-[#ff6b6b] uppercase">
+            Travel Notes
+          </p>
+          <h2 className="mt-1 text-lg font-bold text-gray-800">Trip Note</h2>
+        </div>
 
         {isEditingNote ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void handleSaveNote(draftNote);
+              }}
+              disabled={isSaving}
+              className="rounded-xl bg-[#ff6b6b] px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isSaving) {
+                  setDraftNote(note);
+                  setIsEditingNote(false);
+                }
+              }}
+              disabled={isSaving}
+              className="rounded-xl border border-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : note ? (
           <button
             type="button"
-            onClick={handleSaveNote}
-            className="rounded-xl bg-[#ff6b6b] px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#ff5252]"
-          >
-            Save
-          </button>
-        ) : noteText ? (
-          <button
-            type="button"
-            onClick={handleClearNote}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600"
+            onClick={() => {
+              void handleSaveNote("");
+            }}
+            disabled={isSaving}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Clear Note"
             title="Clear Note"
           >
@@ -66,7 +101,7 @@ export function TripNoteCard({ initialNote = "" }: TripNoteCardProps) {
           <button
             type="button"
             onClick={handleOpenNoteField}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200"
             aria-label="Add Note"
             title="Add Note"
           >
@@ -78,27 +113,34 @@ export function TripNoteCard({ initialNote = "" }: TripNoteCardProps) {
       {isEditingNote ? (
         <div className="mt-4">
           <textarea
-            rows={3}
-            value={tempNoteText}
-            onChange={(event) => setTempNoteText(event.target.value)}
+            rows={4}
+            value={draftNote}
+            onChange={(event) => setDraftNote(event.target.value)}
             placeholder="Write your trip notes here..."
             className="w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-800 focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 focus:outline-none"
+            disabled={isSaving}
           />
         </div>
-      ) : noteText ? (
-        <div className="group relative mt-3 flex items-start justify-between rounded-xl bg-gray-50 p-4">
+      ) : note ? (
+        <div className="mt-3 rounded-xl bg-gray-50 p-4">
           <p className="text-sm whitespace-pre-wrap text-gray-700">
-            {noteText}
+            {note}
           </p>
-          <button
-            type="button"
-            onClick={handleOpenNoteField}
-            className="ml-2 text-xs font-medium text-[#ff6b6b] hover:underline"
-          >
-            Edit
-          </button>
+          <div className="mt-3 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleOpenNoteField}
+              className="text-xs font-medium text-[#ff6b6b] hover:underline"
+            >
+              Edit
+            </button>
+          </div>
         </div>
-      ) : null}
+      ) : (
+        <p className="mt-4 text-sm text-gray-500">
+          Keep a short Malaysia trip summary, reminder, or plan here.
+        </p>
+      )}
     </div>
   );
 }

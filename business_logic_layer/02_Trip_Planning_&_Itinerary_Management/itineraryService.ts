@@ -6,11 +6,16 @@ import {
   updateItinerary as updateItineraryInRepository,
   type CreateItineraryInput,
   type ItineraryRecord,
+  type UpdateItineraryInput as ItineraryRepositoryUpdateInput,
 } from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 import {
   getTripById,
   type TripRecord,
 } from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
+import {
+  hasMalaysiaBlocklistMatch,
+  normalizeText,
+} from "./textValidation";
 
 const MAX_ITINERARY_TITLE_LENGTH = 60;
 
@@ -18,6 +23,7 @@ export type ItineraryServiceInput = {
   tripId?: string | null;
   title?: string | null;
   date?: string | null;
+  note?: string | null;
 };
 
 type ItineraryServiceSuccess = {
@@ -42,6 +48,7 @@ export type UpdateItineraryInput = {
   itineraryId?: string | null;
   title?: string | null;
   date?: string | null;
+  note?: string | null;
 };
 
 type DeleteItinerarySuccess = {
@@ -59,11 +66,6 @@ export type DeleteItineraryResult =
 export type UpdateItineraryResult =
   UpdateItinerarySuccess | ItineraryServiceFailure;
 
-function normalizeText(value: string | null | undefined) {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : null;
-}
-
 function isValidIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -80,6 +82,18 @@ function isDateWithinTripWindow(date: string, trip: TripRecord) {
   }
 
   return date >= trip.start_date && date <= trip.end_date;
+}
+
+function validateMalaysiaScope(note: string | null) {
+  if (note && hasMalaysiaBlocklistMatch(note)) {
+    return {
+      ok: false as const,
+      status: 400,
+      message: "Itinerary note must stay within Malaysia",
+    };
+  }
+
+  return { ok: true as const };
 }
 
 export function getItinerarySeedDate(
@@ -113,7 +127,7 @@ export function getItinerarySeedTitle(
   return `Day ${itineraries.length + 1} - ${tripName}`;
 }
 
-export function validateItineraryPayload(
+function validateCreateItineraryPayload(
   trip: TripRecord | null,
   input: ItineraryServiceInput
 ):
@@ -122,6 +136,7 @@ export function validateItineraryPayload(
   const tripId = normalizeText(input.tripId);
   const title = normalizeText(input.title);
   const date = normalizeText(input.date);
+  const note = normalizeText(input.note);
 
   if (!tripId) {
     return {
@@ -163,6 +178,13 @@ export function validateItineraryPayload(
     };
   }
 
+  if (note) {
+    const malaysiaScopeValidation = validateMalaysiaScope(note);
+    if (!malaysiaScopeValidation.ok) {
+      return malaysiaScopeValidation;
+    }
+  }
+
   if (!trip) {
     return {
       ok: false,
@@ -194,7 +216,112 @@ export function validateItineraryPayload(
       tripId,
       title,
       date,
+      note: note ?? null,
     },
+  };
+}
+
+function validateUpdateItineraryPayload(
+  trip: TripRecord | null,
+  existingItinerary: ItineraryRecord | null,
+  input: UpdateItineraryInput
+):
+  | {
+      ok: true;
+      itineraryId: string;
+      normalized: ItineraryRepositoryUpdateInput;
+    }
+  | ItineraryServiceFailure {
+  const itineraryId = normalizeText(input.itineraryId);
+  const title = normalizeText(input.title);
+  const date = normalizeText(input.date);
+  const hasNoteUpdate = input.note !== undefined;
+  const note = hasNoteUpdate ? normalizeText(input.note) : undefined;
+
+  if (!itineraryId) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary ID is required",
+    };
+  }
+
+  if (!existingItinerary) {
+    return {
+      ok: false,
+      status: 404,
+      message: "Itinerary not found",
+    };
+  }
+
+  if (!title) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary title is required",
+    };
+  }
+
+  if (title.length > MAX_ITINERARY_TITLE_LENGTH) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary title must be 60 characters or fewer",
+    };
+  }
+
+  if (!date) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Itinerary date is required",
+    };
+  }
+
+  if (!isValidIsoDate(date)) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Invalid date!",
+    };
+  }
+
+  if (note) {
+    const malaysiaScopeValidation = validateMalaysiaScope(note);
+    if (!malaysiaScopeValidation.ok) {
+      return malaysiaScopeValidation;
+    }
+  }
+
+  if (!trip || !trip.start_date || !trip.end_date) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Invalid date!",
+    };
+  }
+
+  if (!isDateWithinTripWindow(date, trip)) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Invalid date!",
+    };
+  }
+
+  const normalized: ItineraryRepositoryUpdateInput = {
+    title,
+    date,
+  };
+
+  if (hasNoteUpdate) {
+    normalized.note = note ?? null;
+  }
+
+  return {
+    ok: true,
+    itineraryId,
+    normalized,
   };
 }
 
@@ -213,7 +340,7 @@ export async function createItinerary(
   }
 
   const trip = await getTripById(db, tripId);
-  const validation = validateItineraryPayload(trip ?? null, input);
+  const validation = validateCreateItineraryPayload(trip ?? null, input);
 
   if (!validation.ok) {
     return validation;
@@ -281,11 +408,13 @@ export async function updateItinerary(
   db: D1Database,
   input: UpdateItineraryInput
 ): Promise<UpdateItineraryResult> {
-  const itineraryId = normalizeText(input.itineraryId);
+  const tripId = normalizeText(input.itineraryId);
   const title = normalizeText(input.title);
   const date = normalizeText(input.date);
+  const hasNoteUpdate = input.note !== undefined;
+  const note = hasNoteUpdate ? normalizeText(input.note) : undefined;
 
-  if (!itineraryId) {
+  if (!tripId) {
     return {
       ok: false,
       status: 400,
@@ -293,7 +422,7 @@ export async function updateItinerary(
     };
   }
 
-  const existingItinerary = await getItineraryById(db, itineraryId);
+  const existingItinerary = await getItineraryById(db, tripId);
   if (!existingItinerary) {
     return {
       ok: false,
@@ -334,6 +463,13 @@ export async function updateItinerary(
     };
   }
 
+  if (note) {
+    const malaysiaScopeValidation = validateMalaysiaScope(note);
+    if (!malaysiaScopeValidation.ok) {
+      return malaysiaScopeValidation;
+    }
+  }
+
   const trip = await getTripById(db, existingItinerary.trip_id);
   if (!trip || !trip.start_date || !trip.end_date) {
     return {
@@ -353,9 +489,12 @@ export async function updateItinerary(
 
   const wasUpdated = await updateItineraryInRepository(
     db,
-    itineraryId,
-    title,
-    date
+    tripId,
+    {
+      title,
+      date,
+      ...(hasNoteUpdate ? { note: note ?? null } : {}),
+    }
   );
 
   if (!wasUpdated) {
@@ -366,7 +505,7 @@ export async function updateItinerary(
     };
   }
 
-  const itinerary = await getItineraryById(db, itineraryId);
+  const itinerary = await getItineraryById(db, tripId);
   if (!itinerary) {
     return {
       ok: false,

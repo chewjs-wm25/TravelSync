@@ -3,12 +3,20 @@ export type ItineraryRecord = {
   trip_id: string;
   title: string;
   date: string;
+  note: string | null;
 };
 
 export type CreateItineraryInput = {
   tripId: string;
   title: string;
   date: string;
+  note: string | null;
+};
+
+export type UpdateItineraryInput = {
+  title?: string;
+  date?: string;
+  note?: string | null;
 };
 
 export async function createItinerary(
@@ -23,10 +31,11 @@ export async function createItinerary(
         itinerary_id,
         trip_id,
         title,
-        date
-      ) VALUES (?, ?, ?, ?)`
+        date,
+        itinerary_note
+      ) VALUES (?, ?, ?, ?, ?)`
     )
-    .bind(itineraryId, input.tripId, input.title, input.date)
+    .bind(itineraryId, input.tripId, input.title, input.date, input.note)
     .run();
 
   return {
@@ -34,6 +43,7 @@ export async function createItinerary(
     trip_id: input.tripId,
     title: input.title,
     date: input.date,
+    note: input.note,
   };
 }
 
@@ -44,7 +54,8 @@ export async function getItineraryById(db: D1Database, itineraryId: string) {
         itinerary_id,
         trip_id,
         title,
-        date
+        date,
+        itinerary_note AS note
       FROM itineraries
       WHERE itinerary_id = ?`
     )
@@ -59,7 +70,8 @@ export async function getItinerariesByTripId(db: D1Database, tripId: string) {
         itinerary_id,
         trip_id,
         title,
-        date
+        date,
+        itinerary_note AS note
       FROM itineraries
       WHERE trip_id = ?
       ORDER BY date ASC, title ASC, itinerary_id ASC`
@@ -88,16 +100,37 @@ export async function deleteItinerary(
 export async function updateItinerary(
   db: D1Database,
   itineraryId: string,
-  title: string,
-  date: string
+  updates: UpdateItineraryInput
 ): Promise<boolean> {
+  const setClauses: string[] = [];
+  const values: Array<string | number | null> = [];
+
+  if (typeof updates.title === 'string') {
+    setClauses.push('title = ?');
+    values.push(updates.title);
+  }
+
+  if (typeof updates.date === 'string') {
+    setClauses.push('date = ?');
+    values.push(updates.date);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'note')) {
+    setClauses.push('itinerary_note = ?');
+    values.push(updates.note ?? null);
+  }
+
+  if (setClauses.length === 0) {
+    return false;
+  }
+
   const result = await db
     .prepare(
       `UPDATE itineraries
-      SET title = ?, date = ?
+      SET ${setClauses.join(", ")}
       WHERE itinerary_id = ?`
     )
-    .bind(title, date, itineraryId)
+    .bind(...values, itineraryId)
     .run();
 
   return (result.meta?.changes ?? 0) > 0;

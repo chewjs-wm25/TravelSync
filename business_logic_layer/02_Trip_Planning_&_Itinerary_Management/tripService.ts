@@ -7,36 +7,13 @@ import {
   type TripRecord,
   type UpdateTripInput as TripRepositoryUpdateInput,
 } from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
+import {
+  hasMalaysiaBlocklistMatch,
+  normalizeText,
+} from "./textValidation";
 
 export const DEFAULT_USER_ID = "usr_demo";
 const MAX_TRIP_NAME_LENGTH = 100;
-const MALAYSIA_BLOCKLIST = [
-  "singapore",
-  "thailand",
-  "indonesia",
-  "vietnam",
-  "japan",
-  "korea",
-  "south korea",
-  "china",
-  "taiwan",
-  "hong kong",
-  "bali",
-  "phuket",
-  "hanoi",
-  "tokyo",
-  "seoul",
-  "shanghai",
-  "paris",
-  "london",
-  "dubai",
-  "new york",
-  "los angeles",
-  "sydney",
-  "melbourne",
-  "bangkok",
-  "manila",
-];
 
 export type TripServiceInput = {
   userId?: string | null;
@@ -78,18 +55,8 @@ type DeleteTripSuccess = {
 
 export type DeleteTripResult = DeleteTripSuccess | TripServiceFailure;
 
-function normalizeText(value: string | null | undefined) {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : null;
-}
-
 function isValidIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function hasMalaysiaBlocklistMatch(value: string) {
-  const lowered = value.toLowerCase();
-  return MALAYSIA_BLOCKLIST.some((entry) => lowered.includes(entry));
 }
 
 export function validateTripPayload(input: TripServiceInput):

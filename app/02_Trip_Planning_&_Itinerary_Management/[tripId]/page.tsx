@@ -9,7 +9,10 @@ import {
   updateItineraryAction,
 } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryApi";
 import { deleteItineraryItemAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemApi";
-import { listTripsAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
+import {
+  listTripsAction,
+  updateTripAction,
+} from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
 import CreateItineraryModal from "../components/CreateItineraryModal";
 import {
   DayItineraryCard,
@@ -110,6 +113,7 @@ function createDayState(
     id: itinerary.itinerary_id,
     title: itinerary.title || `Day ${index + 1}`,
     date: itinerary.date,
+    note: itinerary.note ?? null,
     isCollapsed: false,
     items: sortDayItems([
       {
@@ -217,6 +221,91 @@ export default function TripItineraryPage() {
     setToastMessage("Invalid date!");
   };
 
+  const handleSaveTripNote = async (note: string) => {
+    if (!trip) {
+      return false;
+    }
+
+    try {
+      const updatedTrip = await updateTripAction({
+        tripId: trip.trip_id,
+        userId: trip.user_id,
+        tripName: trip.trip_name,
+        startDate: trip.start_date,
+        endDate: trip.end_date,
+        tripNote: note,
+      });
+
+      setTrip(updatedTrip);
+      setToastMessage(
+        note.trim().length > 0 ? "Trip note saved!" : "Trip note cleared!"
+      );
+      return true;
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to update trip note"
+      );
+      return false;
+    }
+  };
+
+  const handleSaveItineraryNote = async (dayId: string, note: string) => {
+    const currentDay = dayCards.find((day) => day.id === dayId);
+
+    if (!currentDay) {
+      return false;
+    }
+
+    if (dayId.startsWith("local-")) {
+      setDayCards((previous) =>
+        previous.map((day) =>
+          day.id === dayId ? { ...day, note: note.length > 0 ? note : null } : day
+        )
+      );
+      setToastMessage(
+        note.trim().length > 0
+          ? "Itinerary note saved!"
+          : "Itinerary note cleared!"
+      );
+      return true;
+    }
+
+    try {
+      const updatedItinerary = await updateItineraryAction({
+        itineraryId: dayId,
+        title: currentDay.title,
+        date: currentDay.date,
+        note,
+      });
+
+      setDayCards((previous) =>
+        previous.map((day) =>
+          day.id === dayId ? { ...day, note: updatedItinerary.note ?? null } : day
+        )
+      );
+      setItineraries((previous) =>
+        previous.map((itinerary) =>
+          itinerary.itinerary_id === dayId
+            ? { ...itinerary, note: updatedItinerary.note ?? null }
+            : itinerary
+        )
+      );
+      setToastMessage(
+        note.trim().length > 0
+          ? "Itinerary note saved!"
+          : "Itinerary note cleared!"
+      );
+      return true;
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update itinerary note"
+      );
+      return false;
+    }
+  };
+
   const handleAddDay = (position: "after" | "before" = "after") => {
     setDayCards((previous) => {
       if (previous.length === 0) {
@@ -226,6 +315,7 @@ export default function TripItineraryPage() {
           id: `local-${Date.now()}`,
           title: "Day 1",
           date: startDate,
+          note: null,
           isCollapsed: false,
           items: [],
         };
@@ -689,7 +779,10 @@ export default function TripItineraryPage() {
         endDate={tripEnd}
       />
 
-      <TripNoteCard initialNote={trip?.trip_note ?? ""} />
+      <TripNoteCard
+        note={trip?.trip_note ?? ""}
+        onSaveNote={handleSaveTripNote}
+      />
 
       <div className="space-y-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-100 pb-4">
@@ -776,6 +869,7 @@ export default function TripItineraryPage() {
                 onSaveItem={(itemId, payload) =>
                   handleSaveItem(day.id, itemId, payload)
                 }
+                onSaveNote={(note) => handleSaveItineraryNote(day.id, note)}
                 onEditDay={(nextTitle, nextDate) =>
                   void handleEditDay(day.id, nextTitle, nextDate)
                 }
