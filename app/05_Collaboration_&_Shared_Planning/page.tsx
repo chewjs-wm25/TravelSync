@@ -74,16 +74,7 @@ export default function CollaborationPage() {
     );
   }
 
-  if (!trip || !me) {
-    if (error) {
-      return (
-        <div className="rounded-2xl border border-error/30 bg-error/5 p-6 text-sm text-error">
-          无法连接数据库：{error}
-        </div>
-      );
-    }
-    return null;
-  }
+  if (!trip || !me) return null;
 
   const canComment = can(me.role, "comment");
   const canInvite = can(me.role, "invite");
@@ -143,6 +134,17 @@ export default function CollaborationPage() {
             )}
           </div>
         </div>
+
+        {/* ─── Demo fallback notice (local DB unavailable) ─── */}
+        {error && (
+          <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-xs leading-relaxed text-warning">
+            <ShieldCheck size={16} className="mt-0.5 shrink-0" />
+            <div>
+              <b>演示模式：</b>本地数据库暂不可用，当前展示内置演示数据，写入操作不可用。
+              在项目根目录运行 <code className="rounded bg-warning/20 px-1">npm run dev</code> 会自动初始化真实数据库。
+            </div>
+          </div>
+        )}
 
         {/* ─── Demo Identity Switcher ─── */}
         <DemoIdentitySwitcher />

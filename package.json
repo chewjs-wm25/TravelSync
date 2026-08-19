@@ -11,7 +11,8 @@
     "lint": "eslint",
     "deploy": "opennextjs-cloudflare && wrangler deploy",
     "build:worker": "opennextjs-cloudflare build",
-    "preview": "node -e \"const fs=require('fs'); fs.rmSync('.open-next', { recursive: true, force: true });\" && opennextjs-cloudflare build && opennextjs-cloudflare preview"
+    "preview": "node -e \"const fs=require('fs'); fs.rmSync('.open-next', { recursive: true, force: true });\" && opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "prepreview": "npm run db:init"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

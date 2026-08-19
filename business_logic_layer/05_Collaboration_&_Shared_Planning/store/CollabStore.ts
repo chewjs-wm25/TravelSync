@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab";
+import { buildFallbackTrip } from "./fallbackTrip";
 import type {
   CollabRole,
   InviteRole,
@@ -74,10 +75,13 @@ export const useCollabStore = create<CollabState>()((set, get) => ({
         ? get().activeTripId
         : (trips[0]?.id ?? "");
       set({ trips, activeTripId, loading: false });
-    } catch (e) {
+    } catch {
       set({
         loading: false,
-        error: e instanceof Error ? e.message : "Failed to load collaboration data.",
+        trips: [buildFallbackTrip(get().currentUserId)],
+        activeTripId: "trip_langkawi",
+        error:
+          "演示模式：本地数据库无数据，已加载内置演示数据（写入功能不可用）。运行 npm run dev 会自动初始化真实数据库。",
       });
     }
   },
