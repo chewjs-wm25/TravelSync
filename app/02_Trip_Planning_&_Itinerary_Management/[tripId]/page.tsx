@@ -1,0 +1,886 @@
+"use client";
+
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import {
+  deleteItineraryAction,
+  listItinerariesAction,
+  updateItineraryAction,
+} from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryApi";
+import { deleteItineraryItemAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryItemApi";
+import {
+  listTripsAction,
+  updateTripAction,
+} from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
+import CreateItineraryModal from "../components/CreateItineraryModal";
+import {
+  DayItineraryCard,
+  type DayItinerary,
+} from "../components/DayItineraryCard";
+import { TripInfoCard } from "../components/TripInfoCard";
+import { TripNoteCard } from "../components/TripNoteCard";
+import type { ItineraryRecord } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
+import type { TripRecord } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
+
+type RouteParams = {
+  tripId?: string | string[];
+};
+
+type ItemApiPayload = {
+  id?: string;
+  item_id?: string;
+  place?: string;
+  name?: string;
+  item_name?: string;
+  destination?: string;
+  image?: string;
+  image_url?: string;
+  note?: string;
+  itinerary_note?: string;
+  position?: number;
+  order_index?: number;
+  type?: string;
+};
+
+function formatTripDate(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  const parsed = new Date(`${year}-${month}-${day}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(parsed);
+}
+
+function addDaysToDate(date: string, days: number) {
+  const parsed = new Date(`${date}T00:00:00`);
+  parsed.setDate(parsed.getDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
+const defaultItemImage =
+  "https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&w=400&q=80";
+
+function sortDayItems(items: DayItinerary["items"]) {
+  return [...items].sort((left, right) => {
+    const leftPosition =
+      left.position ?? left.order_index ?? Number.MAX_SAFE_INTEGER;
+    const rightPosition =
+      right.position ?? right.order_index ?? Number.MAX_SAFE_INTEGER;
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function mapItemResponse(
+  item: ItemApiPayload,
+  fallbackName: string,
+  fallbackImage = defaultItemImage
+) {
+  const position = item.position ?? item.order_index;
+
+  return {
+    id: item.id ?? item.item_id ?? `${fallbackName}-${Date.now()}`,
+    name: item.name ?? item.item_name ?? item.place ?? fallbackName,
+    image: item.image ?? item.image_url ?? fallbackImage,
+    note: item.note ?? item.itinerary_note ?? undefined,
+    position,
+    order_index: item.order_index ?? item.position ?? position,
+    isEditingItem: false,
+  };
+}
+
+function createDayState(
+  itinerary: ItineraryRecord,
+  index: number
+): DayItinerary {
+  return {
+    id: itinerary.itinerary_id,
+    title: itinerary.title || `Day ${index + 1}`,
+    date: itinerary.date,
+    note: itinerary.note ?? null,
+    isCollapsed: false,
+    items: sortDayItems([
+      {
+        id: `${itinerary.itinerary_id}-sample`,
+        name: itinerary.title || `Day ${index + 1}`,
+        image: defaultItemImage,
+        position: 1,
+        order_index: 1,
+      },
+    ]),
+  };
+}
+
+export default function TripItineraryPage() {
+  const params = useParams<RouteParams>();
+  const tripId = Array.isArray(params.tripId)
+    ? params.tripId[0]
+    : params.tripId;
+  const [trip, setTrip] = useState<TripRecord | null>(null);
+  const [itineraries, setItineraries] = useState<ItineraryRecord[]>([]);
+  const [dayCards, setDayCards] = useState<DayItinerary[]>([]);
+  const [searchInputs, setSearchInputs] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWorkspace = async () => {
+      if (!tripId) {
+        if (isMounted) {
+          setTrip(null);
+          setItineraries([]);
+          setDayCards([]);
+          setIsLoading(false);
+        }
+
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const [trips, tripItineraries] = await Promise.all([
+          listTripsAction("usr_demo"),
+          listItinerariesAction(tripId),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const currentTrip =
+          trips.find((candidate) => candidate.trip_id === tripId) ?? null;
+        setTrip(currentTrip);
+        setItineraries(currentTrip ? tripItineraries : []);
+        setDayCards(
+          currentTrip
+            ? tripItineraries.map((itinerary, index) =>
+                createDayState(itinerary, index)
+              )
+            : []
+        );
+      } catch {
+        if (isMounted) {
+          setTrip(null);
+          setItineraries([]);
+          setDayCards([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadWorkspace();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [tripId, refreshCounter]);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toastMessage]);
+
+  const handleItineraryCreated = () => {
+    setIsCreateModalOpen(false);
+    setRefreshCounter((value) => value + 1);
+    setToastMessage("Itinerary added!");
+  };
+
+  const handleInvalidDate = () => {
+    setToastMessage("Invalid date!");
+  };
+
+  const handleSaveTripNote = async (note: string) => {
+    if (!trip) {
+      return false;
+    }
+
+    try {
+      const updatedTrip = await updateTripAction({
+        tripId: trip.trip_id,
+        userId: trip.user_id,
+        tripName: trip.trip_name,
+        startDate: trip.start_date,
+        endDate: trip.end_date,
+        tripNote: note,
+      });
+
+      setTrip(updatedTrip);
+      setToastMessage(
+        note.trim().length > 0 ? "Trip note saved!" : "Trip note cleared!"
+      );
+      return true;
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to update trip note"
+      );
+      return false;
+    }
+  };
+
+  const handleSaveItineraryNote = async (dayId: string, note: string) => {
+    const currentDay = dayCards.find((day) => day.id === dayId);
+
+    if (!currentDay) {
+      return false;
+    }
+
+    if (dayId.startsWith("local-")) {
+      setDayCards((previous) =>
+        previous.map((day) =>
+          day.id === dayId
+            ? { ...day, note: note.length > 0 ? note : null }
+            : day
+        )
+      );
+      setToastMessage(
+        note.trim().length > 0
+          ? "Itinerary note saved!"
+          : "Itinerary note cleared!"
+      );
+      return true;
+    }
+
+    try {
+      const updatedItinerary = await updateItineraryAction({
+        itineraryId: dayId,
+        title: currentDay.title,
+        date: currentDay.date,
+        note,
+      });
+
+      setDayCards((previous) =>
+        previous.map((day) =>
+          day.id === dayId
+            ? { ...day, note: updatedItinerary.note ?? null }
+            : day
+        )
+      );
+      setItineraries((previous) =>
+        previous.map((itinerary) =>
+          itinerary.itinerary_id === dayId
+            ? { ...itinerary, note: updatedItinerary.note ?? null }
+            : itinerary
+        )
+      );
+      setToastMessage(
+        note.trim().length > 0
+          ? "Itinerary note saved!"
+          : "Itinerary note cleared!"
+      );
+      return true;
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update itinerary note"
+      );
+      return false;
+    }
+  };
+
+  const handleAddDay = (position: "after" | "before" = "after") => {
+    setDayCards((previous) => {
+      if (previous.length === 0) {
+        const startDate =
+          trip?.start_date ?? new Date().toISOString().slice(0, 10);
+        const newDay: DayItinerary = {
+          id: `local-${Date.now()}`,
+          title: "Day 1",
+          date: startDate,
+          note: null,
+          isCollapsed: false,
+          items: [],
+        };
+        return [newDay];
+      }
+
+      if (position === "after") {
+        const lastDay = previous[previous.length - 1];
+        const nextDate = addDaysToDate(lastDay.date, 1);
+        const newDay: DayItinerary = {
+          id: `local-${Date.now()}`,
+          title: `Day ${previous.length + 1}`,
+          date: nextDate,
+          isCollapsed: false,
+          items: [],
+        };
+
+        return [...previous, newDay];
+      }
+
+      const firstDay = previous[0];
+      const previousDate = addDaysToDate(firstDay.date, -1);
+      const newDay: DayItinerary = {
+        id: `local-${Date.now()}`,
+        title: "Day 1",
+        date: previousDate,
+        isCollapsed: false,
+        items: [],
+      };
+
+      return [
+        newDay,
+        ...previous.map((day, index) => ({
+          ...day,
+          title: `Day ${index + 2}`,
+        })),
+      ];
+    });
+  };
+
+  const handleAddItem = async (dayId: string) => {
+    const query = searchInputs[dayId]?.trim();
+    if (!query) {
+      setToastMessage("Place Not Found!");
+      return;
+    }
+
+    if (dayId.startsWith("local-")) {
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          const newItem = {
+            id: `${day.id}-${Date.now()}`,
+            name: query,
+            image: defaultItemImage,
+            note: undefined,
+            position: day.items.length + 1,
+            order_index: day.items.length + 1,
+            isEditingItem: false,
+          };
+
+          return {
+            ...day,
+            items: sortDayItems([...day.items, newItem]),
+          };
+        })
+      );
+
+      setSearchInputs((previous) => ({ ...previous, [dayId]: "" }));
+      setToastMessage("Place Added!");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/itineraries/${encodeURIComponent(dayId)}/items`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            place: query,
+            image: defaultItemImage,
+            note: "",
+          }),
+        }
+      );
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        item?: ItemApiPayload;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Failed to add item");
+      }
+
+      const item = payload.item;
+      const newItem = mapItemResponse(item ?? {}, query);
+
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: sortDayItems([...day.items, newItem]),
+          };
+        })
+      );
+
+      setSearchInputs((previous) => ({ ...previous, [dayId]: "" }));
+      setToastMessage("Place Added!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to add item"
+      );
+    }
+  };
+
+  const handleDeleteItem = async (dayId: string, itemId: string) => {
+    if (itemId.endsWith("-sample") || itemId.startsWith("local-")) {
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: day.items.filter((item) => item.id !== itemId),
+          };
+        })
+      );
+      setToastMessage("Item removed from itinerary!");
+      return;
+    }
+
+    try {
+      await deleteItineraryItemAction({
+        itineraryId: dayId,
+        itemId,
+      });
+
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: day.items.filter((item) => item.id !== itemId),
+          };
+        })
+      );
+      setToastMessage("Item removed from itinerary!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to delete item"
+      );
+    }
+  };
+
+  const handleDeleteDay = async (dayId: string) => {
+    const targetDay = dayCards.find((day) => day.id === dayId);
+
+    if (!targetDay) {
+      return;
+    }
+
+    if (dayId.startsWith("local-")) {
+      setDayCards((previous) => previous.filter((day) => day.id !== dayId));
+      return;
+    }
+
+    try {
+      await deleteItineraryAction({ itineraryId: dayId });
+      setDayCards((previous) => previous.filter((day) => day.id !== dayId));
+      setItineraries((previous) =>
+        previous.filter((itinerary) => itinerary.itinerary_id !== dayId)
+      );
+      setRefreshCounter((value) => value + 1);
+      setToastMessage("Itinerary deleted!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to delete itinerary"
+      );
+    }
+  };
+
+  const handleEditDay = async (
+    dayId: string,
+    nextTitle: string,
+    nextDate: string
+  ) => {
+    const trimmedTitle = nextTitle.trim();
+    const normalizedDate = nextDate.trim();
+
+    if (!trimmedTitle) {
+      setToastMessage("Itinerary title is required");
+      return;
+    }
+
+    if (dayId.startsWith("local-")) {
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            title: trimmedTitle,
+            date: normalizedDate,
+          };
+        })
+      );
+      setToastMessage("Itinerary updated!");
+      return;
+    }
+
+    try {
+      const updatedItinerary = await updateItineraryAction({
+        itineraryId: dayId,
+        title: trimmedTitle,
+        date: normalizedDate,
+      });
+
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            title: updatedItinerary.title,
+            date: updatedItinerary.date,
+          };
+        })
+      );
+      setItineraries((previous) =>
+        previous.map((itinerary) =>
+          itinerary.itinerary_id === dayId
+            ? {
+                ...itinerary,
+                title: updatedItinerary.title,
+                date: updatedItinerary.date,
+              }
+            : itinerary
+        )
+      );
+      setRefreshCounter((value) => value + 1);
+      setToastMessage("Itinerary updated!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to update itinerary"
+      );
+    }
+  };
+
+  const handleToggleCollapse = (dayId: string, collapseValue?: boolean) => {
+    setDayCards((previous) =>
+      previous.map((day) => {
+        if (day.id !== dayId) {
+          return day;
+        }
+
+        return {
+          ...day,
+          isCollapsed:
+            collapseValue !== undefined ? collapseValue : !day.isCollapsed,
+        };
+      })
+    );
+  };
+
+  const handleToggleItemEdit = (dayId: string, itemId: string) => {
+    setDayCards((previous) =>
+      previous.map((day) => {
+        if (day.id !== dayId) {
+          return day;
+        }
+
+        return {
+          ...day,
+          items: day.items.map((item) => {
+            if (item.id !== itemId) {
+              return item;
+            }
+
+            return {
+              ...item,
+              isEditingItem: !item.isEditingItem,
+            };
+          }),
+        };
+      })
+    );
+  };
+
+  const handleSaveItem = async (
+    dayId: string,
+    itemId: string,
+    payload: { name: string; note: string; position?: number }
+  ) => {
+    const trimmedName = payload.name.trim();
+
+    if (!trimmedName) {
+      setToastMessage("Itinerary item name is required");
+      return;
+    }
+
+    const applyLocalUpdate = () => {
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: sortDayItems(
+              day.items.map((item) => {
+                if (item.id !== itemId) {
+                  return item;
+                }
+
+                return {
+                  ...item,
+                  name: trimmedName,
+                  note: payload.note,
+                  position: payload.position ?? item.position,
+                  order_index: payload.position ?? item.order_index,
+                  isEditingItem: false,
+                };
+              })
+            ),
+          };
+        })
+      );
+    };
+
+    if (itemId.endsWith("-sample") || itemId.startsWith("local-")) {
+      applyLocalUpdate();
+      setToastMessage("Itinerary item updated!");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/itineraries/${encodeURIComponent(dayId)}/items/${encodeURIComponent(itemId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: trimmedName,
+            note: payload.note,
+            position: payload.position,
+          }),
+        }
+      );
+
+      const responsePayload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        item?: ItemApiPayload;
+      };
+
+      if (!response.ok) {
+        throw new Error(responsePayload.error ?? "Failed to update item");
+      }
+
+      const updatedItem = responsePayload.item ?? {};
+      const updatedPosition = updatedItem.position ?? updatedItem.order_index;
+
+      setDayCards((previous) =>
+        previous.map((day) => {
+          if (day.id !== dayId) {
+            return day;
+          }
+
+          return {
+            ...day,
+            items: sortDayItems(
+              day.items.map((item) => {
+                if (item.id !== itemId) {
+                  return item;
+                }
+
+                return {
+                  ...item,
+                  name:
+                    updatedItem.name ??
+                    updatedItem.item_name ??
+                    updatedItem.place ??
+                    trimmedName,
+                  image:
+                    updatedItem.image ?? updatedItem.image_url ?? item.image,
+                  note:
+                    updatedItem.note ?? updatedItem.itinerary_note ?? undefined,
+                  position:
+                    updatedPosition ?? payload.position ?? item.position,
+                  order_index:
+                    updatedItem.order_index ??
+                    updatedItem.position ??
+                    payload.position ??
+                    item.order_index,
+                  isEditingItem: false,
+                };
+              })
+            ),
+          };
+        })
+      );
+      setToastMessage("Itinerary item updated!");
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to update item"
+      );
+    }
+  };
+
+  const tripTitle = trip?.trip_name ?? "Trip itinerary";
+  const tripStart = formatTripDate(trip?.start_date ?? null);
+  const tripEnd = formatTripDate(trip?.end_date ?? null);
+  const canCreateItinerary = Boolean(trip && trip.start_date && trip.end_date);
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6 pb-16 text-gray-800">
+      <CreateItineraryModal
+        key={`${trip?.trip_id ?? "missing-trip"}-${itineraries.length}`}
+        isOpen={isCreateModalOpen}
+        trip={trip}
+        itineraries={itineraries}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleItineraryCreated}
+        onInvalidDate={handleInvalidDate}
+      />
+
+      {toastMessage ? (
+        <div className="fixed top-4 right-4 z-50 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-lg shadow-emerald-900/10">
+          {toastMessage}
+        </div>
+      ) : null}
+
+      <TripInfoCard
+        tripName={tripTitle}
+        startDate={tripStart}
+        endDate={tripEnd}
+      />
+
+      <TripNoteCard
+        note={trip?.trip_note ?? ""}
+        onSaveNote={handleSaveTripNote}
+      />
+
+      <div className="space-y-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+          <h2 className="text-xl font-bold text-gray-800">Itinerary</h2>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-100"
+            >
+              <svg
+                className="h-4 w-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              {tripStart && tripEnd ? `${tripStart} - ${tripEnd}` : "Add date"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              disabled={!canCreateItinerary}
+              className="bg-primary-500 hover:bg-primary-500/90 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all disabled:cursor-not-allowed disabled:bg-gray-300"
+              title="Add a new itinerary day"
+            >
+              <span className="text-sm font-bold">+</span>
+              <span>Add Day</span>
+            </button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-4">
+            <div className="h-28 animate-pulse rounded-2xl border border-dashed border-gray-200 bg-gray-50" />
+            <div className="h-28 animate-pulse rounded-2xl border border-dashed border-gray-200 bg-gray-50" />
+          </div>
+        ) : dayCards.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+            <p className="text-sm font-medium text-gray-400">
+              No itinerary days found.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-primary-500 hover:bg-primary-500/90 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm"
+            >
+              <span>+</span> Create First Itinerary Day
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {dayCards.map((day) => (
+              <DayItineraryCard
+                key={day.id}
+                day={day}
+                searchValue={searchInputs[day.id] ?? ""}
+                onSearchChange={(value) =>
+                  setSearchInputs((previous) => ({
+                    ...previous,
+                    [day.id]: value,
+                  }))
+                }
+                onAddItem={() => handleAddItem(day.id)}
+                onDeleteItem={(itemId) => void handleDeleteItem(day.id, itemId)}
+                onDeleteDay={() => {
+                  void handleDeleteDay(day.id);
+                }}
+                onAddDayBefore={() => handleAddDay("before")}
+                onAddDayAfter={() => handleAddDay("after")}
+                onToggleCollapse={(collapseValue) =>
+                  handleToggleCollapse(day.id, collapseValue)
+                }
+                onToggleItemEdit={(itemId) =>
+                  handleToggleItemEdit(day.id, itemId)
+                }
+                onSaveItem={(itemId, payload) =>
+                  handleSaveItem(day.id, itemId, payload)
+                }
+                onSaveNote={(note) => handleSaveItineraryNote(day.id, note)}
+                onEditDay={(nextTitle, nextDate) =>
+                  void handleEditDay(day.id, nextTitle, nextDate)
+                }
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
