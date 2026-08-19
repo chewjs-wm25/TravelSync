@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState, type ComponentType } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -13,12 +12,23 @@ import {
   useMapEvents,
   useMap,
 } from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
-import { useTripNavigationStore } from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import type { LatLngExpression, LeafletMouseEvent } from "leaflet";
+
+const AnyMapContainer = MapContainer as unknown as ComponentType<any>;
+const AnyTileLayer = TileLayer as unknown as ComponentType<any>;
+import { useTripNavigationStore } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 import type {
   Stop,
   VehicleType,
-} from "@/app/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+} from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import {
+  fetchSuggestions,
+  type PlaceSuggestion,
+} from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/nominatimApi";
+import RouteAnalysisClient from "./RouteAnalysisClient";
+import SavedRoutesClient from "./SavedRoutesClient";
+import ExportRouteClient from "./ExportRouteClient";
+import VehicleGarageClient from "./VehicleGarageClient";
 
 const defaultMarkerIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -32,12 +42,6 @@ const defaultMarkerIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = defaultMarkerIcon;
-
-interface PlaceSuggestion {
-  display_name: string;
-  lat: string;
-  lon: string;
-}
 
 const vehicleOptions: Array<{ value: VehicleType; label: string }> = [
   { value: "car", label: "Car" },
@@ -74,7 +78,7 @@ function RouteMapHandler({
   onSelectLocation: (field: "origin" | "destination", stop: Stop) => void;
 }) {
   useMapEvents({
-    click: (event) => {
+    click: (event: LeafletMouseEvent) => {
       const { lat, lng } = event.latlng;
       const field = activeField ?? "destination";
       const stop: Stop = {
@@ -107,6 +111,7 @@ export default function TripNavigationClient() {
     setRouteLocation,
     generateRoute,
     applyOptimization,
+    loadSavedRoute,
     saveRoute,
     deleteSavedRoute,
   } = useTripNavigationStore();
@@ -118,11 +123,38 @@ export default function TripNavigationClient() {
   );
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [activeSection, setActiveSection] = useState<
+    "planner" | "analysis" | "saved" | "garage" | "export"
+  >("planner");
 
   const mapCenter: LatLngExpression = [3.139, 101.6869];
-  const routeCoordinates = generatedRoute.map(
+  const routeCoordinates = (generatedRoute ?? []).map(
     (stop) => [stop.lat, stop.lng] as LatLngExpression
   );
+
+  const routeStyle = {
+    car: {
+      color: '#2563eb',
+      weight: 5,
+      dashArray: '',
+    },
+    walk: {
+      color: '#16a34a',
+      weight: 4,
+      dashArray: '4,8',
+    },
+    'public transport': {
+      color: '#f59e0b',
+      weight: 5,
+      dashArray: '8,6',
+    },
+  }[vehicleType];
+
+  const optimizationLabel = {
+    fastest: 'Fastest route with priority on time',
+    shortest: 'Shortest route with the straightest path',
+    cheapest: 'Cheapest route with cost-saving detours',
+  }[optimizationMode];
 
   useEffect(() => {
     setOriginInput(origin?.name ?? "");
@@ -140,19 +172,16 @@ export default function TripNavigationClient() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      void fetchSuggestions(query);
+      void searchPlaces(query);
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
   }, [activeField, destinationInput, originInput]);
 
-  const fetchSuggestions = async (query: string) => {
+  const searchPlaces = async (query: string) => {
     setIsSearching(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=${encodeURIComponent(query)}`
-      );
-      const data = (await response.json()) as PlaceSuggestion[];
+      const data = await fetchSuggestions(query);
       setSuggestions(data);
     } catch {
       setSuggestions([]);
@@ -190,32 +219,6 @@ export default function TripNavigationClient() {
     setSuggestions([]);
   };
 
-  const handleUseMyLocation = (field: "origin" | "destination") => {
-    if (!navigator.geolocation) {
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const stop: Stop = {
-          id: `${field}-${Date.now()}`,
-          name: "Current location",
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        setRouteLocation(field, stop);
-        if (field === "origin") {
-          setOriginInput(stop.name);
-        } else {
-          setDestinationInput(stop.name);
-        }
-      },
-      () => {
-        window.alert("Location access was denied or unavailable.");
-      }
-    );
-  };
-
   const handleSave = () => {
     saveRoute(routeName);
     setRouteName("");
@@ -223,35 +226,32 @@ export default function TripNavigationClient() {
 
   return (
     <div className="space-y-6">
-      <div className="shadow-base flex flex-wrap gap-2 rounded-3xl border border-gray-200 bg-white p-3">
-        <Link
-          href="/saved-routes"
-          className="bg-primary-500 hover:shadow-hover rounded-full px-3 py-2 text-sm font-semibold text-white"
-        >
-          Saved Routes
-        </Link>
-        <Link
-          href="/route-analysis"
-          className="bg-secondary-500 hover:shadow-hover rounded-full px-3 py-2 text-sm font-semibold text-white"
-        >
-          Route Analysis
-        </Link>
-        <Link
-          href="/vehicle-garage"
-          className="bg-success hover:shadow-hover rounded-full px-3 py-2 text-sm font-semibold text-white"
-        >
-          Vehicle Garage
-        </Link>
-        <Link
-          href="/export-route"
-          className="bg-info hover:shadow-hover rounded-full px-3 py-2 text-sm font-semibold text-white"
-        >
-          Export Route
-        </Link>
+      <div className="shadow-base flex flex-wrap items-center gap-2 rounded-3xl border border-gray-200 bg-white p-3">
+        {[
+          { key: "planner", label: "Planner" },
+          { key: "analysis", label: "Analysis" },
+          { key: "saved", label: "Saved" },
+          { key: "garage", label: "Garage" },
+          { key: "export", label: "Export" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveSection(tab.key as typeof activeSection)}
+            className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+              activeSection === tab.key
+                ? "bg-primary-500 text-white shadow-sm"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <section className="shadow-base overflow-hidden rounded-3xl border border-gray-200 bg-white">
-        <div className="from-primary-500 to-secondary-500 flex items-center justify-between border-b border-gray-200 bg-gradient-to-r p-4 text-white">
+      {activeSection === "planner" ? (
+        <>
+          <section className="shadow-base overflow-hidden rounded-3xl border border-gray-200 bg-white">
+          <div className="from-primary-500 to-secondary-500 flex items-center justify-between border-b border-gray-200 bg-gradient-to-r p-4 text-white">
           <div>
             <p className="text-xs font-semibold tracking-[0.3em] text-gray-100 uppercase">
               TravelSync
@@ -266,13 +266,13 @@ export default function TripNavigationClient() {
         </div>
 
         <div className="relative h-[440px] w-full">
-          <MapContainer
+          <AnyMapContainer
             center={mapCenter}
             zoom={11}
             scrollWheelZoom
             className="h-full w-full"
           >
-            <TileLayer
+            <AnyTileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
@@ -294,11 +294,14 @@ export default function TripNavigationClient() {
             {routeCoordinates.length > 1 && (
               <Polyline
                 positions={routeCoordinates}
-                color="#2563eb"
-                weight={4}
+                pathOptions={{
+                  color: routeStyle.color,
+                  weight: routeStyle.weight,
+                  dashArray: routeStyle.dashArray,
+                }}
               />
             )}
-          </MapContainer>
+          </AnyMapContainer>
 
           <div className="pointer-events-none absolute inset-x-4 top-4 z-[1000] max-w-[390px] rounded-3xl border border-gray-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
             <div className="pointer-events-auto">
@@ -335,12 +338,6 @@ export default function TripNavigationClient() {
                         placeholder="Enter origin"
                         className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none"
                       />
-                      <button
-                        onClick={() => handleUseMyLocation("origin")}
-                        className="bg-primary-500 rounded-2xl px-3 py-2 text-sm font-semibold text-white"
-                      >
-                        GPS
-                      </button>
                     </div>
                     {activeField === "origin" && suggestions.length > 0 && (
                       <ul className="shadow-base mt-2 rounded-2xl border border-gray-200 bg-white p-2 text-sm">
@@ -374,12 +371,6 @@ export default function TripNavigationClient() {
                         placeholder="Enter destination"
                         className="focus:border-secondary-500 w-full rounded-2xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none"
                       />
-                      <button
-                        onClick={() => handleUseMyLocation("destination")}
-                        className="bg-secondary-500 rounded-2xl px-3 py-2 text-sm font-semibold text-white"
-                      >
-                        GPS
-                      </button>
                     </div>
                     {activeField === "destination" &&
                       suggestions.length > 0 && (
@@ -405,8 +396,16 @@ export default function TripNavigationClient() {
                   <p className="text-xs text-gray-500">
                     {isSearching
                       ? "Searching places…"
-                      : "Search suggestions come from OpenStreetMap and you can also click the map or use GPS."}
+                      : "Search suggestions come from OpenStreetMap and you can also click the map."}
                   </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      onClick={generateRoute}
+                      className="bg-primary-500 shadow-base hover:shadow-hover rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
+                    >
+                      Generate Route
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -448,15 +447,6 @@ export default function TripNavigationClient() {
               ))}
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                onClick={generateRoute}
-                className="bg-primary-500 shadow-base hover:shadow-hover rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
-              >
-                Generate Route
-              </button>
-            </div>
-
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 onClick={() => applyOptimization("fastest")}
@@ -489,6 +479,7 @@ export default function TripNavigationClient() {
                 💰 Cheapest
               </button>
             </div>
+            <p className="mt-4 text-sm text-gray-500">{optimizationLabel}</p>
           </div>
         </section>
 
@@ -570,53 +561,26 @@ export default function TripNavigationClient() {
               Save Route
             </button>
           </div>
-
-          <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Saved routes
-              </h3>
-              <span className="text-sm text-gray-500">
-                {savedRoutes.length} saved
-              </span>
-            </div>
-            <div className="mt-4 space-y-3">
-              {savedRoutes.length === 0 && (
-                <p className="text-sm text-gray-500">No saved routes yet.</p>
-              )}
-              {savedRoutes.slice(0, 3).map((route) => (
-                <div
-                  key={route.id}
-                  className="rounded-2xl border border-gray-200 bg-gray-100 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-gray-800">
-                        {route.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {route.summary.distanceKm.toFixed(1)} km •{" "}
-                        {route.summary.timeMinutes} min
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-gray-200 px-2 py-1 text-[10px] font-semibold tracking-[0.2em] text-gray-800 uppercase">
-                      {route.vehicleType}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={() => deleteSavedRoute(route.id)}
-                      className="text-error rounded-xl border border-gray-200 px-3 py-1 text-sm font-semibold hover:bg-gray-100"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </aside>
       </div>
-    </div>
-  );
+    </>
+  ) : activeSection === "analysis" ? (
+      <div className="space-y-6">
+        <RouteAnalysisClient />
+      </div>
+    ) : activeSection === "saved" ? (
+      <div className="space-y-6">
+        <SavedRoutesClient onRouteLoad={() => setActiveSection("planner")} />
+      </div>
+    ) : activeSection === "garage" ? (
+      <div className="space-y-6">
+        <VehicleGarageClient />
+      </div>
+    ) : (
+      <div className="space-y-6">
+        <ExportRouteClient />
+      </div>
+    )}
+  </div>
+);
 }
