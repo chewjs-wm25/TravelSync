@@ -147,13 +147,22 @@ INSERT INTO Collaboration_Invitations (invitation_id, Token, receiver_email, rol
    strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+25 days'), 'trip_langkawi', 'm_marcus')
 ON CONFLICT(invitation_id) DO NOTHING;
 
-INSERT INTO chats (trip_id, user_id, text, created_at) VALUES
-  ('trip_langkawi', 'm_marcus', 'I''ve updated the cable car timing for Day 1.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-30 minutes')),
-  ('trip_langkawi', 'm_elena',  'Perfect! Just checked the PDF export.',        strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-27 minutes'));
+INSERT INTO chats (trip_id, user_id, text, created_at)
+SELECT 'trip_langkawi', 'm_marcus', 'I''ve updated the cable car timing for Day 1.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-30 minutes')
+WHERE NOT EXISTS (SELECT 1 FROM chats WHERE trip_id = 'trip_langkawi' AND user_id = 'm_marcus' AND text = 'I''ve updated the cable car timing for Day 1.');
 
-INSERT INTO activity_logs (trip_id, user_id, action, created_at) VALUES
-  ('trip_langkawi', 'm_marcus', 'created the trip',                       strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-6 days')),
-  ('trip_langkawi', 'm_marcus', 'invited sam.lee@outlook.com as Viewer',  strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-5 days'));
+INSERT INTO chats (trip_id, user_id, text, created_at)
+SELECT 'trip_langkawi', 'm_elena',  'Perfect! Just checked the PDF export.',        strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-27 minutes')
+WHERE NOT EXISTS (SELECT 1 FROM chats WHERE trip_id = 'trip_langkawi' AND user_id = 'm_elena' AND text = 'Perfect! Just checked the PDF export.');
+
+INSERT INTO activity_logs (trip_id, user_id, action, created_at)
+SELECT 'trip_langkawi', 'm_marcus', 'created the trip',                       strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-6 days')
+WHERE NOT EXISTS (SELECT 1 FROM activity_logs WHERE trip_id = 'trip_langkawi' AND user_id = 'm_marcus' AND action = 'created the trip');
+
+INSERT INTO activity_logs (trip_id, user_id, action, created_at)
+SELECT 'trip_langkawi', 'm_marcus', 'invited sam.lee@outlook.com as Viewer',  strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-5 days')
+WHERE NOT EXISTS (SELECT 1 FROM activity_logs WHERE trip_id = 'trip_langkawi' AND user_id = 'm_marcus' AND action = 'invited sam.lee@outlook.com as Viewer');
+
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   content TEXT NOT NULL,

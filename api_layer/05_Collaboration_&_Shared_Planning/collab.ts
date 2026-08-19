@@ -7,7 +7,7 @@ import type {
   BootstrapResponse,
 } from "./types";
 
-const BASE = "/api/collab";
+const BASE = "/05_Collaboration_&_Shared_Planning/api/collab";
 
 function headers(userId?: string): HeadersInit {
   return {

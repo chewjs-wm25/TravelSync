@@ -3,10 +3,10 @@ import fs from "fs/promises";
 
 export async function GET() {
   try {
-    const schemaPath = `${process.cwd()}/schema.sql`;
+    const schemaPath = `${process.cwd()}/data_access_layer/05_Collaboration_&_Shared_Planning/schema.sql`;
     const sql = await fs.readFile(schemaPath, "utf-8");
     const { env } = await getCloudflareContext({ async: true });
-    const db: any = env.TEST_DB;
+    const db = env.TEST_DB;
     if (!db) return new Response(JSON.stringify({ ok: false, message: "TEST_DB binding not found" }), { status: 500 });
     // Execute all statements in schema.sql
     if (typeof db.batch === "function") {
