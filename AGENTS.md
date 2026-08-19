@@ -16,30 +16,9 @@
 4. 使用npm run preview而不是npm run build|dev
 5. 谨慎使用sudo|root权限
 
-1. Travel planning scope is strictly limited to Malaysia
-2. Lightweight website
-3. APIs must be free, with no credit card required
-4. Without violating Layer Architecture principles, functionality that can be implemented on the frontend must never be passed to the backend
+# 可以做的事
+1. 如有必要，你可以调用Sub-Agent来帮助你完成任务
 
-# Layers
-
-* Presentation Layer: @/app/
-* Business Logic Layer: @/business_logic_layer/
-* Data Access layer: @/data_access_layer/
-* API Layer: @/api_layer/
-
-# Remarks
-
-1. API Layer refers to communicating with external APIs, not Route APIs
-2. For uncertain matters, please ask me first
-3. Your module is 02
-
-# Things You Can Do
-
-1. If necessary, you may invoke Sub-Agents to help you complete tasks
-
-# Strictly Forbidden
-
-1. Modifying the development environment
-2. Installing additional dependency libraries
-3. Modifying the other modules file
+# 绝对禁止
+1. 修改开发环境
+2. 加装依赖库
