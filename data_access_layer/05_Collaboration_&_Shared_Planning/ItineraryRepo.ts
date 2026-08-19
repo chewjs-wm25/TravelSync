@@ -13,7 +13,7 @@ export async function findByTrip(tripId: string): Promise<ItineraryRow[]> {
     .prepare("SELECT * FROM Itinerary WHERE TripID = ? ORDER BY Date ASC")
     .bind(tripId)
     .all<ItineraryRow>();
-  return res.results;
+  return (res && Array.isArray(res.results) ? res.results : []) as ItineraryRow[];
 }
 
 export async function insertItinerary(i: {

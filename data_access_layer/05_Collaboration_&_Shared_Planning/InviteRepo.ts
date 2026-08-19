@@ -33,7 +33,7 @@ export async function findByTrip(tripId: string): Promise<InviteWithSender[]> {
     )
     .bind(tripId)
     .all();
-  return res.results as unknown as InviteWithSender[];
+  return (res && Array.isArray(res.results) ? (res.results as unknown as InviteWithSender[]) : []) as InviteWithSender[];
 }
 
 export async function findById(id: string): Promise<InviteRow | null> {
@@ -90,7 +90,7 @@ export async function expirePending(nowIso: string): Promise<InviteRow[]> {
     )
     .bind(nowIso)
     .all<InviteRow>();
-  return updated.results;
+  return (updated && Array.isArray(updated.results) ? (updated.results as InviteRow[]) : []) as InviteRow[];
 }
 
 export async function deleteInvite(id: string): Promise<void> {

@@ -21,7 +21,7 @@ export async function findByItinerary(ids: string[]): Promise<ItemRow[]> {
     .prepare(`SELECT * FROM Itinerary_Item WHERE ItineraryID IN (${placeholders})`)
     .bind(...ids)
     .all<ItemRow>();
-  return res.results;
+  return (res && Array.isArray(res.results) ? res.results : []) as ItemRow[];
 }
 
 export async function findById(id: string): Promise<ItemRow | null> {

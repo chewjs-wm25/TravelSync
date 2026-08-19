@@ -31,7 +31,7 @@ export async function findByTrip(tripId: string): Promise<CollaboratorWithAccoun
     )
     .bind(tripId)
     .all<CollaboratorWithAccount>();
-  return res.results;
+  return (res && Array.isArray(res.results) ? res.results : []) as CollaboratorWithAccount[];
 }
 
 /** 新增协作者（幂等：已存在则忽略） */

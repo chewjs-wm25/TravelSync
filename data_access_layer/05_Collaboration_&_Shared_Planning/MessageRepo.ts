@@ -25,7 +25,9 @@ export async function findByTrip(tripId: string): Promise<ChatWithAccount[]> {
     )
     .bind(tripId)
     .all<ChatWithAccount>();
-  return res.results;
+  // Guard against undefined results when the DB binding is not available
+  // or the query returns no rows.
+  return (res && Array.isArray(res.results) ? res.results : []) as ChatWithAccount[];
 }
 
 export async function insertChat(c: {

@@ -25,7 +25,7 @@ export async function findByTrip(tripId: string): Promise<ActivityWithUser[]> {
     )
     .bind(tripId)
     .all<ActivityWithUser>();
-  return res.results;
+  return (res && Array.isArray(res.results) ? res.results : []) as ActivityWithUser[];
 }
 
 export async function insertActivity(a: {
