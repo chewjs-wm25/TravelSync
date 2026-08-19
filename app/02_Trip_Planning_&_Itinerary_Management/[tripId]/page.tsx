@@ -7,12 +7,12 @@ import {
   deleteItineraryAction,
   listItinerariesAction,
   updateItineraryAction,
-} from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryApi";
-import { deleteItineraryItemAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemApi";
+} from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryApi";
+import { deleteItineraryItemAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryItemApi";
 import {
   listTripsAction,
   updateTripAction,
-} from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
+} from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 import CreateItineraryModal from "../components/CreateItineraryModal";
 import {
   DayItineraryCard,
@@ -76,8 +76,10 @@ const defaultItemImage =
 
 function sortDayItems(items: DayItinerary["items"]) {
   return [...items].sort((left, right) => {
-    const leftPosition = left.position ?? left.order_index ?? Number.MAX_SAFE_INTEGER;
-    const rightPosition = right.position ?? right.order_index ?? Number.MAX_SAFE_INTEGER;
+    const leftPosition =
+      left.position ?? left.order_index ?? Number.MAX_SAFE_INTEGER;
+    const rightPosition =
+      right.position ?? right.order_index ?? Number.MAX_SAFE_INTEGER;
 
     if (leftPosition !== rightPosition) {
       return leftPosition - rightPosition;
@@ -259,7 +261,9 @@ export default function TripItineraryPage() {
     if (dayId.startsWith("local-")) {
       setDayCards((previous) =>
         previous.map((day) =>
-          day.id === dayId ? { ...day, note: note.length > 0 ? note : null } : day
+          day.id === dayId
+            ? { ...day, note: note.length > 0 ? note : null }
+            : day
         )
       );
       setToastMessage(
@@ -280,7 +284,9 @@ export default function TripItineraryPage() {
 
       setDayCards((previous) =>
         previous.map((day) =>
-          day.id === dayId ? { ...day, note: updatedItinerary.note ?? null } : day
+          day.id === dayId
+            ? { ...day, note: updatedItinerary.note ?? null }
+            : day
         )
       );
       setItineraries((previous) =>
@@ -722,14 +728,11 @@ export default function TripItineraryPage() {
                     updatedItem.place ??
                     trimmedName,
                   image:
-                    updatedItem.image ??
-                    updatedItem.image_url ??
-                    item.image,
+                    updatedItem.image ?? updatedItem.image_url ?? item.image,
                   note:
-                    updatedItem.note ??
-                    updatedItem.itinerary_note ??
-                    undefined,
-                  position: updatedPosition ?? payload.position ?? item.position,
+                    updatedItem.note ?? updatedItem.itinerary_note ?? undefined,
+                  position:
+                    updatedPosition ?? payload.position ?? item.position,
                   order_index:
                     updatedItem.order_index ??
                     updatedItem.position ??

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { createTripAction } from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
+import { createTripAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 
 type CreateTripModalProps = {
   isOpen: boolean;

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import {
   deleteTripAction,
   listTripsAction,
-} from "@/api_layer/02_Trip_Planning_&_Itinerary_Management/tripApi";
+} from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 import CreateTripCard from "@/app/02_Trip_Planning_&_Itinerary_Management/components/CreateTripCard";
 import CreateTripModal from "@/app/02_Trip_Planning_&_Itinerary_Management/components/CreateTripModal";
 import EditTripModal from "@/app/02_Trip_Planning_&_Itinerary_Management/components/EditTripModal";
@@ -171,7 +171,7 @@ export default function PlanningPage() {
       />
 
       {toastMessage ? (
-        <div className="fixed right-4 top-4 z-50 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-lg shadow-emerald-900/10">
+        <div className="fixed top-4 right-4 z-50 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-lg shadow-emerald-900/10">
           {toastMessage}
         </div>
       ) : null}
@@ -212,7 +212,10 @@ export default function PlanningPage() {
             <div className="h-[320px] animate-pulse rounded-2xl border border-dashed border-gray-200 bg-gray-50" />
           </div>
         ) : trips.length === 0 ? (
-          <CreateTripCard variant="empty" onOpen={() => setIsCreateModalOpen(true)} />
+          <CreateTripCard
+            variant="empty"
+            onOpen={() => setIsCreateModalOpen(true)}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {trips.map((trip) => (
