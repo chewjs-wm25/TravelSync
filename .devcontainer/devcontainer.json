@@ -6,6 +6,17 @@
   // 自动转发 Next.js 的默认端口
   "forwardPorts": [3000],
 
+  "mounts": [
+    // 将 Arch Linux 上的固定 Socket 挂载到容器内的 /tmp/ 目录下
+    // 注意：这里的 localEnv:HOME 在 Remote-SSH 模式下，指代的是 Arch Linux 的家目录
+    "source=${localEnv:HOME}/.ssh/ssh_auth_sock,target=/tmp/ssh-agent.sock,type=bind"
+  ],
+
+  "remoteEnv": {
+    // 强制容器内的 Git 认准这个挂载进来的 Socket
+    "SSH_AUTH_SOCK": "/tmp/ssh-agent.sock"
+  },
+
   // 配置容器内的 VS Code 设置与插件
   "customizations": {
     "vscode": {

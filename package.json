@@ -11,8 +11,7 @@
     "lint": "eslint",
     "deploy": "opennextjs-cloudflare && wrangler deploy",
     "build:worker": "opennextjs-cloudflare build",
-    "preview": "node -e \"const fs=require('fs'); fs.rmSync('.open-next', { recursive: true, force: true });\" && opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "prepreview": "npm run db:init"
+    "preview": "sudo chown -R $USER:$USER .next .open-next 2>/dev/null || true && opennextjs-cloudflare build && opennextjs-cloudflare preview"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
@@ -22,7 +21,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-leaflet": "^5.0.0",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260801.1",
