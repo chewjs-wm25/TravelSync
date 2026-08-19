@@ -1,0 +1,1034 @@
+[
+    {
+        "id": "1",
+        "company_name": "BERTAM RESORT & WATER PARK PENANG",
+        "company_address": "PMT 2200, Bertam Resort, Persiaran Bertam 8, 13200 Kepala Batas, Pulau Pinang",
+        "company_phone": "04-577 8000",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "2",
+        "company_name": "BERTAM RESORT PENANG",
+        "company_address": "PMT 2200, Bertam Resort, Persiaran Bertam 8, 13200 Kepala Batas, Pulau Pinang, Pulau Pinang",
+        "company_phone": "04-577 8000",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "3",
+        "company_name": "ENCORE MELAKA",
+        "company_address": "Impression City, o. 3, Jalan KSB - Impression8, Kota Syahbandar, 75200, Melaka",
+        "company_phone": "06 270 7777 / 012 650 7010",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "4",
+        "company_name": "GENTING SKYWORLDS THEME PARK",
+        "company_address": "Resorts World Genting, 69000 Genting Highlands, Pahang",
+        "company_phone": "019-2016286",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "5",
+        "company_name": "IMAGO SHOPPING MALL",
+        "company_address": "KK Times Square Phase 2, Off Coastal Highway, 88100 Kota Kinabalu, Sabah",
+        "company_phone": "088-275888",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "6",
+        "company_name": "IOI CITY MALL",
+        "company_address": "Unit T2-3A-3 & Unit T2-3A-3A, Level 3A, IOI City Tower Two, Lebuh IRC, IOI Resort City, 62502 Putrajaya, Sepang, Selangor",
+        "company_phone": "03-8328 8900 / 03-8328 8899",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "7",
+        "company_name": "KAMPUNG AGONG",
+        "company_address": "841, Bakar kapur, Kampung Bakar Kapor, 13100 Penaga, Pulau Pinang",
+        "company_phone": "012-481 7795",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "8",
+        "company_name": "LANGKAWI SKYCAB",
+        "company_address": "Panorama Langkawi Sdn Bhd Cable Car Station, Oriental Village, Burau Bay, 07000 Langkawi, Kedah, Kedah",
+        "company_phone": "04-9612000",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "9",
+        "company_name": "LEXIS HIBISCUS PORT DICKSON",
+        "company_address": "12th Mile, Jalan Pantai, 71250 Port Dickson, Negeri Sembilan, Negeri Sembilan",
+        "company_phone": "06-6602626",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "10",
+        "company_name": "MENARA KUALA LUMPUR",
+        "company_address": "No. 2 Jalan Punchak Off Jalan P.Ramlee, 50250 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "03-2020 5444",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "11",
+        "company_name": "PAVILION KUALA LUMPUR",
+        "company_address": "168, Jalan Bukit Bintang, 55100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "03-2118 8833",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "12",
+        "company_name": "PUSAT SAINS & KREATIVITI TERENGGANU",
+        "company_address": "Kampung Laut, Cendering, 21080 Kuala Terengganu, Terengganu, Terengganu",
+        "company_phone": "09 - 617 4003 / 4004",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "13",
+        "company_name": "QUEENSBAY MALL",
+        "company_address": "Lot 1F-78, Queensbay Mall, 100 Persiaran Bayan Indah, 11900 Bayan Lepas, Pulau Pinang",
+        "company_phone": "04-646 8888 / 619 8999",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "14",
+        "company_name": "SHANGRI-LA TANJUNG ARU KOTA KINABALU",
+        "company_address": "No. 20, Jalan Aru, Tanjung Aru, 88100 Kota Kinabalu, Sabah, Sabah",
+        "company_phone": "088-327 888",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "15",
+        "company_name": "STADIUM SULTAN IBRAHIM",
+        "company_address": "Jalan Gelang Patah, 79200 Iskandar Puteri, Johor",
+        "company_phone": null,
+        "duration": "25/07/25 - 24/07/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "16",
+        "company_name": "SUMMER CRUISE",
+        "company_address": "Lot 21208, Jalan Gelam 2/5, Kawasan Perindustrian Gong, 21300 Kuala Terengganu, Terengganu",
+        "company_phone": "019-9129966",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "17",
+        "company_name": "SUNWAY BIG BOX RETAIL PARK",
+        "company_address": "Persiaran Medini 6, SUnway City, 79250 Nusajaya, Johor",
+        "company_phone": "07-5331333",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "18",
+        "company_name": "SUNWAY PYRAMID SHOPPING MALL",
+        "company_address": "No.3, Jalan PJS 11/15, Bandar Sunway, 46150 Petaling Jaya, Selangor",
+        "company_phone": "03-7494 3000",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "19",
+        "company_name": "SUNWAY VELOCITY MALL",
+        "company_address": "Lingkaran SV, Sunway Velocity, Jalan Cheras, 55100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "032786 3970",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "20",
+        "company_name": "TAMAN KINABALU",
+        "company_address": "Block H, Level 1-5, Lot 45 & 46, Signature Office, KK Times Square, 88100, Kota Kinabalu, Sabah, Sabah",
+        "company_phone": "088-523500",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "21",
+        "company_name": "THE HABITAT PENANG HILL",
+        "company_address": "Bukit Bendera, 11300 Penang, Pulau Pinang",
+        "company_phone": "04-826 7677",
+        "duration": "18/12/24 - 17/12/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "22",
+        "company_name": "THE MAGELLAN SUTERA RESORT",
+        "company_address": "2 Sutera Harbour Boulevard, Sutera Harbour, 88100 Kota Kinabalu, Sabah, Sabah",
+        "company_phone": "088-318 888",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "23",
+        "company_name": "THE PACIFIC SUTERA HOTEL",
+        "company_address": "1 Sutera Avenue, Sutera Harbour, 88100 Kota Kinabalu, Sabah, Sabah",
+        "company_phone": "088-318888",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "24",
+        "company_name": "THE TOP PENANG",
+        "company_address": "1, Jalan Penang, 10000 George Town, Pulau Pinang",
+        "company_phone": "04-262 3800",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "25",
+        "company_name": "THE WEMBLEY A ST GILES HOTEL",
+        "company_address": "183, Jalan Magazine, 10300 Georgetown, Pulau Pinang, Pulau Pinang",
+        "company_phone": "04-259 8000",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "26",
+        "company_name": "THE WESTIN DESARU COAST RESORT",
+        "company_address": "Jalan Pantai 2 Desaru Coast, Bandar Penawar, 81930, Johor",
+        "company_phone": "07-8383 333",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Platinum"
+    },
+    {
+        "id": "27",
+        "company_name": "A'FAMOSA WATER THEME PARK",
+        "company_address": "Jalan Kemus Simpang Ampat, 78000 Alor Gajah, Melaka",
+        "company_phone": "06-552 0888",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "28",
+        "company_name": "AEON MALL KOTA BHARU",
+        "company_address": "AEON MALL Kota Bharu, Lembah Sireh, 15050 Kota Bharu, Kelantan, Kelantan",
+        "company_phone": "09-740 5859",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "29",
+        "company_name": "AQUARIA KLCC",
+        "company_address": "Suite 16-16, 1st Floor, Wisma UOA II, No. 21, Jalan Pinang, 50450 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "03-23331888",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "30",
+        "company_name": "BAYOU LAGOON WATER PARK",
+        "company_address": "Jalan Wakaf Utama,  75450 Bukit Katil, Melaka",
+        "company_phone": "06-2330888",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "31",
+        "company_name": "BORNEAN SUN BEAR CONSERVATION CENTRE",
+        "company_address": "Jalan Sepilok, Mile 14, 90000 Sandakan, Sabah",
+        "company_phone": "089-534 491",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "32",
+        "company_name": "BORNEO CONVENTION CENTRE KUCHING",
+        "company_address": "The Isthmus, Sejingkat, 93050 Kuching Sarawak, Sarawak",
+        "company_phone": "082-392 888",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "33",
+        "company_name": "BUKIT MERAH LAKETOWN RESORT",
+        "company_address": "Jalan Bukit Merah, 34400 Semanggol, Perak",
+        "company_phone": null,
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "34",
+        "company_name": "CASUARINA CONVENTION CENTRE",
+        "company_address": "No.1-C, Jalan Meru Raya, Bandar Meru Raya, 30020 Ipoh, Perak, Perak",
+        "company_phone": "05-529 9995",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "35",
+        "company_name": "CENTRAL MARKET",
+        "company_address": "Lot 3.04-3.06, Central Market Annexe, Jalan Hang Kasturi, 50050 Kuala Lumpur., Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "03-2031 0399/5399/7399",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "36",
+        "company_name": "CHOCOLATE MUSEUM",
+        "company_address": "No. 2, Jalan Teknologi 3/5, Taman Sains Selangor 1, 47810 Kota Damansara, Petaling Jaya, Selangor, Selangor",
+        "company_phone": null,
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "37",
+        "company_name": "DALIT BAY GOLF AND COUNTRY CLUB",
+        "company_address": "Pantai Dalit, P.O. Box 600, 89208 Tuaran, Sabah",
+        "company_phone": "088-797870",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "38",
+        "company_name": "DINASOUR ENCOUNTER ZOO TERUNTUM",
+        "company_address": "Zoo Teruntum, Jalan Padang Golf, 25050 Kuantan Pahang, Pahang",
+        "company_phone": "09-560 1112",
+        "duration": "18/12/24 - 17/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "39",
+        "company_name": "EAST COAST MALL",
+        "company_address": "Jalan Putra Square 6, Putra Square, 25200 Kuantan, Pahang",
+        "company_phone": "09-565 8688",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "40",
+        "company_name": "FARM IN THE CITY",
+        "company_address": "Lot 40187-40188, Jalan Prima Tropika Barat 1, Pusat Bandar Putra Permai, 43300 Seri Kembangan, Selangor, Selangor",
+        "company_phone": "03-8941 3099/010-7627612",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "41",
+        "company_name": "GALERI DATO' ONN",
+        "company_address": "Jalan Dato Mohd Shah, Gunong Soga, 83000 Batu Pahat, Johor, Johor",
+        "company_phone": "07-431 7220",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "42",
+        "company_name": "GENTING HIGHLANDS PREMIUM OUTLETS",
+        "company_address": "KM13, Genting Highlands Resorts, 69000 Genting Highland, Pahang",
+        "company_phone": "03-64338888",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "43",
+        "company_name": "GM KLANG WHOLESALE CITY",
+        "company_address": "Jalan Kasuarina 1, Bandar Botanik, 41200 Klang, Selangor",
+        "company_phone": "03-3385 2300",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "44",
+        "company_name": "GOPENG GLAMPING PARK",
+        "company_address": "Jalan Besar, Kampung Chulek, 31600 Gopeng, Perak",
+        "company_phone": "013-2408857",
+        "duration": "20/12/24 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "45",
+        "company_name": "IBIS STYLES HOTEL KOTA KINABALU",
+        "company_address": "No. 1, Jalan Taipan 28, Inanam, 88450 Kota Kinabalu, Sabah, Sabah",
+        "company_phone": "088-285 888",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "46",
+        "company_name": "JOHOR PREMIUM OUTLET (JPO)",
+        "company_address": "Jalan Premium Outlets Indahpura 81000 Kulai, Johor",
+        "company_phone": "07-661 8888",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "47",
+        "company_name": "KOMPLEKS FALAK AL KHAWARIZMI",
+        "company_address": "Kg. Balik Batu, Tanjung Bidara, 78300 Masjid Tanah, Melaka, Melaka",
+        "company_phone": "06-384 2148",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "48",
+        "company_name": "KOMPLEKS KRAF KUALA LUMPUR",
+        "company_address": "Seksyen 63, Jalan Conlay, 50450 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "03-21611480",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "49",
+        "company_name": "KOMPLEKS RUMAH KELAHIRAN MAHATHIR MOHAMAD",
+        "company_address": "No. 18, Lorong Kilang Ais Sekolah Kebangsaan Jalan Pegawai, Jalan Seberang Perak, Taman Pesisiran Tanjung Chali, 05000 Alor Setar, Kedah",
+        "company_phone": "04-772 2319",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "50",
+        "company_name": "KUALA TERENGGANU DRAWBRIDGE",
+        "company_address": "Terengganu Drawbridge, Jalan Sultan Zainal Abidin, 20000 Kuala Terengganu, Terengganu, Terengganu",
+        "company_phone": "09-622 2438",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "51",
+        "company_name": "KUANTAN 188",
+        "company_address": "Jalan Besar, 25000 Kuantan, Pahang",
+        "company_phone": "09-5135821 / 09-51315921",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "52",
+        "company_name": "MAHKOTA GOLF & COUNTRY CLUB",
+        "company_address": "KM 13, Jalan Sungai Lembing, Bandar Indera Mahkota, 25200 Kuantan, Pahang, Pahang",
+        "company_phone": "09-573 9595",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "53",
+        "company_name": "MARI MARI CULTURAL VILLAGE",
+        "company_address": "Jalan Kionsom Inanam, 89357 Kota Kinabalu, Sabah",
+        "company_phone": "013-8814921",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "54",
+        "company_name": "MASJID CINA NEGERI MELAKA (AL-MUTTAQIN)",
+        "company_address": "Persiaran Kompleks Stadium Hang Jebat, 75260 Melaka, Melaka",
+        "company_phone": "06-334 7321",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "55",
+        "company_name": "MASJID KRISTAL",
+        "company_address": "Pulau Wan Man, Losong Panglima Perang, 21000 Kuala Terengganu, Terengganu Darul Iman, Malaysia, Terengganu",
+        "company_phone": "09-627 8888",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "56",
+        "company_name": "MASJID NEGERI SULTAN AHMAD 1",
+        "company_address": "Jalan Mahkota, Kompleks Pentadbiran Kerajaan Negeri Pahang, 25000 Kuantan, Pahang",
+        "company_phone": "09-516 5818",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "57",
+        "company_name": "MASJID SRI SENDAYAN",
+        "company_address": "Persiaran Idaman Villa, Bandar Sri Sendayan, 71950 Seremban, Negeri Sembilan, Negeri Sembilan",
+        "company_phone": "06 775 9119",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "58",
+        "company_name": "MASJID SULTAN ISKANDAR",
+        "company_address": "2, Jalan Dato' Onn 2, Bandar Dato' Onn, 81100 Johor Bahru, Johor",
+        "company_phone": "07-3611666",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "59",
+        "company_name": "MASJID SULTAN SALAHUDDIN ABDUL AZIZ SHAH",
+        "company_address": "Persiaran Masjid, Seksyen 5, 40000 Shah Alam, Selangor",
+        "company_phone": "03-55238006",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "60",
+        "company_name": "MELAKA RIVER CRUISE",
+        "company_address": "Dataran Pengakalan Rama, Pengkalan Rama, 75100, Melaka",
+        "company_phone": "06-2814322/23",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "61",
+        "company_name": "MENARA TAMING SARI",
+        "company_address": "Jalan Merdeka Banda Hilir, 75000 Melaka, Melaka",
+        "company_phone": "06-2881100",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "62",
+        "company_name": "MICE SHANGRI-LA RASA RIA",
+        "company_address": "Pantai Dalit, P.O. Box 600, 89208 Tuaran, Sabah",
+        "company_phone": "088-797888",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "63",
+        "company_name": "MUZIUM KESENIAN ISLAM MALAYSIA",
+        "company_address": "Jalan Lembah Perdana 50480  Kuala Lumpur, Malaysia, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "03-2092 7070 / 03-2274 2020",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "64",
+        "company_name": "MUZIUM KOTA KAYANG",
+        "company_address": "Al-Marhum Kayang, 02000 Perlis, Perlis",
+        "company_phone": "04 9770027 / 0419",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "65",
+        "company_name": "MUZIUM MERSING",
+        "company_address": "Jalan Ibrahim, 86800 Mersing, Johor, Johor",
+        "company_phone": "07-798 0627",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "66",
+        "company_name": "MUZIUM NEGERI TERENGGANU",
+        "company_address": "Bukit Losong, 20566 Kuala Terengganu, Terengganu, Terengganu",
+        "company_phone": "09-632 1200",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "67",
+        "company_name": "MUZIUM TENTERA DARAT",
+        "company_address": "Muzium TD Kem Si Rusa, 71050 Port Dickson, Negeri Sembilan",
+        "company_phone": "011-53751886",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "68",
+        "company_name": "NIAH NATIONAL PARK",
+        "company_address": "Niah National Park, 98200 Miri, Sarawak",
+        "company_phone": "082-610 088",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "69",
+        "company_name": "NILAI SPRINGS GOLF & COUNTRY CLUB",
+        "company_address": "PT 4770, Nilai Springs, 71800 Putra Nilai, Negeri Sembilan, Negeri Sembilan",
+        "company_phone": "06-850 8888",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "70",
+        "company_name": "NOOR ARFA CRAFT COMPLEX",
+        "company_address": "Lot 4153, Kawasan Perindustrian Chendering, 21080 Kuala Terengganu, Terengganu",
+        "company_phone": "09-6179700",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "71",
+        "company_name": "PD FOREST @ SG. MENYALA",
+        "company_address": "Jalan Gua Betong, N8, 71000 Si Rusa, Negeri Sembilan",
+        "company_phone": "06-6463917 / 886",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "72",
+        "company_name": "PICCA CONVENTION CENTRE @ BUTTERWORTH ARENA",
+        "company_address": "PMT 5144, Lorong Ampang Jajar, Ampang Jajar, 13400 Butterworth, Pulau Pinang",
+        "company_phone": "012-790 3999 / 04-333 0333",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "73",
+        "company_name": "PULAU SIPADAN",
+        "company_address": "Block H, Level 1-5, Lot 45 & 46, Signature Office, KK Times Square, Kota Kinabalu, Sabah, Sabah",
+        "company_phone": "088-523500",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "74",
+        "company_name": "PUTUO VILLAGE",
+        "company_address": "1488, Jalan Kampung, Off, Jalan Kota Tinggi - Kluang, Felda Taib Andak, 81000 Kulai, Johor",
+        "company_phone": "07-213 3398",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "75",
+        "company_name": "RIMBA RAZIA",
+        "company_address": "Lot 347-B, Kampung Dusun, 21760 Kuala Berang, Terengganu, Terengganu",
+        "company_phone": "010-357 4878",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "76",
+        "company_name": "ROYAL SELANGOR VISITOR CENTRE",
+        "company_address": "4 Jalan Usahawan 6, Setapak Jaya, 53300 Kuala Lumpur, Selangor",
+        "company_phone": "03-41456000/016-2461885",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "77",
+        "company_name": "SAFARI WONDERLAND",
+        "company_address": "Jalan Kemus Simpang Ampat, 78000 Alor Gajah, Melaka",
+        "company_phone": "06-552 0888",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "78",
+        "company_name": "SARAWAK CULTURAL VILLAGE",
+        "company_address": "Pantai Damai,Santubong, P.O.Box 2632, 93752 Kuching, Sarawak,, Sarawak",
+        "company_phone": "082-846 108/082-846 078",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "79",
+        "company_name": "SEMENGGOH WILDLIFE CENTRE",
+        "company_address": "KM 20, Borneo Highland Road, 93250 Kuching, Sarawak",
+        "company_phone": "082-612325",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "80",
+        "company_name": "SETIA CITY CONVENTION CENTRE",
+        "company_address": "NO.1, JALAN SETIA DAGANG AG U13/AG SETIA ALAM, SEKSYEN U13, 40170 SHAH ALAM, Selangor",
+        "company_phone": "03-3359 5252",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "81",
+        "company_name": "SNOWLIM  WONDERLAND",
+        "company_address": "Lot PT 3962 & 3963, Jalan Haruan 2, Pusat Komersil Oakland, 70300 Seremban, Negeri Sembilan Darul Khusus,, Negeri Sembilan",
+        "company_phone": "010-381 9139",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "82",
+        "company_name": "SPLASH OUT LANGKAWI",
+        "company_address": "PT 1233, Persiaran Mutiara Kelana Mas, 07000 Kuah, Kedah",
+        "company_phone": "04-9611520",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "83",
+        "company_name": "SUNWAY CARNIVAL MALL",
+        "company_address": "3068, Jalan Todak, Pusat Bandar Seberang Jaya, 12200 Butterworth, Pulau Pinang",
+        "company_phone": "04-397 9888",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Gold"
+    },
+    {
+        "id": "84",
+        "company_name": "SUPERPARK MALAYSIA",
+        "company_address": "Unit 4-1, Level 4, Avenue K, Shopping Mall, 156, Jln Ampang, 50450 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "012-3011040",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "85",
+        "company_name": "TABIN WILDLIFE RESORT",
+        "company_address": "(HQ) Lot 11-1, 1st Flr, Blk A, Damai Point, Jln Damai 88300 Kota Kinabalu, Sabah<br />(Lahad Datu Office)Lot GL 02 Arrival Concourse, Lahad Datu Airport, 91108 Lahad Datu, Sabah",
+        "company_phone": "088-267266",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "86",
+        "company_name": "THEAN HOU TEMPLE",
+        "company_address": "65, Persiaran Endah, Off Jalan Syed Putra, 50460 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "03-2274 7088",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Gold"
+    },
+    {
+        "id": "87",
+        "company_name": "WET WORLD WATER PARK SHAH ALAM",
+        "company_address": "3A, Persiaran Dato Menteri, Seksyen 14, 40000 Shah Alam,, Selangor",
+        "company_phone": "017-289 0500",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "88",
+        "company_name": "X PARK SENDAYAN",
+        "company_address": "Jalan Pusat Dagangan Sendayan 1, Bandar Sri Sendayan, 71950 Seremban, Negeri Sembilan., Negeri Sembilan",
+        "company_phone": "017-447 3913",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Gold"
+    },
+    {
+        "id": "89",
+        "company_name": "DE' 8000 MINI GOLF CAFE",
+        "company_address": "32, Jalan Green Hall, 10200 Georgetown, Pulau Pinang, Pulau Pinang",
+        "company_phone": "016-502 0032",
+        "duration": "18/12/24 - 17/12/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "90",
+        "company_name": "DESARU FRUIT FARM",
+        "company_address": "SUNGAI CEMARAN, BANDAR PENAWAR, 81930 KOTA TINGGI, Johor",
+        "company_phone": "012-772 1817",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "91",
+        "company_name": "FAIRY CAVE NATURE RESERVE",
+        "company_address": "Jalan Fairy Cave, 94000 Bau, Sarawak",
+        "company_phone": "011-65729290",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "92",
+        "company_name": "GALERI AZMAN HASHIM",
+        "company_address": "No.33 Samudera Drive, Universiti Malaysia Sabah, Jalan UMS, 88450 Kota Kinabalu, Sabah",
+        "company_phone": "088-320000",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "93",
+        "company_name": "GALERI DIRAJA TUANKU JA'AFAR",
+        "company_address": "Jalan Taman Bunga, 70100 Seremban, Negeri Sembilan, Negeri Sembilan",
+        "company_phone": "017-715 1109 / 011-2358 3600",
+        "duration": "18/12/24 - 17/12/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "94",
+        "company_name": "GALERI RUMAH LAT",
+        "company_address": "Lot 365404, Jalan Bemban, 31000 Batu Gajah, Perak",
+        "company_phone": "05-241 0048",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "95",
+        "company_name": "GHOST MUSEUM MELAKA",
+        "company_address": "No. 43, Jalan Kampung Hulu, Kampung Dua, 75200, Melaka",
+        "company_phone": "016-4742152",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "96",
+        "company_name": "JONG'S CROCODILE FARM & ZOO",
+        "company_address": "Lot 80, 29KM, Jalan Kuching Serian, 94200 Siburan, Sarawak, Sarawak",
+        "company_phone": "082-863 570",
+        "duration": "18/12/24 - 17/12/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "97",
+        "company_name": "KOMPLEKS EKOPELANCONGAN GUA KELAM",
+        "company_address": "Gua kelam, Kaki Bukit, 02200 Kaki Bukit, Perlis, Perlis",
+        "company_phone": "04- 976 5966 /017-920 0920",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "98",
+        "company_name": "KOMPLEKS WARISAN SULTAN ABU BAKAR",
+        "company_address": "No. 888, Jalan Sungai Chat, 80100 Johor Bahru, Johor, Johor",
+        "company_phone": "07-221 3148",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "99",
+        "company_name": "LABUAN RUSUKAN BESAR RESORT SDN. BHD.",
+        "company_address": "Lot 31831, Pulau Rusukan Besar, 87000 Labuan, Wilayah Persekutuan Labuan, Wilayah Persekutuan Labuan",
+        "company_phone": "012-833 6316",
+        "duration": "20/11/25 - 19/11/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "100",
+        "company_name": "LKE GROUP - MAU DURIANS VILLAGE",
+        "company_address": "KM 13, Jalan Sungai Lembing, Bandar Indera Mahkota, 25200 Kuantan, Pahang, Pahang",
+        "company_phone": "03-9767 2177",
+        "duration": "18/12/24 - 17/12/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "101",
+        "company_name": "MAGIC ART 3D MUSEUM",
+        "company_address": "G13,g15 & G16, Bayou Square, Jalan Wakaf Utama, 75450 Bukit Katil, Melaka",
+        "company_phone": "03-3324 5538",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "102",
+        "company_name": "MALAYSIA HERITAGE STUDIOS",
+        "company_address": "Lebuh Ayer Keroh, 75450, Melaka",
+        "company_phone": "06-253 2288",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "103",
+        "company_name": "MASJID JAMEK SULTAN ABDUL SAMAD",
+        "company_address": "Jalan Tun Perak, 50050 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+        "company_phone": "03-26912829",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "104",
+        "company_name": "MASJID PANGLIMA KINTA",
+        "company_address": "Jalan Kg. Kuchai, 30300 Ipoh, Perak",
+        "company_phone": "019-5707995",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "105",
+        "company_name": "MAYA 2 HOUSEBOAT",
+        "company_address": "Lot 3317, Kampung Kepah, 21700 Kuala Berang, Terengganu, Terengganu",
+        "company_phone": "013-944 0827",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "106",
+        "company_name": "MELAKA WONDERLAND THEME PARK & RESORT",
+        "company_address": "Lot PT17178, Lebuh Ayer Keroh, Hang Tuah Jaya, 75450 Ayer Keroh, Melaka",
+        "company_phone": "06-2313333 / 1119",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "107",
+        "company_name": "MENGKABONG PARADISE",
+        "company_address": "Kampung Gayang, Tuaran, Sabah",
+        "company_phone": "088-318311",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "108",
+        "company_name": "MIN HOUSE CAMP",
+        "company_address": "Lot 1287 Kampung Pulau, 16150 Kubang Kerian, Kota Bharu, Kelantan, Kelantan",
+        "company_phone": "013-3922 5440",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "109",
+        "company_name": "MORAC ADVENTURE PARK",
+        "company_address": "Lot 67, Pantai Cenang Mukim Pantai Cenang, 07000 Langkawi, Kedah",
+        "company_phone": "04-9552727",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "110",
+        "company_name": "MUZIUM ADAT",
+        "company_address": "196, Jalan Dato’ Umbi, 71600 Kuala Klawang, Jelebu, Negeri Sembilan",
+        "company_phone": "06-613 6586",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "111",
+        "company_name": "MUZIUM ADAT ISTIADAT (ISTANA JAHAR)",
+        "company_address": "Jalan Sultan, Bandar Kota Bharu,15000 Kota Bharu, Kelantan",
+        "company_phone": "09-7484477",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "112",
+        "company_name": "MUZIUM ISTANA KESULTANAN MELAKA",
+        "company_address": "Kompleks Warisan Melaka, Jalan Kota,75000, Melaka",
+        "company_phone": "06-333 3333 / 06-282 6526",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "113",
+        "company_name": "MUZIUM LABUAN",
+        "company_address": "U0364, Jalan Dewan, 87000 Wilayah Persekutuan Labuan, Wilayah Persekutuan Labuan",
+        "company_phone": "087-414 135",
+        "duration": "18/12/24 - 17/12/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "114",
+        "company_name": "MUZIUM LUKUT",
+        "company_address": "Lot 730, Kota Lukut, 71010 Port Dickson, Negeri Sembilan",
+        "company_phone": null,
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "115",
+        "company_name": "MUZIUM NEGERI",
+        "company_address": "Jalan Sungei Ujong, 70200 Seremban, Negeri Sembilan",
+        "company_phone": "06-7631149",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "116",
+        "company_name": "MUZIUM SEJARAH & ETNOGRAFI",
+        "company_address": "KOMPLEKS WARISAN MELAKA JALAN KOTA,75000 MELAKA, Melaka",
+        "company_phone": "06-2826526",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "117",
+        "company_name": "NINETY NINE ISLANDS DIVER",
+        "company_address": "Lot 83, Level 2, Kompleks Pekan Rabu, Mukim Kuah, 07000 Kuah, Langkawi, Kedah",
+        "company_phone": "017-2868680",
+        "duration": "13/07/23 - 12/07/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "118",
+        "company_name": "PUSAT TAMAN LAUT PULAU TINGGI",
+        "company_address": "D/A JABATAN PERIKANAN NEGERI JOHOR, JKR 341, JALAN TUN DR. ISMAIL, 86800 MERSING, Johor",
+        "company_phone": "07-799 1161",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "119",
+        "company_name": "PUSAT TAMAN LAUT PULAU TIOMAN",
+        "company_address": "Kg. Tekek, Pulau Tioman, 26800 Kuala Rompin, Pahang",
+        "company_phone": "09–414 0532",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "120",
+        "company_name": "SEGAR CITY THEME PARK",
+        "company_address": "No. 64, Jalan DS 2/1, Bandar Dataran Segar, 71010 Lukut, Port Dickson, Negeri Sembilan",
+        "company_phone": "06-6515401",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "121",
+        "company_name": "TAMAN AGROTEKNOLOGI MARDI CAMERON HIGHLANDS",
+        "company_address": "Pahang",
+        "company_phone": "011-5958 5801",
+        "duration": "04/12/24 - 03/12/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "122",
+        "company_name": "TAMAN EKO RIMBA LATA KINJANG",
+        "company_address": "Pejabat Hutan Daerah Perak Selatan, 35000 Tapah, Perak",
+        "company_phone": "017-416 6310",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "123",
+        "company_name": "TAMAN HERBA BERTAM",
+        "company_address": "Jabatan Pertanian, Jln Tun Hamdan Sheikh Tahir, Taman Bertam Indah, 13100 Kepala Batas, Penang, Pulau Pinang",
+        "company_phone": "04-575 1124",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "124",
+        "company_name": "TAMAN NEGARA JOHOR GUNUNG LEDANG (LAGENDA)",
+        "company_address": "Batu 26, Jalan Segamat, 84020 Sagil, Johor",
+        "company_phone": "07-266 1301",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "125",
+        "company_name": "THE GOLD SOUQ",
+        "company_address": "Pulau Pinang",
+        "company_phone": "04-8931100",
+        "duration": "16/07/24 - 15/07/27",
+        "award_category": "Silver"
+    },
+    {
+        "id": "126",
+        "company_name": "UNDERWATER WORLD LANGKAWI",
+        "company_address": "Pantai Cenang, Mukim Kedawang, 07000 Langkawi, Kedah, Kedah",
+        "company_phone": "+604-955 6100",
+        "duration": "03/11/25 - 02/11/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "127",
+        "company_name": "WIND CAVE NATURE RESERVE",
+        "company_address": "Lorong Taiton 8, Jalan WInd Cave, 94000 Bau, Sarawak",
+        "company_phone": "011-65729290",
+        "duration": "20/12/23 - 19/12/26",
+        "award_category": "Silver"
+    },
+    {
+        "id": "128",
+        "company_name": "WONDERFOOD MUSEUM",
+        "company_address": "49, Lebuh Pantai Georgetown 10300, Pulau Pinang",
+        "company_phone": "04-251 9095",
+        "duration": "07/08/25 - 06/08/28",
+        "award_category": "Silver"
+    },
+    {
+        "id": "129",
+        "company_name": "X-ARMY 8318 HOUSEBOAT",
+        "company_address": "No. 24, Kampung Pasir Dula, 21700 Kuala Berang, Terengganu, Terengganu",
+        "company_phone": "019-380 8318 / 013-266 8318",
+        "duration": "04/09/23 - 03/09/26",
+        "award_category": "Silver"
+    }
+]

@@ -7,7 +7,7 @@ import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
 import { useEffect, useState } from "react";
 
 export default function Header() {
-  const { isLoggedIn, user, login } = useAuthStore();
+  const { isLoggedIn, user } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
