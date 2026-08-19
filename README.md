@@ -1,16 +1,24 @@
 # TravelSync
 Collaboration Development Assignment
 
-## 本地开发
+## Importnant information
+This is the document who introduce this project and teach you how to deploy and run it
+Please **DO NOT** upload your change log to here!
 
-1. `npm install`
-2. `npm run dev` （会自动执行 `npm run db:init` 初始化本地 D1 数据库：建表 + seed 数据）
+## Before deploy
+Please **install** the following items before you try to run
+1. Visual Studio Code
+2. Docker
 
-> 新电脑第一次运行会自动建表 + 写入 seed（schema.sql，幂等可重复执行）。若需手动重置数据库，先删除 `.wrangler/state` 再重新 `npm run dev`。
+For Visual Studio Code, you will need to install the following extenstions:
+ - Dev Containers [LINK](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-## Week 9
-1. Email sender approach by using "SMTP" or "EmailJS"
-2. https://mailtrap.io/ (teacher suggestion)
-
-npm install --save-dev @types/leaflet <br>
-npm run preview
+## How to deploy (For developer)
+1. Pull it into your local pc
+2. Run your dev container
+ - It will pop up message to call you **Reopen Container**
+ - **OR** you can manually type command ">Dev Reopen" inside your search bar (Top Middle) and choose **Dev Container: Reopen Container**
+3. Wait until installation finish
+ - **Warning** It may be error during running Docker, Copy the log and ask AI if you cannot solve it
+4. After all installation finish, run "npm run dev" in your terminal (Build inside Visual Studio Code)
+5. Open it on your browser, Default URL: http://localhost:3000

@@ -3,16 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "db:init": "node \"data_access_layer/05_Collaboration_&_Shared_Planning/db-init.mjs\"",
-    "predev": "npm run db:init",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "deploy": "opennextjs-cloudflare && wrangler deploy",
     "build:worker": "opennextjs-cloudflare build",
-    "preview": "sudo chown -R $USER:$USER .next .open-next 2>/dev/null || true && opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "prepreview": "npm run db:init"
+    "preview": "sudo chown -R $USER:$USER .next .open-next 2>/dev/null || true && opennextjs-cloudflare build && opennextjs-cloudflare preview"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
