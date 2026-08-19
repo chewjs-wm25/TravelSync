@@ -3,6 +3,10 @@
 
 import { useState } from "react";
 import { useTripNavigationStore } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import {
+  getGoogleMapsUrl,
+  getWazeUrl,
+} from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/navigationApi";
 
 export default function ExportRouteClient() {
   const { origin, destination, savedRoutes } = useTripNavigationStore();
@@ -20,15 +24,13 @@ export default function ExportRouteClient() {
     const o = routeOrigin || origin;
     const d = routeDest || destination;
     if (!o || !d) return;
-    const url = `https://www.google.com/maps/dir/${o.lat},${o.lng}/${d.lat},${d.lng}`;
-    window.open(url, "_blank");
+    window.open(getGoogleMapsUrl(o, d), "_blank");
   };
 
   const exportToWaze = (routeDest?: typeof destination) => {
     const d = routeDest || destination;
     if (!d) return;
-    const url = `https://waze.com/ul?ll=${d.lat},${d.lng}&navigate=yes`;
-    window.open(url, "_blank");
+    window.open(getWazeUrl(d), "_blank");
   };
 
   return (

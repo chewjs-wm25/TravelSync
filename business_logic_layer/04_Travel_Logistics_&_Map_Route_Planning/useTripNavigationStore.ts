@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { fetchRouteShape } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi';
 
 export type VehicleType = 'car' | 'walk' | 'public transport';
 export type OptimizationMode = 'fastest' | 'shortest' | 'cheapest';
@@ -158,44 +159,6 @@ const calculateSummary = (
     timeMinutes: Math.round(timeMinutes),
     fuelLiters: Number(fuelLiters.toFixed(1)),
     fuelCost: Number(fuelCost.toFixed(2)),
-  };
-};
-
-const fetchRouteShape = async (
-  origin: Stop,
-  destination: Stop,
-  vehicleType: VehicleType
-) => {
-  const profile = vehicleType === 'walk' ? 'foot' : 'driving';
-  const url = `https://router.project-osrm.org/route/v1/${profile}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=false`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Routing service failed');
-  }
-
-  const data = (await response.json()) as {
-    routes?: Array<{
-      geometry?: { coordinates?: Array<[number, number]> };
-      distance: number;
-      duration: number;
-    }>;
-  };
-  const route = data.routes?.[0];
-  if (!route || !route.geometry?.coordinates?.length) {
-    throw new Error('No route returned');
-  }
-
-  const points = route.geometry.coordinates.map(
-    ([lng, lat]: [number, number]) => ({
-      lat,
-      lng,
-    })
-  );
-
-  return {
-    points,
-    distanceKm: route.distance / 1000,
-    durationMinutes: route.duration / 60,
   };
 };
 

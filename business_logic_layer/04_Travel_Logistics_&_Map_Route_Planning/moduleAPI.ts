@@ -13,6 +13,10 @@ import type {
   VehicleType,
   OptimizationMode,
 } from './useTripNavigationStore';
+import {
+  getGoogleMapsUrl,
+  getWazeUrl,
+} from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/navigationApi';
 
 /**
  * Module 04 Public API
@@ -216,7 +220,7 @@ export function getCurrentUserId(): string | null {
  * Called by: Module 2 (Trip Planning) - to share routes
  */
 export function exportToGoogleMaps(origin: Stop, destination: Stop): string {
-  return `https://www.google.com/maps/dir/${origin.lat},${origin.lng}/${destination.lat},${destination.lng}`;
+  return getGoogleMapsUrl(origin, destination);
 }
 
 /**
@@ -224,7 +228,7 @@ export function exportToGoogleMaps(origin: Stop, destination: Stop): string {
  * Called by: Module 2 (Trip Planning) - to navigate with Waze
  */
 export function exportToWaze(destination: Stop): string {
-  return `https://waze.com/ul?ll=${destination.lat},${destination.lng}&navigate=yes`;
+  return getWazeUrl(destination);
 }
 
 // ============================================

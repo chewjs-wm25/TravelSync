@@ -21,6 +21,10 @@ import type {
   Stop,
   VehicleType,
 } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import {
+  fetchSuggestions,
+  type PlaceSuggestion,
+} from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/nominatimApi";
 import RouteAnalysisClient from "./RouteAnalysisClient";
 import SavedRoutesClient from "./SavedRoutesClient";
 import ExportRouteClient from "./ExportRouteClient";
@@ -38,12 +42,6 @@ const defaultMarkerIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = defaultMarkerIcon;
-
-interface PlaceSuggestion {
-  display_name: string;
-  lat: string;
-  lon: string;
-}
 
 const vehicleOptions: Array<{ value: VehicleType; label: string }> = [
   { value: "car", label: "Car" },
@@ -174,19 +172,16 @@ export default function TripNavigationClient() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      void fetchSuggestions(query);
+      void searchPlaces(query);
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
   }, [activeField, destinationInput, originInput]);
 
-  const fetchSuggestions = async (query: string) => {
+  const searchPlaces = async (query: string) => {
     setIsSearching(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=${encodeURIComponent(query)}`
-      );
-      const data = (await response.json()) as PlaceSuggestion[];
+      const data = await fetchSuggestions(query);
       setSuggestions(data);
     } catch {
       setSuggestions([]);
