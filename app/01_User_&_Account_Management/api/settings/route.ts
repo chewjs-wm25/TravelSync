@@ -1,0 +1,3 @@
+import { body, errorResponse, service, tokenFrom } from "../../api";
+
+export async function PATCH(request: Request): Promise<Response> { try { const token = tokenFrom(request); if (!token) throw new Error("Unauthorized"); const input = await body(request); await (await service()).updateSettings(token, { notificationsEnabled: input.notificationsEnabled === true, language: String(input.language ?? "en"), theme: input.theme === "dark" ? "dark" : "light", privacyLevel: input.privacyLevel === "public" || input.privacyLevel === "contacts" ? input.privacyLevel : "private" }); return Response.json({ ok: true }); } catch (error) { return errorResponse(error); } }

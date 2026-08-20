@@ -7,9 +7,31 @@ export default function LoginPage() {
   const [showError, setShowError] = useState(true); // Pre-set to true for UI mockup display
   const [showSupportModal, setShowSupportModal] = useState(false);
 
-  return (
-    <div className="flex min-h-[calc(100vh-220px)] items-center justify-center py-6">
-      <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-lg border border-gray-100">
+    return (
+      <main className="mx-auto flex min-h-[calc(100vh-220px)] w-full max-w-md items-center px-4 py-10">
+        <section className="w-full rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+          <div className="mb-7 flex gap-6 border-b border-slate-200">
+            {(["login", "register"] as Mode[]).map((option) => (
+              <button key={option} type="button" onClick={() => { setMode(option); setError(""); setMessage(""); }} className={`border-b-2 pb-3 text-sm font-semibold capitalize ${mode === option ? "border-teal-600 text-teal-700" : "border-transparent text-slate-500"}`}>
+                {option}
+              </button>
+            ))}
+          </div>
+          <h1 className="text-2xl font-semibold text-slate-900">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+          <p className="mt-2 text-sm text-slate-500">{mode === "login" ? "Sign in to continue planning Malaysia." : "Start organizing your next Malaysia trip."}</p>
+          {(error || message) && <p role="alert" className={`mt-5 rounded-lg px-3 py-2 text-sm ${error ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>{error || message}</p>}
+          <form onSubmit={submit} className="mt-6 space-y-4">
+            {mode === "register" && <label className="block text-sm font-medium text-slate-700">Full name<input required value={fullName} onChange={(event) => setFullName(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-teal-600" /></label>}
+            <label className="block text-sm font-medium text-slate-700">Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-teal-600" /></label>
+            <label className="block text-sm font-medium text-slate-700">Password<input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-teal-600" />{mode === "register" && <span className="mt-1 block text-xs text-slate-500">Use 8+ characters with uppercase, lowercase, number, and special character.</span>}</label>
+            {mode === "register" ? <label className="flex items-start gap-2 text-sm text-slate-600"><input required type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} className="mt-1" />I accept the terms and privacy policy.</label> : <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />Remember me for up to 31 days</label>}
+            <button disabled={busy} className="w-full rounded-lg bg-teal-700 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60">{busy ? "Please wait..." : mode === "login" ? "Sign in" : "Register"}</button>
+          </form>
+          {mode === "login" && <button type="button" onClick={forgotPassword} className="mt-4 text-sm font-medium text-teal-700 hover:underline">Forgot password?</button>}
+        </section>
+      </main>
+    );
+  }
         
         {/* Header Section */}
         <div className="text-center space-y-1">
