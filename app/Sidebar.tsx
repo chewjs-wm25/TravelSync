@@ -39,6 +39,11 @@ const MENU_ITEMS = [
     icon: Settings,
     href: "/DEV-ACCOUNT-STATE",
   },
+  {
+    name: "REAL Account Settings",
+    icon: Settings,
+    href: "/01_User_&_Account_Management",
+  },
 ];
 
 export default function Sidebar() {
