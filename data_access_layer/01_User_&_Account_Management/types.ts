@@ -1,6 +1,7 @@
 export interface UserRecord {
   id: string;
-  email: string;
+  username: string;
+  email: string | null;
   password_hash: string;
   full_name: string;
   phone: string | null;

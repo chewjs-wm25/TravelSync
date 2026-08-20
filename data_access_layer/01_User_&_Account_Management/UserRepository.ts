@@ -7,8 +7,12 @@ export class UserRepository {
     return (await this.db.prepare("SELECT * FROM users WHERE email = ?1 LIMIT 1").bind(email.toLowerCase()).first<UserRecord>()) ?? null;
   }
 
+  async findByUsername(username: string): Promise<UserRecord | null> {
+    return (await this.db.prepare("SELECT * FROM users WHERE username = ?1 LIMIT 1").bind(username.trim().toLowerCase()).first<UserRecord>()) ?? null;
+  }
+
   async findByIdentifier(identifier: string): Promise<UserRecord | null> {
-    return (await this.db.prepare("SELECT * FROM users WHERE email = ?1 OR phone = ?1 LIMIT 1").bind(identifier.trim().toLowerCase()).first<UserRecord>()) ?? null;
+    return (await this.db.prepare("SELECT * FROM users WHERE username = ?1 OR email = ?1 OR phone = ?1 LIMIT 1").bind(identifier.trim().toLowerCase()).first<UserRecord>()) ?? null;
   }
 
   async findById(id: string): Promise<UserRecord | null> {
@@ -16,7 +20,8 @@ export class UserRepository {
   }
 
   async create(user: UserRecord): Promise<void> {
-    await this.db.prepare("INSERT INTO users (id, email, password_hash, full_name, phone, ic_hash, is_verified, is_active, is_locked, failed_attempts, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 0, ?)").bind(user.id, user.email, user.password_hash, user.full_name, user.phone, user.ic_hash, user.is_verified, user.created_at).run();
+    const storedEmail = user.email ?? `${user.username}@local.invalid`;
+    await this.db.prepare("INSERT INTO users (id, username, email, password_hash, full_name, phone, ic_hash, is_verified, is_active, is_locked, failed_attempts, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, ?)").bind(user.id, user.username, storedEmail, user.password_hash, user.full_name, user.phone, user.ic_hash, user.is_verified, user.created_at).run();
     await this.db.prepare("INSERT INTO user_settings (user_id, notifications_enabled, language, theme, privacy_level) VALUES (?, 1, 'en', 'light', 'private')").bind(user.id).run();
   }
 

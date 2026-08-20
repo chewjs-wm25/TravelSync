@@ -15,10 +15,12 @@ const requestLog = new Map<string, number[]>();
 
 export interface PublicUser {
   id: string;
-  email: string;
+  username: string;
+  email: string | null;
   fullName: string;
   phone: string | null;
   profilePicture: string | null;
+  createdAt: string;
   isVerified: boolean;
   isActive: boolean;
   role: string;
@@ -26,13 +28,13 @@ export interface PublicUser {
 }
 
 export interface LoginInput { identifier: string; password: string; rememberMe: boolean; ipAddress?: string | null }
-export interface RegisterInput { fullName: string; email?: string; phone: string; icNumber: string; password: string; acceptTerms: boolean }
+export interface RegisterInput { username: string; fullName: string; email?: string; phone: string; icNumber: string; password: string; acceptTerms: boolean }
 export interface SettingsInput { notificationsEnabled: boolean; language: string; theme: "light" | "dark"; privacyLevel: "private" | "contacts" | "public" }
 
 function normalizeEmail(email: string): string { return email.trim().toLowerCase(); }
 function validEmail(email: string): boolean { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 function validPassword(password: string): boolean { return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password); }
-function publicUser(user: UserRecord): PublicUser { return { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, profilePicture: user.profile_picture, isVerified: Boolean(user.is_verified), isActive: Boolean(user.is_active), role: user.role ?? "user", lastLogin: user.last_login }; }
+function publicUser(user: UserRecord): PublicUser { return { id: user.id, username: user.username, email: user.email?.endsWith("@local.invalid") ? null : user.email, fullName: user.full_name, phone: user.phone, profilePicture: user.profile_picture, createdAt: user.created_at, isVerified: Boolean(user.is_verified), isActive: Boolean(user.is_active), role: user.role ?? "user", lastLogin: user.last_login }; }
 function randomToken(): string { return crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", ""); }
 function base64Url(value: string): string { return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", ""); }
 
@@ -68,16 +70,16 @@ export class AuthService {
   constructor(db: D1Database) { this.users = new UserRepository(db); this.sessions = new SessionRepository(db); this.audit = new AuditRepository(db); this.resetTokens = new PasswordResetRepository(db); }
 
   async register(input: RegisterInput): Promise<{ user: PublicUser; verificationToken: string; verificationRequired: boolean }> {
-    const email = input.email?.trim() ? normalizeEmail(input.email) : `phone:${input.phone.trim()}`;
-    if (!input.fullName.trim() || (!input.email?.trim() && !input.phone.trim()) || (input.email?.trim() && !validEmail(email)) || !input.icNumber.trim() || !validPassword(input.password)) throw new Error("Invalid registration details");
+    const username = input.username.trim().toLowerCase();
+    const email = input.email?.trim() ? normalizeEmail(input.email) : null;
+    if (!/^[a-z0-9_]{3,24}$/.test(username) || !input.fullName.trim() || (!email && !input.phone.trim()) || (email && !validEmail(email)) || !input.icNumber.trim() || !validPassword(input.password)) throw new Error("Invalid registration details");
     if (!input.acceptTerms) throw new Error("Terms must be accepted");
-    if (await this.users.findByIdentifier(email) || (input.phone.trim() && await this.users.findByIdentifier(input.phone.trim()))) throw new Error("Email or phone is already registered");
-    const user: UserRecord = { id: crypto.randomUUID(), email, password_hash: await hashPassword(input.password), full_name: input.fullName.trim(), phone: input.phone.trim() || null, ic_hash: await hashPassword(input.icNumber.trim()), profile_picture: null, is_verified: input.email?.trim() ? 0 : 1, is_active: 1, is_locked: 0, failed_attempts: 0, lock_until: null, last_login: null, created_at: new Date().toISOString() };
+    if (await this.users.findByUsername(username) || (email && await this.users.findByIdentifier(email)) || (input.phone.trim() && await this.users.findByIdentifier(input.phone.trim()))) throw new Error("Username, email, or phone is already registered");
+    const user: UserRecord = { id: crypto.randomUUID(), username, email, password_hash: await hashPassword(input.password), full_name: input.fullName.trim(), phone: input.phone.trim() || null, ic_hash: await hashPassword(input.icNumber.trim()), profile_picture: null, is_verified: 1, is_active: 1, is_locked: 0, failed_attempts: 0, lock_until: null, last_login: null, created_at: new Date().toISOString() };
     await this.users.create(user);
     const verificationToken = randomToken();
     saveVerificationToken(verificationToken, user.id);
-    if (input.email?.trim()) await sendVerificationEmail({ email, token: verificationToken });
-    return { user: publicUser(user), verificationToken, verificationRequired: Boolean(input.email?.trim()) };
+    return { user: publicUser(user), verificationToken, verificationRequired: false };
   }
 
   async login(input: LoginInput): Promise<{ user: PublicUser; token: string; expiresAt: string }> {
@@ -94,7 +96,6 @@ export class AuthService {
     }
     if (!user.is_active) throw new Error("Account is inactive");
     if (user.lock_until && new Date(user.lock_until).getTime() > now) throw new Error("Account is temporarily locked");
-    if (!user.is_verified) throw new Error("Email verification is required");
     const expiresAt = new Date(now + (input.rememberMe ? REMEMBERED_SESSION_TTL : SESSION_TTL));
     const token = await signJwt({ sub: user.id, role: user.role ?? "user", exp: Math.floor(expiresAt.getTime() / 1000), jti: randomToken() });
     await this.sessions.create({ id: crypto.randomUUID(), user_id: user.id, token, expires_at: expiresAt.toISOString() });
@@ -112,7 +113,7 @@ export class AuthService {
   async adminUsers(token: string): Promise<PublicUser[]> { const user = await this.authorize(token); if ((user.role ?? "user") !== "admin") throw new Error("Forbidden"); return (await this.users.list()).map(publicUser); }
   async adminSetActive(token: string, userId: string, active: boolean): Promise<void> { const user = await this.authorize(token); if ((user.role ?? "user") !== "admin") throw new Error("Forbidden"); await this.users.setActive(userId, active); }
   async adminDelete(token: string, userId: string): Promise<void> { const user = await this.authorize(token); if ((user.role ?? "user") !== "admin") throw new Error("Forbidden"); await this.users.delete(userId); }
-  async forgotPassword(emailInput: string): Promise<void> { const user = await this.users.findByEmail(normalizeEmail(emailInput)); if (!user) return; const token = randomToken(); await this.resetTokens.create({ id: crypto.randomUUID(), user_id: user.id, token, expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() }); await sendPasswordResetEmail({ email: user.email, token }); }
+  async forgotPassword(emailInput: string): Promise<void> { const user = await this.users.findByEmail(normalizeEmail(emailInput)); if (!user || !user.email) return; const token = randomToken(); await this.resetTokens.create({ id: crypto.randomUUID(), user_id: user.id, token, expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() }); await sendPasswordResetEmail({ email: user.email, token }); }
   async resetPassword(token: string, newPassword: string): Promise<void> { if (!validPassword(newPassword)) throw new Error("Password does not meet strength requirements"); const reset = await this.resetTokens.consume(token); if (!reset) throw new Error("Reset token is invalid or expired"); await this.users.updatePassword(reset.user_id, await hashPassword(newPassword)); }
   async verifyEmail(token: string): Promise<void> { const userId = consumeVerificationToken(token); if (!userId) throw new Error("Verification token is invalid or expired"); const user = await this.users.findById(userId); if (!user) throw new Error("User not found"); await this.users.verify(userId); }
 

@@ -1,7 +1,8 @@
 const ACCOUNT_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
     phone TEXT,
@@ -53,6 +54,7 @@ let initialized: Promise<void> | null = null;
 
 export function ensureAccountSchema(db: D1Database): Promise<void> {
   if (!initialized) initialized = db.batch(ACCOUNT_SCHEMA.map((statement) => db.prepare(statement))).then(async () => {
+    try { await db.prepare("ALTER TABLE users ADD COLUMN username TEXT").run(); } catch { /* Existing databases already have the column. */ }
     try { await db.prepare("ALTER TABLE users ADD COLUMN ic_hash TEXT").run(); } catch { /* Existing databases already have the column. */ }
     try { await db.prepare("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'").run(); } catch { /* Existing databases already have the column. */ }
   });
