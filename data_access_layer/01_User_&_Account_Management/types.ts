@@ -4,6 +4,7 @@ export interface UserRecord {
   password_hash: string;
   full_name: string;
   phone: string | null;
+  ic_hash: string | null;
   profile_picture: string | null;
   is_verified: number;
   is_active: number;
