@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { updateTripAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 
 type TripRecord = {
   trip_id: string;
@@ -73,32 +74,16 @@ export default function EditTripModal({
     setErrorMessage("");
 
     try {
-      const response = await fetch(
-        "/02_Trip_Planning_&_Itinerary_Management/api/trip",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tripId: trip.trip_id,
-            userId: trip.user_id,
-            tripName,
-            tripNote,
-            startDate,
-            endDate,
-          }),
-        }
-      );
+      const updatedTrip = await updateTripAction({
+        tripId: trip.trip_id,
+        userId: trip.user_id,
+        tripName,
+        tripNote,
+        startDate: startDate || null,
+        endDate: endDate || null,
+      });
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to update trip");
-      }
-
+      // reflect changes via callback
       onSuccess();
       onClose();
     } catch (error) {

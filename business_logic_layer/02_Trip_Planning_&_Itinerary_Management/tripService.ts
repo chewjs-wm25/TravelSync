@@ -7,6 +7,7 @@ import {
   type TripRecord,
   type UpdateTripInput as TripRepositoryUpdateInput,
 } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
+import { createItinerary } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 import {
   hasMalaysiaBlocklistMatch,
   normalizeText,
@@ -172,6 +173,37 @@ export async function createTrip(
   }
 
   const trip = await insertTrip(db, validation.normalized);
+
+  // If both start and end dates are present, create one itinerary entry per day
+  if (validation.normalized.startDate && validation.normalized.endDate) {
+    const start = validation.normalized.startDate;
+    const end = validation.normalized.endDate;
+
+    // Parse as UTC dates to avoid timezone offset issues
+    const [sy, sm, sd] = start.split("-").map(Number);
+    const [ey, em, ed] = end.split("-").map(Number);
+    let current = Date.UTC(sy, sm - 1, sd);
+    const endUtc = Date.UTC(ey, em - 1, ed);
+
+    let dayIndex = 1;
+    while (current <= endUtc) {
+      const dateStr = new Date(current).toISOString().slice(0, 10);
+      try {
+        await createItinerary(db, {
+          tripId: trip.trip_id,
+          title: `Day ${dayIndex}`,
+          date: dateStr,
+          note: null,
+        });
+      } catch (err) {
+        // If creating one day's itinerary fails, continue creating the rest
+      }
+
+      dayIndex += 1;
+      current += 24 * 60 * 60 * 1000; // add one day
+    }
+  }
+
   return { ok: true, trip };
 }
 

@@ -145,6 +145,13 @@ export default function TripItineraryPage() {
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Editing trip start/end dates from the itinerary header
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [draftStartDate, setDraftStartDate] = useState<string>(""
+  );
+  const [draftEndDate, setDraftEndDate] = useState<string>("");
+  const [isSavingDates, setIsSavingDates] = useState(false);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -803,36 +810,123 @@ export default function TripItineraryPage() {
           <h2 className="text-xl font-bold text-gray-800">Itinerary</h2>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-100"
-            >
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            {isEditingDates ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={draftStartDate}
+                  onChange={(e) => setDraftStartDate(e.target.value)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
                 />
-              </svg>
-              {tripStart && tripEnd ? `${tripStart} - ${tripEnd}` : "Add date"}
-            </button>
+                <span className="text-sm text-gray-500">—</span>
+                <input
+                  type="date"
+                  value={draftEndDate}
+                  onChange={(e) => setDraftEndDate(e.target.value)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+                />
 
-            <button
-              type="button"
-              onClick={() => setIsCreateModalOpen(true)}
-              disabled={!canCreateItinerary}
-              className="bg-primary-500 hover:bg-primary-500/90 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all disabled:cursor-not-allowed disabled:bg-gray-300"
-              title="Add a new itinerary day"
-            >
-              <span className="text-sm font-bold">+</span>
-              <span>Add Day</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!trip) return;
+
+                    // basic validation
+                    if (draftStartDate && draftEndDate && draftStartDate > draftEndDate) {
+                      setToastMessage("Start date must be on or before end date");
+                      return;
+                    }
+
+                    try {
+                      setIsSavingDates(true);
+                      const updatedTrip = await updateTripAction({
+                        tripId: trip.trip_id,
+                        userId: trip.user_id,
+                        tripName: trip.trip_name,
+                        tripNote: trip.trip_note ?? undefined,
+                        startDate: draftStartDate || null,
+                        endDate: draftEndDate || null,
+                      });
+
+                      setTrip(updatedTrip);
+                      setIsEditingDates(false);
+                      setRefreshCounter((v) => v + 1);
+
+                      // check for out-of-range itineraries
+                      const outOfRange = itineraries.filter((it) => {
+                        if (draftStartDate && it.date < draftStartDate) return true;
+                        if (draftEndDate && it.date > draftEndDate) return true;
+                        return false;
+                      });
+
+                      if (outOfRange.length > 0) {
+                        setToastMessage(
+                          `${outOfRange.length} itinerary day(s) are outside the new trip dates. Please adjust them manually.`
+                        );
+                      } else {
+                        setToastMessage("Trip dates saved!");
+                      }
+                    } catch (error) {
+                      setToastMessage(
+                        error instanceof Error ? error.message : "Failed to update trip dates"
+                      );
+                    } finally {
+                      setIsSavingDates(false);
+                    }
+                  }}
+                  disabled={isSavingDates}
+                  className="rounded-xl bg-[#ff6b6b] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#ff5252] disabled:opacity-60"
+                >
+                  Save
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsEditingDates(false)}
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm ml-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-100"
+                  onClick={() => {
+                    setDraftStartDate(trip?.start_date ?? "");
+                    setDraftEndDate(trip?.end_date ?? "");
+                    setIsEditingDates(true);
+                  }}
+                >
+                  <svg
+                    className="h-4 w-4 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  {tripStart && tripEnd ? `${tripStart} - ${tripEnd}` : "Add date"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(true)}
+                  disabled={!canCreateItinerary}
+                  className="bg-primary-500 hover:bg-primary-500/90 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all disabled:cursor-not-allowed disabled:bg-gray-300"
+                  title="Add a new itinerary day"
+                >
+                  <span className="text-sm font-bold">+</span>
+                  <span>Add Day</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
