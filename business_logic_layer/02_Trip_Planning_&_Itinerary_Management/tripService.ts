@@ -6,11 +6,11 @@ import {
   type CreateTripInput,
   type TripRecord,
   type UpdateTripInput as TripRepositoryUpdateInput,
-} from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
+} from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
 import {
   hasMalaysiaBlocklistMatch,
   normalizeText,
-} from "./textValidation";
+} from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
 
 export const DEFAULT_USER_ID = "usr_demo";
 const MAX_TRIP_NAME_LENGTH = 100;

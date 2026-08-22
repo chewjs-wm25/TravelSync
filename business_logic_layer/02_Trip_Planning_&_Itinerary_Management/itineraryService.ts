@@ -7,15 +7,15 @@ import {
   type CreateItineraryInput,
   type ItineraryRecord,
   type UpdateItineraryInput as ItineraryRepositoryUpdateInput,
-} from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
+} from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 import {
   getTripById,
   type TripRecord,
-} from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
+} from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
 import {
   hasMalaysiaBlocklistMatch,
   normalizeText,
-} from "./textValidation";
+} from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
 
 const MAX_ITINERARY_TITLE_LENGTH = 60;
 

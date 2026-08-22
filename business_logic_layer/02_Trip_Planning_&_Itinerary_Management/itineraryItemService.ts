@@ -5,12 +5,12 @@ import {
   getItineraryItemsByItineraryId,
   updateItineraryItem as updateItineraryItemRecord,
   type ItineraryItemRecord,
-} from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
-import { getItineraryById } from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
+} from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
+import { getItineraryById } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 import {
   hasMalaysiaBlocklistMatch,
   normalizeText,
-} from "./textValidation";
+} from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
 
 export type ItineraryItemServiceInput = {
   itineraryId?: string | null;
@@ -19,6 +19,10 @@ export type ItineraryItemServiceInput = {
   destination?: string | null;
   image?: string | null;
   note?: string | null;
+  referenceId?: string | null;
+  type?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
 };
 
 export type UpdateItineraryItemInput = {
@@ -29,6 +33,11 @@ export type UpdateItineraryItemInput = {
   position?: number | string | null;
   order_index?: number | string | null;
   image?: string | null;
+  destination?: string | null;
+  referenceId?: string | null;
+  type?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
 };
 
 export type DeleteItineraryItemInput = {
@@ -172,7 +181,10 @@ export async function createItineraryItem(
     validation.normalized.note,
     nextOrderIndex,
     validation.normalized.destination,
-    "other"
+    normalizeText(input.type) ?? "other",
+    normalizeText(input.referenceId) ?? undefined,
+    normalizeText(input.startTime) ?? undefined,
+    normalizeText(input.endTime) ?? undefined
   );
 
   if (!wasInserted) {
@@ -190,12 +202,12 @@ export async function createItineraryItem(
       itinerary_id: validation.itineraryId,
       item_name: validation.normalized.place,
       image_url: validation.normalized.image ?? null,
-      itinerary_note: validation.normalized.note ?? null,
+      itinerary_item_note: validation.normalized.note ?? null,
       destination: validation.normalized.destination,
-      reference_id: null,
-      type: "other",
-      start_time: null,
-      end_time: null,
+      reference_id: normalizeText(input.referenceId),
+      type: normalizeText(input.type) ?? "other",
+      start_time: normalizeText(input.startTime),
+      end_time: normalizeText(input.endTime),
       position: nextOrderIndex,
       order_index: nextOrderIndex,
     },
@@ -241,13 +253,23 @@ export async function updateItineraryItemById(
     input.position !== undefined && input.position !== null;
   const hasOrderIndexUpdate =
     input.order_index !== undefined && input.order_index !== null;
+  const hasDestinationUpdate = input.destination !== undefined;
+  const hasReferenceIdUpdate = input.referenceId !== undefined;
+  const hasTypeUpdate = input.type !== undefined;
+  const hasStartTimeUpdate = input.startTime !== undefined;
+  const hasEndTimeUpdate = input.endTime !== undefined;
 
   if (
     !hasNameUpdate &&
     !hasNoteUpdate &&
     !hasImageUpdate &&
     !hasPositionUpdate &&
-    !hasOrderIndexUpdate
+    !hasOrderIndexUpdate &&
+    !hasDestinationUpdate &&
+    !hasReferenceIdUpdate &&
+    !hasTypeUpdate &&
+    !hasStartTimeUpdate &&
+    !hasEndTimeUpdate
   ) {
     return {
       ok: false,
@@ -298,10 +320,25 @@ export async function updateItineraryItemById(
     normalizedUpdates.item_name = normalizedName;
   }
   if (hasNoteUpdate) {
-    normalizedUpdates.itinerary_note = normalizedNote ?? "";
+    normalizedUpdates.itinerary_item_note = normalizedNote ?? "";
   }
   if (hasImageUpdate) {
     normalizedUpdates.image_url = normalizeText(input.image) ?? "";
+  }
+  if (input.destination !== undefined) {
+    normalizedUpdates.destination = normalizeText(input.destination);
+  }
+  if (input.referenceId !== undefined) {
+    normalizedUpdates.reference_id = normalizeText(input.referenceId);
+  }
+  if (input.type !== undefined) {
+    normalizedUpdates.type = normalizeText(input.type);
+  }
+  if (input.startTime !== undefined) {
+    normalizedUpdates.start_time = normalizeText(input.startTime);
+  }
+  if (input.endTime !== undefined) {
+    normalizedUpdates.end_time = normalizeText(input.endTime);
   }
   if (
     normalizedPosition !== null &&
@@ -315,13 +352,18 @@ export async function updateItineraryItemById(
   const wasUpdated = await updateItineraryItemRecord(db, itemId, {
     name: normalizedUpdates.item_name ?? undefined,
     note:
-      typeof normalizedUpdates.itinerary_note === "string"
-        ? normalizedUpdates.itinerary_note
+      typeof normalizedUpdates.itinerary_item_note === "string"
+        ? normalizedUpdates.itinerary_item_note
         : undefined,
     image:
       typeof normalizedUpdates.image_url === "string"
         ? normalizedUpdates.image_url
         : undefined,
+      destination: normalizedUpdates.destination ?? undefined,
+      reference_id: normalizedUpdates.reference_id ?? undefined,
+      type: normalizedUpdates.type ?? undefined,
+      start_time: normalizedUpdates.start_time ?? undefined,
+      end_time: normalizedUpdates.end_time ?? undefined,
     position: normalizedUpdates.position ?? undefined,
     order_index: normalizedUpdates.order_index ?? undefined,
   });

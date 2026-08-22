@@ -8,18 +8,21 @@ import {
   listItinerariesAction,
   updateItineraryAction,
 } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryApi";
-import { deleteItineraryItemAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryItemApi";
+import {
+  deleteItineraryItemAction,
+  listItineraryItemsAction,
+} from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryItemApi";
 import {
   listTripsAction,
   updateTripAction,
 } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
-import CreateItineraryModal from "../components/CreateItineraryModal";
+import CreateItineraryModal from "@/app/02_Trip_Planning_&_Itinerary_Management/components/CreateItineraryModal";
 import {
   DayItineraryCard,
   type DayItinerary,
-} from "../components/DayItineraryCard";
-import { TripInfoCard } from "../components/TripInfoCard";
-import { TripNoteCard } from "../components/TripNoteCard";
+} from "@/app/02_Trip_Planning_&_Itinerary_Management/components/DayItineraryCard";
+import { TripInfoCard } from "@/app/02_Trip_Planning_&_Itinerary_Management/components/TripInfoCard";
+import { TripNoteCard } from "@/app/02_Trip_Planning_&_Itinerary_Management/components/TripNoteCard";
 import type { ItineraryRecord } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 import type { TripRecord } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
 
@@ -33,14 +36,18 @@ type ItemApiPayload = {
   place?: string;
   name?: string;
   item_name?: string;
-  destination?: string;
+  destination?: string | null;
   image?: string;
-  image_url?: string;
-  note?: string;
-  itinerary_note?: string;
-  position?: number;
-  order_index?: number;
-  type?: string;
+  image_url?: string | null;
+  note?: string | null;
+  itinerary_note?: string | null;
+  itinerary_item_note?: string | null;
+  position?: number | null;
+  order_index?: number | null;
+  type?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  reference_id?: string | null;
 };
 
 function formatTripDate(value: string | null) {
@@ -100,16 +107,17 @@ function mapItemResponse(
     id: item.id ?? item.item_id ?? `${fallbackName}-${Date.now()}`,
     name: item.name ?? item.item_name ?? item.place ?? fallbackName,
     image: item.image ?? item.image_url ?? fallbackImage,
-    note: item.note ?? item.itinerary_note ?? undefined,
-    position,
-    order_index: item.order_index ?? item.position ?? position,
+    note: item.note ?? item.itinerary_item_note ?? item.itinerary_note ?? undefined,
+    position: position ?? undefined,
+    order_index: item.order_index ?? item.position ?? position ?? undefined,
     isEditingItem: false,
   };
 }
 
 function createDayState(
   itinerary: ItineraryRecord,
-  index: number
+  index: number,
+  persistedItems: ItemApiPayload[]
 ): DayItinerary {
   return {
     id: itinerary.itinerary_id,
@@ -117,15 +125,9 @@ function createDayState(
     date: itinerary.date,
     note: itinerary.note ?? null,
     isCollapsed: false,
-    items: sortDayItems([
-      {
-        id: `${itinerary.itinerary_id}-sample`,
-        name: itinerary.title || `Day ${index + 1}`,
-        image: defaultItemImage,
-        position: 1,
-        order_index: 1,
-      },
-    ]),
+    items: sortDayItems(
+      persistedItems.map((item) => mapItemResponse(item, itinerary.title))
+    ),
   };
 }
 
@@ -166,6 +168,12 @@ export default function TripItineraryPage() {
           listItinerariesAction(tripId),
         ]);
 
+        const persistedItems = await Promise.all(
+          tripItineraries.map((itinerary) =>
+            listItineraryItemsAction(itinerary.itinerary_id)
+          )
+        );
+
         if (!isMounted) {
           return;
         }
@@ -177,7 +185,7 @@ export default function TripItineraryPage() {
         setDayCards(
           currentTrip
             ? tripItineraries.map((itinerary, index) =>
-                createDayState(itinerary, index)
+              createDayState(itinerary, index, persistedItems[index])
               )
             : []
         );
@@ -730,7 +738,10 @@ export default function TripItineraryPage() {
                   image:
                     updatedItem.image ?? updatedItem.image_url ?? item.image,
                   note:
-                    updatedItem.note ?? updatedItem.itinerary_note ?? undefined,
+                    updatedItem.note ??
+                    updatedItem.itinerary_item_note ??
+                    updatedItem.itinerary_note ??
+                    undefined,
                   position:
                     updatedPosition ?? payload.position ?? item.position,
                   order_index:

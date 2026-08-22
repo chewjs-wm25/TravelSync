@@ -3,7 +3,7 @@ export type ItineraryItemRecord = {
   itinerary_id: string;
   item_name: string;
   image_url: string | null;
-  itinerary_note: string | null;
+  itinerary_item_note: string | null;
   destination: string | null;
   reference_id: string | null;
   type: string | null;
@@ -20,6 +20,11 @@ export type ItineraryItem = {
   note?: string;
   position?: number;
   order_index?: number;
+  destination?: string;
+  reference_id?: string;
+  type?: string;
+  start_time?: string;
+  end_time?: string;
 };
 
 export async function getItineraryItemById(
@@ -33,7 +38,7 @@ export async function getItineraryItemById(
         itinerary_id,
         item_name,
         image_url,
-        itinerary_note,
+        itinerary_item_note,
         destination,
         reference_id,
         type,
@@ -57,7 +62,10 @@ export async function addItineraryItem(
   note?: string,
   position = 0,
   destination?: string,
-  itemType: string = "other"
+  itemType: string = "other",
+  referenceId?: string,
+  startTime?: string,
+  endTime?: string
 ): Promise<boolean> {
   const result = await db
     .prepare(
@@ -67,10 +75,13 @@ export async function addItineraryItem(
         item_name,
         destination,
         image_url,
-        itinerary_note,
+        itinerary_item_note,
         type,
-        position
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        position,
+        reference_id,
+        start_time,
+        end_time
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       itemId,
@@ -80,7 +91,10 @@ export async function addItineraryItem(
       image ?? null,
       note ?? null,
       itemType,
-      position
+      position,
+      referenceId ?? null,
+      startTime ?? null,
+      endTime ?? null
     )
     .run();
 
@@ -105,7 +119,7 @@ export async function updateItineraryItem(
 
   if (typeof updates.note === "string") {
     const trimmedNote = updates.note.trim();
-    setClauses.push("itinerary_note = ?");
+    setClauses.push("itinerary_item_note = ?");
     values.push(trimmedNote.length > 0 ? trimmedNote : null);
   }
 
@@ -113,6 +127,31 @@ export async function updateItineraryItem(
     const trimmedImage = updates.image.trim();
     setClauses.push("image_url = ?");
     values.push(trimmedImage.length > 0 ? trimmedImage : null);
+  }
+
+  if (typeof updates.destination === "string") {
+    setClauses.push("destination = ?");
+    values.push(updates.destination.trim() || null);
+  }
+
+  if (typeof updates.reference_id === "string") {
+    setClauses.push("reference_id = ?");
+    values.push(updates.reference_id.trim() || null);
+  }
+
+  if (typeof updates.type === "string") {
+    setClauses.push("type = ?");
+    values.push(updates.type);
+  }
+
+  if (typeof updates.start_time === "string") {
+    setClauses.push("start_time = ?");
+    values.push(updates.start_time.trim() || null);
+  }
+
+  if (typeof updates.end_time === "string") {
+    setClauses.push("end_time = ?");
+    values.push(updates.end_time.trim() || null);
   }
 
   const nextPosition =
@@ -169,7 +208,7 @@ export async function getItineraryItemsByItineraryId(
         itinerary_id,
         item_name,
         image_url,
-        itinerary_note,
+        itinerary_item_note,
         destination,
         reference_id,
         type,
