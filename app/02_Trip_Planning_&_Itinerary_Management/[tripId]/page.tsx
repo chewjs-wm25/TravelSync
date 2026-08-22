@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   deleteItineraryAction,
   listItinerariesAction,
+  createItineraryAction,
   updateItineraryAction,
 } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryApi";
 import {
@@ -73,9 +74,12 @@ function formatTripDate(value: string | null) {
 }
 
 function addDaysToDate(date: string, days: number) {
-  const parsed = new Date(`${date}T00:00:00`);
-  parsed.setDate(parsed.getDate() + days);
-  return parsed.toISOString().slice(0, 10);
+  // Use UTC date math to avoid timezone offset issues (match server-side behavior)
+  const [y, m, d] = date.split("-").map(Number);
+  const utc = Date.UTC(y, m - 1, d);
+  const dt = new Date(utc);
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
 }
 
 const defaultItemImage =
@@ -140,6 +144,8 @@ export default function TripItineraryPage() {
   const [itineraries, setItineraries] = useState<ItineraryRecord[]>([]);
   const [dayCards, setDayCards] = useState<DayItinerary[]>([]);
   const [searchInputs, setSearchInputs] = useState<Record<string, string>>({});
+  // selected suggestions per day (from module 03 DiscoveryService)
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Record<string, { placeId: string; formatted: string } | undefined>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
@@ -327,53 +333,145 @@ export default function TripItineraryPage() {
     }
   };
 
-  const handleAddDay = (position: "after" | "before" = "after") => {
-    setDayCards((previous) => {
-      if (previous.length === 0) {
-        const startDate =
-          trip?.start_date ?? new Date().toISOString().slice(0, 10);
-        const newDay: DayItinerary = {
-          id: `local-${Date.now()}`,
-          title: "Day 1",
-          date: startDate,
-          note: null,
-          isCollapsed: false,
-          items: [],
-        };
-        return [newDay];
-      }
-
-      if (position === "after") {
-        const lastDay = previous[previous.length - 1];
-        const nextDate = addDaysToDate(lastDay.date, 1);
-        const newDay: DayItinerary = {
-          id: `local-${Date.now()}`,
-          title: `Day ${previous.length + 1}`,
-          date: nextDate,
-          isCollapsed: false,
-          items: [],
-        };
-
-        return [...previous, newDay];
-      }
-
-      const firstDay = previous[0];
-      const previousDate = addDaysToDate(firstDay.date, -1);
+  const handleAddDay = async (
+    position: "after" | "before" = "after",
+    anchorDayId?: string
+  ) => {
+    // If there are no days yet, create a local first day (same behavior as before)
+    if (dayCards.length === 0) {
+      const startDate = trip?.start_date ?? new Date().toISOString().slice(0, 10);
       const newDay: DayItinerary = {
         id: `local-${Date.now()}`,
         title: "Day 1",
-        date: previousDate,
+        date: startDate,
+        note: null,
         isCollapsed: false,
         items: [],
       };
+      setDayCards([newDay]);
+      return;
+    }
 
-      return [
-        newDay,
-        ...previous.map((day, index) => ({
-          ...day,
-          title: `Day ${index + 2}`,
-        })),
-      ];
+    // determine anchor index
+    let anchorIndex = 0;
+    if (anchorDayId) {
+      anchorIndex = dayCards.findIndex((d) => d.id === anchorDayId);
+      if (anchorIndex === -1) {
+        anchorIndex = position === "after" ? dayCards.length - 1 : 0;
+      }
+    } else {
+      anchorIndex = position === "after" ? dayCards.length - 1 : 0;
+    }
+
+    const anchorDay = dayCards[anchorIndex];
+    const newDate = addDaysToDate(anchorDay.date, position === "before" ? -1 : 1);
+
+    // deny if a day already exists for newDate
+    const existsInLocal = dayCards.some((d) => d.date === newDate);
+    const existsInPersisted = itineraries.some((it) => it.date === newDate);
+    if (existsInLocal || existsInPersisted) {
+      setToastMessage("An itinerary day already exists for that date");
+      return;
+    }
+
+    // If trip exists, and newDate is outside trip window, update trip dates to include it
+    if (trip) {
+      let needUpdate = false;
+      let nextStart = trip.start_date ?? null;
+      let nextEnd = trip.end_date ?? null;
+
+      if (trip.start_date && newDate < trip.start_date) {
+        nextStart = newDate;
+        needUpdate = true;
+      }
+      if (trip.end_date && newDate > trip.end_date) {
+        nextEnd = newDate;
+        needUpdate = true;
+      }
+
+      if (needUpdate) {
+        try {
+          const updatedTrip = await updateTripAction({
+            tripId: trip.trip_id,
+            userId: trip.user_id,
+            tripName: trip.trip_name,
+            tripNote: trip.trip_note ?? undefined,
+            startDate: nextStart,
+            endDate: nextEnd,
+          });
+          setTrip(updatedTrip);
+          // reflect in UI message
+          setToastMessage("Trip dates updated to include new day");
+        } catch (error) {
+          setToastMessage(
+            error instanceof Error ? error.message : "Failed to update trip dates"
+          );
+          return;
+        }
+      }
+    }
+
+    // If anchor day is persisted (not local), create a persisted itinerary day via server action
+    if (!anchorDay.id.startsWith("local-")) {
+      try {
+        const created = await createItineraryAction({
+          tripId: trip?.trip_id ?? itineraries[0]?.trip_id ?? null,
+          title: `Day ${itineraries.length + 1}`,
+          date: newDate,
+          note: null,
+        });
+
+        // insert into itineraries and dayCards sorted by date
+        setItineraries((prev) => {
+          const next = [...prev, created];
+          return next.sort((a, b) => a.date.localeCompare(b.date));
+        });
+
+        const newDay: DayItinerary = {
+          id: created.itinerary_id,
+          title: created.title,
+          date: created.date,
+          note: created.note ?? null,
+          isCollapsed: false,
+          items: [],
+        };
+
+        setDayCards((prev) => {
+          const copy = [...prev];
+          // find insertion index based on date ordering
+          const insertionIndex = copy.findIndex((d) => d.date > newDate);
+          if (insertionIndex === -1) copy.push(newDay);
+          else copy.splice(insertionIndex, 0, newDay);
+
+          // renumber titles for UI consistency
+          return copy.map((d, i) => ({ ...d, title: `Day ${i + 1}` }));
+        });
+
+        setToastMessage("Itinerary day added");
+        setRefreshCounter((v) => v + 1);
+      } catch (error) {
+        setToastMessage(
+          error instanceof Error ? error.message : "Failed to add itinerary day"
+        );
+      }
+
+      return;
+    }
+
+    // Insert a local day when anchor is local
+    setDayCards((previous) => {
+      const copy = [...previous];
+      const insertionIndex = position === "before" ? anchorIndex : anchorIndex + 1;
+      const newDay: DayItinerary = {
+        id: `local-${Date.now()}`,
+        title: `Day ${copy.length + 1}`,
+        date: newDate,
+        note: null,
+        isCollapsed: false,
+        items: [],
+      };
+      copy.splice(insertionIndex, 0, newDay);
+      return copy.map((d, i) => ({ ...d, title: `Day ${i + 1}` }));
     });
   };
 
@@ -409,13 +507,14 @@ export default function TripItineraryPage() {
       );
 
       setSearchInputs((previous) => ({ ...previous, [dayId]: "" }));
+      setSelectedSuggestions((prev) => ({ ...prev, [dayId]: undefined }));
       setToastMessage("Place Added!");
       return;
     }
 
     try {
       const response = await fetch(
-        `/api/itineraries/${encodeURIComponent(dayId)}/items`,
+        `/02_Trip_Planning_&_Itinerary_Management/api/itineraries/${encodeURIComponent(dayId)}/items`,
         {
           method: "POST",
           headers: {
@@ -425,6 +524,8 @@ export default function TripItineraryPage() {
             place: query,
             image: defaultItemImage,
             note: "",
+            // include referenceId when user selected a module-03 suggestion
+            referenceId: selectedSuggestions[dayId]?.placeId ?? null,
           }),
         }
       );
@@ -455,6 +556,7 @@ export default function TripItineraryPage() {
       );
 
       setSearchInputs((previous) => ({ ...previous, [dayId]: "" }));
+      setSelectedSuggestions((prev) => ({ ...prev, [dayId]: undefined }));
       setToastMessage("Place Added!");
     } catch (error) {
       setToastMessage(
@@ -695,7 +797,7 @@ export default function TripItineraryPage() {
 
     try {
       const response = await fetch(
-        `/api/itineraries/${encodeURIComponent(dayId)}/items/${encodeURIComponent(itemId)}`,
+        `/02_Trip_Planning_&_Itinerary_Management/api/itineraries/${encodeURIComponent(dayId)}/items/${encodeURIComponent(itemId)}`,
         {
           method: "PATCH",
           headers: {
@@ -955,19 +1057,24 @@ export default function TripItineraryPage() {
                 key={day.id}
                 day={day}
                 searchValue={searchInputs[day.id] ?? ""}
-                onSearchChange={(value) =>
+                onSearchChange={(value) => {
                   setSearchInputs((previous) => ({
                     ...previous,
                     [day.id]: value,
-                  }))
+                  }));
+                  // Clear any previously selected suggestion when user types
+                  setSelectedSuggestions((prev) => ({ ...prev, [day.id]: undefined }));
+                }}
+                onSelectSuggestion={(sugg) =>
+                  setSelectedSuggestions((prev) => ({ ...prev, [day.id]: sugg }))
                 }
                 onAddItem={() => handleAddItem(day.id)}
                 onDeleteItem={(itemId) => void handleDeleteItem(day.id, itemId)}
                 onDeleteDay={() => {
                   void handleDeleteDay(day.id);
                 }}
-                onAddDayBefore={() => handleAddDay("before")}
-                onAddDayAfter={() => handleAddDay("after")}
+                onAddDayBefore={(id) => void handleAddDay("before", id)}
+                onAddDayAfter={(id) => void handleAddDay("after", id)}
                 onToggleCollapse={(collapseValue) =>
                   handleToggleCollapse(day.id, collapseValue)
                 }

@@ -27,6 +27,24 @@ export type ItineraryItem = {
   end_time?: string;
 };
 
+function wasD1MutationSuccessful(result: {
+  success?: boolean;
+  meta?: {
+    changes?: number;
+  } | null;
+} | null | undefined): boolean {
+  if (!result) {
+    return false;
+  }
+
+  const changes = result.meta?.changes;
+  if (typeof changes === "number") {
+    return changes > 0;
+  }
+
+  return result.success !== false;
+}
+
 export async function getItineraryItemById(
   db: D1Database,
   itemId: string
@@ -98,7 +116,7 @@ export async function addItineraryItem(
     )
     .run();
 
-  return (result.meta?.changes ?? 0) > 0;
+  return wasD1MutationSuccessful(result);
 }
 
 export async function updateItineraryItem(
@@ -179,7 +197,7 @@ export async function updateItineraryItem(
     .bind(...values, itemId)
     .run();
 
-  return (result.meta?.changes ?? 0) > 0;
+  return wasD1MutationSuccessful(result);
 }
 
 export async function deleteItineraryItem(
@@ -194,7 +212,7 @@ export async function deleteItineraryItem(
     .bind(itemId)
     .run();
 
-  return (result.meta?.changes ?? 0) > 0;
+  return wasD1MutationSuccessful(result);
 }
 
 export async function getItineraryItemsByItineraryId(

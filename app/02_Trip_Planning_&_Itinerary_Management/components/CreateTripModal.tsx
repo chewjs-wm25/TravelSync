@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { createTripAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
+import { discoveryService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
+import type { SuggestionItem } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 
 type CreateTripModalProps = {
   isOpen: boolean;
@@ -23,6 +25,10 @@ export default function CreateTripModal({
   const [errorMessage, setErrorMessage] = useState("");
   const tripNameRef = useRef<HTMLInputElement>(null);
 
+  // State suggestions (from module 03 suggestions)
+  const [stateSuggestions, setStateSuggestions] = useState<string[]>([]);
+  const suggestionTimer = useRef<number | null>(null);
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -34,11 +40,54 @@ export default function CreateTripModal({
       setStartDate("");
       setEndDate("");
       setErrorMessage("");
+      setStateSuggestions([]);
       tripNameRef.current?.focus();
     }, 0);
 
     return () => window.clearTimeout(timerId);
   }, [isOpen]);
+
+  // Debounced state suggestion based on tripName using module 03 DiscoveryService
+  useEffect(() => {
+    if (suggestionTimer.current) {
+      window.clearTimeout(suggestionTimer.current);
+      suggestionTimer.current = null;
+    }
+
+    const trimmed = tripName.trim();
+    if (!trimmed) {
+      setStateSuggestions([]);
+      return;
+    }
+
+    suggestionTimer.current = window.setTimeout(() => {
+      void discoveryService
+        .getSuggestions(trimmed)
+        .then((items: SuggestionItem[]) => {
+          // parse state from formatted string, e.g. "Batu Caves, Selangor, Malaysia"
+          const states = new Set<string>();
+          for (const it of items) {
+            const parts = (it.formatted || "").split(",").map((p) => p.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+              // take the segment before the last (country)
+              const candidate = parts[parts.length - 2];
+              if (candidate && candidate.toLowerCase() !== "malaysia") {
+                states.add(candidate);
+              }
+            }
+          }
+          setStateSuggestions(Array.from(states).slice(0, 5));
+        })
+        .catch(() => setStateSuggestions([]));
+    }, 350) as unknown as number;
+
+    return () => {
+      if (suggestionTimer.current) {
+        window.clearTimeout(suggestionTimer.current);
+        suggestionTimer.current = null;
+      }
+    };
+  }, [tripName]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -136,6 +185,7 @@ export default function CreateTripModal({
               <span className="text-sm font-semibold text-gray-700">
                 Trip Name <span className="text-[#ff6b6b]">*</span>
               </span>
+              <div className="space-y-2">
               <input
                 ref={tripNameRef}
                 value={tripName}
@@ -145,6 +195,28 @@ export default function CreateTripModal({
                 className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
                 required
               />
+
+              {stateSuggestions.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {stateSuggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        // apply suggested state into trip note if empty, otherwise append
+                        setTripNote((prev) =>
+                          prev.trim().length === 0 ? s : `${prev} — ${s}`
+                        );
+                      }}
+                      className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700 shadow-sm hover:bg-gray-50"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+               </div>
             </label>
 
             <label className="space-y-2 md:col-span-2">
