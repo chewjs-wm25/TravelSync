@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
-import { discoveryService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
 import type { SuggestionItem } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 
 export type DayItinerary = {
@@ -112,7 +111,8 @@ export function DayItineraryCard({
     setIsEditingNote(true);
   };
 
-  // Fetch suggestions from module 03 when input changes (debounced)
+  // Stubbed suggestions (module 02 only). Avoids network calls to module 03 by
+  // generating lightweight in-memory suggestion items based on the searchValue.
   useEffect(() => {
     const value = searchValue.trim();
     if (suggestionsTimer.current) {
@@ -129,16 +129,37 @@ export function DayItineraryCard({
     }
 
     suggestionsTimer.current = window.setTimeout(() => {
-      void discoveryService
-        .getSuggestions(value)
-        .then((items) => {
-          setSuggestions(items ?? []);
-          setIsSuggestionsOpen((items ?? []).length > 0);
-        })
-        .catch(() => {
-          setSuggestions([]);
-          setIsSuggestionsOpen(false);
-        });
+      // Create up to 5 stub suggestions. SuggestionItem shape:
+      // { placeId, name, formatted, lat, lon }
+      const baseLat = 3.1390; // Kuala Lumpur base
+      const baseLon = 101.6869;
+      const states = [
+        "Kuala Lumpur",
+        "Selangor",
+        "Penang",
+        "Johor",
+        "Kedah",
+        "Perak",
+        "Melaka",
+      ];
+
+      const stubs: SuggestionItem[] = Array.from({ length: 5 }).map((_, i) => {
+        const idx = i % states.length;
+        const lat = baseLat + (i + value.length % 3) * 0.01;
+        const lon = baseLon + (i + value.length % 5) * 0.01;
+        const name = `${value} ${i + 1}`;
+        const formatted = `${name}, ${states[idx]}, Malaysia`;
+        return {
+          placeId: `stub:${value}:${i + 1}`,
+          name,
+          formatted,
+          lat,
+          lon,
+        };
+      });
+
+      setSuggestions(stubs);
+      setIsSuggestionsOpen(stubs.length > 0);
     }, 300) as unknown as number;
 
     return () => {

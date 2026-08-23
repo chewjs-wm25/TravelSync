@@ -26,4 +26,5 @@
 
 1. Modifying the development environment
 2. Installing additional dependency libraries
-3. Modifying the other modules file and database
+3. Modifying module 01, 03, 04, and 05
+4. Modifying the other module's file and database

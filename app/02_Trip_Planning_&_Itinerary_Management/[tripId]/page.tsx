@@ -244,6 +244,37 @@ export default function TripItineraryPage() {
     setToastMessage("Invalid date!");
   };
 
+  const handleSaveTripName = async (nextName: string) => {
+    if (!trip) {
+      return false;
+    }
+
+    const normalizedName = nextName.trim();
+    if (!normalizedName) {
+      setToastMessage("Trip destination is required");
+      return false;
+    }
+
+    try {
+      const updatedTrip = await updateTripAction({
+        tripId: trip.trip_id,
+        userId: trip.user_id,
+        tripName: normalizedName,
+        startDate: trip.start_date,
+        endDate: trip.end_date,
+        tripNote: trip.trip_note ?? undefined,
+      });
+
+      setTrip(updatedTrip);
+      return true;
+    } catch (error) {
+      setToastMessage(
+        error instanceof Error ? error.message : "Failed to update trip name"
+      );
+      return false;
+    }
+  };
+
   const handleSaveTripNote = async (note: string) => {
     if (!trip) {
       return false;
@@ -900,6 +931,7 @@ export default function TripItineraryPage() {
         tripName={tripTitle}
         startDate={tripStart}
         endDate={tripEnd}
+        onSaveTripName={handleSaveTripName}
       />
 
       <TripNoteCard
