@@ -1,16 +1,28 @@
-# 模块 02：行程与路线规划 (Trip Planning & Itinerary Management)
+# Functional Requirements Specification
+#### 1. Trip Management
+* **Create Trip**
+* **Delete Trip**
+* **Edit Trip**
+* A trip is a plan consist of itineraries with start date and end date
 
-## 1. 行程全生命周期管理 (Trip Management - CRUD)
-- 融合行程的**创建、查看、修改与删除**功能：允许用户通过输入行程名称、目的地及出行日期创建行程，查看所有已建行程，更新行程基本信息，或删除现有行程。
-- 仅支持**最远1年后**的行程
+#### 2. Itinerary Management
+* **Create Itinerary**
+* **Delete Itinerary**
+* **Edit Itinerary**
+* Itinerary is a plan within a day
 
-## 2. 行程明细项全生命周期管理与备注 (Itinerary Item Management & Notes)
-- 融合行程明细的**创建、添加、查看、修改与删除**功能：支持在指定行程内添加/修改/删除景点、餐厅、住宿等各类项目，并可为各个明细项添加随记备注。
+#### 3. Itinerary Items
+* **Add Itinerary Item**
+* **Delete Itinerary Item**
+* **Edit Itinerary Item**
+* Itinerary Item is a place to visit provide with start time and end time
 
-## 3. 行程组织与分类 (Itinerary Organization & Categorization)
-- **拖拽排序**：支持通过拖拽（Drag-and-Drop）直观调整行程明细项的先后顺序。
-- **类型标记**：支持将明细项分类归类（如景点、餐厅、住宿、交通、节庆活动等）。
+#### 4. Travel Notes
+* **Add Travel Notes**
+* **Delete Travel Notes**
+* **Edit Travel Notes**
+* Is a notes for Trip, Itinerary, and Itinerary Item
 
-## 4. 智能行程辅助 (Smart Itinerary Assistance)
-- **耗时估算**：集成地图服务，自动估算行程明细项之间的交通行驶时间。
-- **时间冲突预警**：当行程项在时间安排上存在重叠冲突时自动发出警告提示。
+#### 5. Validation & Scheduling
+* **Detect Conflict Schedule**
+* An automated schedule shift between each itinerary items
