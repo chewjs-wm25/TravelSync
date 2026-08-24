@@ -49,6 +49,8 @@ const vehicleOptions: Array<{ value: VehicleType; label: string }> = [
   { value: "public transport", label: "Public Transport" },
 ];
 
+const publicTransportOptions = ["LRT", "MRT", "Bus", "Walking"];
+
 function AutoZoomToRoute({
   routeCoordinates,
 }: {
@@ -114,6 +116,11 @@ export default function TripNavigationClient() {
     loadSavedRoute,
     saveRoute,
     deleteSavedRoute,
+    publicTransportStops,
+    publicTransportLegs,
+    vehicles,
+    selectedVehicleId,
+    setSelectedVehicleId,
   } = useTripNavigationStore();
 
   const [routeName, setRouteName] = useState("");
@@ -123,6 +130,7 @@ export default function TripNavigationClient() {
   );
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [activeSection, setActiveSection] = useState<
     "planner" | "analysis" | "saved" | "garage" | "export"
   >("planner");
@@ -165,6 +173,11 @@ export default function TripNavigationClient() {
   }, [destination?.name]);
 
   useEffect(() => {
+    if (!activeField) {
+      setSuggestions([]);
+      return;
+    }
+
     const query = activeField === "origin" ? originInput : destinationInput;
     if (!query.trim()) {
       setSuggestions([]);
@@ -217,6 +230,18 @@ export default function TripNavigationClient() {
       setDestinationInput(stop.name);
     }
     setSuggestions([]);
+    setActiveField(null);
+  };
+
+  const handleGenerateRoute = async () => {
+    setIsGenerating(true);
+    setSuggestions([]);
+    setActiveField(null);
+    try {
+      await generateRoute();
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSave = () => {
@@ -291,7 +316,19 @@ export default function TripNavigationClient() {
                 <Popup>{destination.name}</Popup>
               </Marker>
             )}
-            {routeCoordinates.length > 1 && (
+            {vehicleType === "public transport" && publicTransportLegs.length > 0 ? (
+              publicTransportLegs.map((leg) => (
+                <Polyline
+                  key={`${leg.mode}-${leg.name}`}
+                  positions={leg.points.map((point) => [point.lat, point.lng] as LatLngExpression)}
+                  pathOptions={{
+                    color: leg.mode === "walking" ? "#16a34a" : leg.mode === "lrt" ? "#dc2626" : leg.mode === "mrt" ? "#7c3aed" : "#2563eb",
+                    weight: 5,
+                    dashArray: leg.mode === "walking" ? "5, 8" : undefined,
+                  }}
+                />
+              ))
+            ) : routeCoordinates.length > 1 && (
               <Polyline
                 positions={routeCoordinates}
                 pathOptions={{
@@ -303,7 +340,21 @@ export default function TripNavigationClient() {
             )}
           </AnyMapContainer>
 
-          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1000] max-w-[390px] rounded-3xl border border-gray-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
+          {vehicleType === "public transport" && publicTransportLegs.length > 0 && (
+            <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-2xl border border-gray-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur">
+              <p className="font-semibold text-gray-800">Transit route</p>
+              <div className="mt-2 flex flex-wrap gap-3 text-gray-600">
+                {publicTransportLegs.map((leg) => (
+                  <span key={`${leg.mode}-legend`} className="flex items-center gap-1">
+                    <span className={`h-2 w-5 rounded-full ${leg.mode === "walking" ? "bg-green-600" : leg.mode === "lrt" ? "bg-red-600" : leg.mode === "mrt" ? "bg-violet-600" : "bg-blue-600"}`} />
+                    {leg.mode === "walking" ? "Walking" : leg.mode === "lrt" ? "LRT" : leg.mode === "mrt" ? "MRT" : "Bus"}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className={`pointer-events-none absolute inset-x-4 top-4 z-[1000] max-w-[390px] rounded-3xl border border-gray-200 bg-white/95 shadow-2xl backdrop-blur ${routePickerOpen ? "p-4" : "p-2"}`}>
             <div className="pointer-events-auto">
               <div className="flex items-center justify-between">
                 <div>
@@ -340,7 +391,7 @@ export default function TripNavigationClient() {
                       />
                     </div>
                     {activeField === "origin" && suggestions.length > 0 && (
-                      <ul className="shadow-base mt-2 rounded-2xl border border-gray-200 bg-white p-2 text-sm">
+                      <ul className="shadow-base mt-2 max-h-40 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2 text-sm">
                         {suggestions.map((suggestion) => (
                           <li
                             key={`${suggestion.display_name}-${suggestion.lat}`}
@@ -374,7 +425,7 @@ export default function TripNavigationClient() {
                     </div>
                     {activeField === "destination" &&
                       suggestions.length > 0 && (
-                        <ul className="shadow-base mt-2 rounded-2xl border border-gray-200 bg-white p-2 text-sm">
+                        <ul className="shadow-base mt-2 max-h-40 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2 text-sm">
                           {suggestions.map((suggestion) => (
                             <li
                               key={`${suggestion.display_name}-${suggestion.lat}`}
@@ -400,10 +451,11 @@ export default function TripNavigationClient() {
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
-                      onClick={generateRoute}
+                      onClick={() => void handleGenerateRoute()}
+                      disabled={isGenerating || !origin || !destination}
                       className="bg-primary-500 shadow-base hover:shadow-hover rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
                     >
-                      Generate Route
+                      {isGenerating ? "Refreshing..." : "Generate Route"}
                     </button>
                   </div>
                 </div>
@@ -447,39 +499,75 @@ export default function TripNavigationClient() {
               ))}
             </div>
 
+            <label className="mt-4 mb-2 block text-sm font-semibold text-gray-800">
+              Car / Motorcycle
+            </label>
+            <select
+              value={selectedVehicleId}
+              onChange={(event) => setSelectedVehicleId(event.target.value)}
+              className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none"
+              disabled={vehicleType !== "car"}
+            >
+              {vehicles
+                .filter((vehicle) => vehicle.category === "car" || vehicle.category === "motorcycle")
+                .map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.category === "motorcycle" ? "Motorcycle" : "Car"} - {vehicle.name}
+                    {vehicle.isDefault ? " (Default)" : ""}
+                  </option>
+                ))}
+            </select>
+
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                onClick={() => applyOptimization("fastest")}
+                <button
+                  disabled={vehicleType !== "car"}
+                  onClick={() => applyOptimization("fastest")}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
                   optimizationMode === "fastest"
                     ? "bg-primary-500 text-white"
-                    : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                }`}
+                      : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : ""}`}
               >
                 ⚡ Fastest
               </button>
               <button
+                disabled={vehicleType !== "car"}
                 onClick={() => applyOptimization("shortest")}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
                   optimizationMode === "shortest"
                     ? "bg-primary-500 text-white"
                     : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                }`}
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : ""}`}
               >
                 📏 Shortest
               </button>
               <button
+                disabled={vehicleType !== "car"}
                 onClick={() => applyOptimization("cheapest")}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
                   optimizationMode === "cheapest"
                     ? "bg-primary-500 text-white"
                     : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                }`}
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : ""}`}
               >
                 💰 Cheapest
               </button>
             </div>
             <p className="mt-4 text-sm text-gray-500">{optimizationLabel}</p>
+            {vehicleType === "public transport" && (
+              <div className="mt-4 rounded-2xl bg-gray-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+                  Available public transport
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {publicTransportOptions.map((option) => (
+                    <span key={option} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
+                      {option}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -508,15 +596,15 @@ export default function TripNavigationClient() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Fuel needed</span>
+                <span>{summary.energyKwh > 0 ? "Energy needed" : "Fuel needed"}</span>
                 <span className="font-semibold text-gray-800">
-                  {summary.fuelLiters.toFixed(1)} L
+                  {summary.energyKwh > 0 ? `${summary.energyKwh.toFixed(1)} kWh` : `${summary.fuelLiters.toFixed(1)} L`}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Fuel cost</span>
+                <span>{summary.energyKwh > 0 ? "Electricity cost" : "Fuel cost"}</span>
                 <span className="font-semibold text-gray-800">
-                  RM {summary.fuelCost.toFixed(2)}
+                  RM {(summary.energyKwh > 0 ? summary.energyCost : summary.fuelCost).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -545,6 +633,19 @@ export default function TripNavigationClient() {
               </div>
             </div>
           </div>
+          {vehicleType === "public transport" && publicTransportStops.length > 0 && (
+            <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
+              <h3 className="text-lg font-semibold text-gray-800">Transit stops</h3>
+              <ol className="mt-3 space-y-2 text-sm text-gray-600">
+                {publicTransportStops.map((stop, index) => (
+                  <li key={stop.id} className="flex justify-between gap-3">
+                    <span>{index + 1}. {stop.name}</span>
+                    <span>{stop.departureTime ?? stop.arrivalTime ?? "Time unavailable"}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
             <h3 className="text-lg font-semibold text-gray-800">Save route</h3>
