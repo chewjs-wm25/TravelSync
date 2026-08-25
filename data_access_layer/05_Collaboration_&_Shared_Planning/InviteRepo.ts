@@ -20,14 +20,14 @@ export interface InviteWithSender extends InviteRow {
   sender_name: string;
 }
 
-/** 行程所有邀请（join sender 取姓名） */
+/** 行程所有邀请（join users 表取发送者姓名） */
 export async function findByTrip(tripId: string): Promise<InviteWithSender[]> {
   const db = await getDB();
   const res = await db
     .prepare(
-      `SELECT i.*, a.username AS sender_name
+      `SELECT i.*, u.username AS sender_name
        FROM Collaboration_Invitations i
-       JOIN Account a ON a.AccountID = i.sender_id
+       JOIN users u ON u.id = i.sender_id
        WHERE i.trip_id = ?
        ORDER BY i.sent_at DESC`
     )
@@ -42,6 +42,19 @@ export async function findById(id: string): Promise<InviteRow | null> {
     .prepare("SELECT * FROM Collaboration_Invitations WHERE invitation_id = ? LIMIT 1")
     .bind(id)
     .first<InviteRow>();
+}
+
+export async function findByToken(token: string): Promise<InviteWithSender | null> {
+  const db = await getDB();
+  return db
+    .prepare(
+      `SELECT i.*, u.username AS sender_name
+       FROM Collaboration_Invitations i
+       JOIN users u ON u.id = i.sender_id
+       WHERE i.Token = ? LIMIT 1`
+    )
+    .bind(token)
+    .first<InviteWithSender>();
 }
 
 export async function insertInvite(i: {
@@ -76,6 +89,11 @@ export async function insertInvite(i: {
 export async function updateStatus(id: string, status: InviteStatusDB): Promise<void> {
   const db = await getDB();
   await db.prepare("UPDATE Collaboration_Invitations SET status = ? WHERE invitation_id = ?").bind(status, id).run();
+}
+
+export async function updateReceiverUserId(id: string, userId: string): Promise<void> {
+  const db = await getDB();
+  await db.prepare("UPDATE Collaboration_Invitations SET receiver_user_id = ? WHERE invitation_id = ?").bind(userId, id).run();
 }
 
 /** 把所有已过期的 pending 邀请标为 expired */

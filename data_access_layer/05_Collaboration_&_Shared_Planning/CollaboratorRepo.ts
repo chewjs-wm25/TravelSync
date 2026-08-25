@@ -7,6 +7,7 @@ export interface CollaboratorRow {
   role: CollabRoleDB;
   status: string;
   joined_at: string | null;
+  last_seen: string | null;
   trip_id: string;
   user_id: string;
   invited_by: string | null;
@@ -18,14 +19,14 @@ export interface CollaboratorWithAccount extends CollaboratorRow {
   profile_picture: string | null;
 }
 
-/** 行程所有协作者（join Account 取展示字段） */
+/** 行程所有协作者（join users 表取展示字段） */
 export async function findByTrip(tripId: string): Promise<CollaboratorWithAccount[]> {
   const db = await getDB();
   const res = await db
     .prepare(
-      `SELECT c.*, a.username, a.email, a.profile_picture
+      `SELECT c.*, u.username, u.email, u.profile_picture
        FROM Collaborators c
-       JOIN Account a ON a.AccountID = c.user_id
+       JOIN users u ON u.id = c.user_id
        WHERE c.trip_id = ? AND c.status = 'active'
        ORDER BY c.joined_at ASC`
     )
@@ -70,5 +71,15 @@ export async function deleteCollaborator(tripId: string, userId: string): Promis
   await db
     .prepare("DELETE FROM Collaborators WHERE trip_id = ? AND user_id = ?")
     .bind(tripId, userId)
+    .run();
+}
+
+/** 更新最后在线时间（每次 API 调用时触发） */
+export async function updateLastSeen(tripId: string, userId: string): Promise<void> {
+  const db = await getDB();
+  const now = new Date().toISOString();
+  await db
+    .prepare("UPDATE Collaborators SET last_seen = ? WHERE trip_id = ? AND user_id = ?")
+    .bind(now, tripId, userId)
     .run();
 }

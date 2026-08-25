@@ -1,12 +1,12 @@
 # 05_Collaboration_&_Shared_Planning 极简对接文档
 
 ## 1. 模块职责简述
-提供行程协作功能，支持多人共同编辑行程明细、发送评论、管理成员角色与邀请。包含邀请流程、权限控制、活动日志记录。
+提供行程协作功能，支持多人共同编辑行程明细、发送评论、管理成员角色与邀请。通过乐观更新 + 轮询实现近实时同步。
 
 ## 2. 依赖项 (需要其他模块/环境支持)
 - **依赖接口/组件：**
-  - `01_User_&_Account_Management` → `AccountRepo.findAccountById` / `AccountRepo.findAccountByEmail` — 邀请接受时查找或创建用户
-  - `02_Trip_Planning_&_Itinerary_Management` → `ItineraryRepo.findByTrip` / `ItemRepo.insertItem` — 行程明细 CRUD
+  - `01_User_&_Account_Management` → `users` 表 — 用户身份验证、账号查询与创建
+  - `02_Trip_Planning_&_Itinerary_Management` → `trips` / `itineraries` / `itinerary_items` 表 — 行程数据结构
 - **环境与 Context 依赖：**
   - 无特殊环境变量依赖
   - 通过 Header `x-demo-user-id` 传递当前用户身份（Demo 模式）
@@ -28,7 +28,12 @@
   - `ActivityLogger.logActivity()` — 所有写操作完成后记录活动日志
   - `sendInviteEmail()` — 发送邀请邮件（EmailJS 异步）
 
-## 4. 核心 TypeScript 类型
+## 4. 同步策略
+- **乐观更新**：写操作后立即更新本地 UI，无需等待服务器响应
+- **轮询同步**：每 3 秒调用 `bootstrap` 获取最新状态，合并到本地
+- **写操作锁**：写操作进行中时跳过轮询，避免覆盖乐观更新
+
+## 5. 核心 TypeScript 类型
 ```typescript
 export type CollabRole = "Owner" | "Editor" | "Viewer";
 export type InviteRole = "Editor" | "Viewer";

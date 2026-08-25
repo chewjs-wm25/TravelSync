@@ -1,24 +1,17 @@
 # TravelSync
 Collaboration Development Assignment
 
-## Importnant information
-This is the document who introduce this project and teach you how to deploy and run it
-Please **DO NOT** upload your change log to here!
+## SPRINT 1
+| ID | Product Backlog Item | Module | Priority | Story Points | Status |
+| ----- | ----- | ----- | :---: | :---: | :---: |
+| PB05-2 | Shared Itinerary Editing | Collaboration & Shared Planning | Highest | 13 | Pending |
 
-## Before deploy
-Please **install** the following items before you try to run
-1. Visual Studio Code
-2. Docker
+## SPRINT 2
+| ID | Product Backlog Item | Module | Priority | Story Points | Status |
+| ----- | ----- | ----- | :---: | :---: | :---: |
+| PB05-1 | Invite Collaborators to Trip | Collaboration & Shared Planning | Highest  | 8 | Pending |
 
-For Visual Studio Code, you will need to install the following extenstions:
- - Dev Containers [LINK](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-
-## How to deploy (For developer)
-1. Pull it into your local pc
-2. Run your dev container
- - It will pop up message to call you **Reopen Container**
- - **OR** you can manually type command ">Dev Reopen" inside your search bar (Top Middle) and choose **Dev Container: Reopen Container**
-3. Wait until installation finish
- - **Warning** It may be error during running Docker, Copy the log and ask AI if you cannot solve it
-4. After all installation finish, run "npm run dev" in your terminal (Build inside Visual Studio Code)
-5. Open it on your browser, Default URL: http://localhost:3000
+## SPRINT 3
+| ID | Product Backlog Item | Module | Priority | Story Points | Status |
+| ----- | ----- | ----- | :---: | :---: | :---: |
+| PB05-3 | Role-Based Permissions Management | Collaboration & Shared Planning | High  | 5 | Pending |

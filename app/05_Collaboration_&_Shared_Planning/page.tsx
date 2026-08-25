@@ -17,25 +17,23 @@ import {
   X,
   Check,
   ShieldCheck,
-  PanelRightOpen,
-  PanelRightClose,
   Loader2,
+  RefreshCw,
+  Mail,
 } from "lucide-react";
 import {
   can,
-  ROLE_DESCRIPTIONS,
 } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
 import {
   daysRemaining,
   formatDate,
 } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/InvitationService";
 import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
+import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
 
-import DemoIdentitySwitcher from "./components/DemoIdentitySwitcher";
 import InviteCollaboratorsPanel from "./components/InviteCollaboratorsPanel";
 import PendingInvitesPanel from "./components/PendingInvitesPanel";
 import MemberManagementPanel from "./components/MemberManagementPanel";
-import PermissionMatrixCard from "./components/PermissionMatrixCard";
 import ItineraryPermissionDemo from "./components/ItineraryPermissionDemo";
 import ActivityFeed from "./components/ActivityFeed";
 
@@ -70,6 +68,28 @@ export default function CollaborationPage() {
       <div className="flex min-h-[40vh] items-center justify-center text-gray-400">
         <Loader2 size={24} className="mr-2 animate-spin" />
         Loading collaboration data…
+      </div>
+    );
+  }
+
+  const { isLoggedIn } = useAuthStore();
+
+  // 邀请注册流程：有 invite token 且未登录 → 显示注册表单
+  if (!isLoggedIn && inviteToken) {
+    return <InviteRegistrationFlow token={inviteToken} />;
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-gray-500">
+        <ShieldCheck size={40} className="text-primary-500/60" />
+        <p className="text-sm">请先登录以查看协作行程。</p>
+        <a
+          href="/01_User_&_Account_Management"
+          className="rounded-xl bg-primary-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
+        >
+          前往登录
+        </a>
       </div>
     );
   }
@@ -116,6 +136,11 @@ export default function CollaborationPage() {
             <p className="mt-1 text-gray-500">{trip.dates}</p>
           </div>
           <div className="flex items-center gap-3">
+            {/* 同步状态指示器 */}
+            <div className="flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-600">
+              <RefreshCw size={14} />
+              <span>Synced</span>
+            </div>
             <button
               onClick={handleShareLink}
               className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-100 px-5 py-3 font-medium text-gray-700 transition hover:bg-gray-200 active:scale-[0.97]"
@@ -146,19 +171,6 @@ export default function CollaborationPage() {
           </div>
         )}
 
-        {/* ─── Demo Identity Switcher ─── */}
-        <DemoIdentitySwitcher />
-
-        {/* ─── Role explanation strip ─── */}
-        <div className="flex items-start gap-3 rounded-2xl border border-secondary-500/30 bg-white p-4">
-          <ShieldCheck size={18} className="mt-0.5 shrink-0 text-secondary-500" />
-          <div className="text-xs leading-relaxed text-gray-600">
-            Viewing as <b className="text-gray-800">{me.name}</b> (
-            <b className="text-primary-500">{me.role}</b>):{" "}
-            {ROLE_DESCRIPTIONS[me.role]}
-          </div>
-        </div>
-
         {/* ─── Grid: 8-col main + 4-col sidebar ─── */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* ── Left: Invite + Members + Itinerary (8 cols) ── */}
@@ -171,7 +183,6 @@ export default function CollaborationPage() {
 
           {/* ── Right: Permissions + Activity + Export (4 cols) ── */}
           <div className="space-y-6 lg:col-span-4">
-            <PermissionMatrixCard />
             <ActivityFeed />
 
             {/* ── Export Itinerary Card ── */}
@@ -204,127 +215,115 @@ export default function CollaborationPage() {
         </div>
       </div>
 
-      {/* ─── Live Comments Sidebar (collapsible) ─── */}
-      {chatOpen ? (
-        <div className="hidden w-80 shrink-0 flex-col border-l border-gray-200 bg-white/80 backdrop-blur-sm xl:sticky xl:top-0 xl:flex xl:h-[calc(100vh-80px-70px)] xl:self-start">
-          <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-5">
-            <MessageSquare size={20} className="text-primary-500" />
-            <h3 className="font-semibold text-gray-800">Live Comments</h3>
-            <button
-              onClick={() => setChatOpen(false)}
-              className="ml-auto rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
-              aria-label="Collapse chat"
-              title="Collapse chat"
-            >
-              <PanelRightClose size={18} />
-            </button>
-          </div>
-
-        <div className="flex-1 space-y-5 overflow-y-auto p-6">
-          {comments.map((c, i) => (
-            <div key={c.id ?? i} className="flex gap-3">
-              {c.avatar ? (
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full">
-                  <Image
-                    src={c.avatar}
-                    alt={c.authorName}
-                    width={40}
-                    height={40}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-500 text-sm font-semibold text-white">
-                  {c.authorName.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div
-                className={`max-w-[240px] rounded-2xl px-4 py-3 ${
-                  c.own
-                    ? "border border-red-100 bg-red-50"
-                    : "border border-gray-100 bg-[#FAF8FF]"
-                }`}
-              >
-                <div className="mb-1 flex items-baseline justify-between gap-4">
-                  <span
-                    className={`text-xs font-semibold ${
-                      c.own ? "text-primary-500" : "text-gray-800"
-                    }`}
-                  >
-                    {c.authorName}
-                  </span>
-                  <span className="text-[10px] text-gray-400">{c.time}</span>
-                </div>
-                <p className="text-sm leading-relaxed text-gray-700">{c.text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="border-t border-gray-200 p-4">
-          {canComment ? (
-            <>
-              <div className="rounded-lg border border-gray-200 bg-[#FAF8FF] p-3">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendComment();
-                    }
-                  }}
-                  placeholder="Write a comment..."
-                  rows={2}
-                  className="w-full resize-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex gap-2">
-                  <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
-                    <Paperclip size={16} />
-                  </button>
-                  <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
-                    <Smile size={16} />
-                  </button>
-                  <button className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
-                    <ImageIcon size={16} />
-                  </button>
-                </div>
-                <button
-                  onClick={handleSendComment}
-                  className="rounded-lg bg-primary-500 px-5 py-1.5 text-xs font-bold text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
-                >
-                  Send
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-center text-xs text-gray-500">
-              <ShieldCheck size={16} className="mx-auto mb-1 text-gray-400" />
-              <b>{me.role}</b> role cannot post comments.
-              <br />
-              Switch to an Editor or Owner to chat.
-            </div>
-          )}
-        </div>
-        </div>
-      ) : (
+      {/* ─── Live Comments FAB + Floating Panel ─── */}
+      {!chatOpen && (
         <button
           onClick={() => setChatOpen(true)}
-          className="hidden shrink-0 flex-col items-center gap-3 border-l border-gray-200 bg-white/80 py-6 text-gray-400 transition hover:bg-white hover:text-primary-500 xl:sticky xl:top-0 xl:flex xl:self-start"
+          className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary-500 text-white shadow-lg transition hover:bg-primary-500/80 hover:shadow-xl active:scale-95"
           aria-label="Open chat"
           title="Open Live Comments"
         >
-          <PanelRightOpen size={18} />
-          <MessagesSquare size={18} />
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-500 px-1.5 text-[10px] font-bold text-white">
-            {comments.length}
-          </span>
-          <span className="text-[10px] font-medium tracking-widest [writing-mode:vertical-rl]">
-            Chat
-          </span>
+          <MessagesSquare size={22} />
+          {comments.length > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+              {comments.length}
+            </span>
+          )}
         </button>
+      )}
+
+      {chatOpen && (
+        <div className="fixed bottom-6 right-6 z-40 flex w-80 flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl" style={{ maxHeight: "min(520px, calc(100vh - 120px))" }}>
+          <div className="flex items-center gap-2 border-b border-gray-200 px-5 py-3">
+            <MessageSquare size={18} className="text-primary-500" />
+            <h3 className="text-sm font-semibold text-gray-800">Live Comments</h3>
+            <span className="ml-1 rounded-full bg-primary-500/10 px-2 py-0.5 text-[10px] font-bold text-primary-500">
+              {comments.length}
+            </span>
+            <button
+              onClick={() => setChatOpen(false)}
+              className="ml-auto rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+              aria-label="Close chat"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+            {comments.map((c, i) => (
+              <div key={c.id ?? i} className="flex gap-2.5">
+                {c.avatar ? (
+                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                    <Image
+                      src={c.avatar}
+                      alt={c.authorName}
+                      width={32}
+                      height={32}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-semibold text-white">
+                    {c.authorName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div
+                  className={`max-w-[220px] rounded-xl px-3 py-2 ${
+                    c.own
+                      ? "border border-red-100 bg-red-50"
+                      : "border border-gray-100 bg-[#FAF8FF]"
+                  }`}
+                >
+                  <div className="mb-0.5 flex items-baseline justify-between gap-3">
+                    <span
+                      className={`text-[11px] font-semibold ${
+                        c.own ? "text-primary-500" : "text-gray-800"
+                      }`}
+                    >
+                      {c.authorName}
+                    </span>
+                    <span className="text-[9px] text-gray-400">{c.time}</span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-gray-700">{c.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-gray-200 px-4 py-3">
+            {canComment ? (
+              <>
+                <div className="rounded-lg border border-gray-200 bg-[#FAF8FF] p-2.5">
+                  <textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendComment();
+                      }
+                    }}
+                    placeholder="Write a comment..."
+                    rows={2}
+                    className="w-full resize-none bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-400"
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-end">
+                  <button
+                    onClick={handleSendComment}
+                    className="rounded-lg bg-primary-500 px-4 py-1.5 text-[11px] font-bold text-white transition hover:bg-primary-500/80 active:scale-95"
+                  >
+                    Send
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-center text-[11px] text-gray-500">
+                <b>{me.role}</b> role cannot post comments.
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ─── Invite Link Demo Modal ─── */}
@@ -390,6 +389,205 @@ export default function CollaborationPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** 邀请注册流程：未登录用户打开邀请链接时显示 */
+function InviteRegistrationFlow({ token }: { token: string }) {
+  const [inviteData, setInviteData] = useState<{
+    email: string;
+    role: string;
+    tripName: string;
+    tripRegion: string;
+    invitedBy: string;
+    expiresAt: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const pwChecks = {
+    len: password.length >= 8,
+    upper: /[A-Z]/.test(password),
+    lower: /[a-z]/.test(password),
+    digit: /\d/.test(password),
+    special: /[^A-Za-z\d]/.test(password),
+  };
+  const pwValid = Object.values(pwChecks).every(Boolean);
+
+  useEffect(() => {
+    fetch(`/05_Collaboration_&_Shared_Planning/api/collab/invites/lookup?token=${encodeURIComponent(token)}`)
+      .then(async (res) => {
+        const data = await res.json() as { ok: boolean; invite?: typeof inviteData; error?: string };
+        if (data.ok && data.invite) setInviteData(data.invite);
+        else setFetchError(data.error || "Invalid invitation");
+      })
+      .catch(() => setFetchError("Failed to load invitation"))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const handleSubmit = async () => {
+    if (!username || !password || !fullName) return;
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const res = await fetch("/05_Collaboration_&_Shared_Planning/api/collab/invites/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, username, password, fullName }),
+      });
+      const data = await res.json() as { ok: boolean; error?: string };
+      if (data.ok) {
+        window.location.href = "/05_Collaboration_&_Shared_Planning";
+      } else {
+        setSubmitError(data.error || "Registration failed");
+      }
+    } catch {
+      setSubmitError("Registration failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-gray-400">
+        <Loader2 size={24} className="mr-2 animate-spin" />
+        Loading invitation…
+      </div>
+    );
+  }
+
+  if (fetchError && !inviteData) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-gray-500">
+        <ShieldCheck size={40} className="text-red-400/60" />
+        <p className="text-sm">{fetchError}</p>
+        <a
+          href="/05_Collaboration_&_Shared_Planning"
+          className="rounded-xl bg-primary-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
+        >
+          Back to Collaboration
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-500/10">
+            <Mail size={28} className="text-primary-500" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800">You&apos;re Invited!</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            <b>{inviteData?.invitedBy}</b> invited you to join
+          </p>
+          <p className="text-lg font-semibold text-gray-800">{inviteData?.tripName}</p>
+          <p className="text-xs text-gray-400">{inviteData?.tripRegion}</p>
+          <p className="mt-2 text-sm text-gray-500">
+            as <b className="text-primary-500">{inviteData?.role}</b>
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            Invited to: <b>{inviteData?.email}</b>
+          </p>
+        </div>
+
+        {!showForm ? (
+          <button
+            onClick={() => setShowForm(true)}
+            className="w-full rounded-xl bg-primary-500 px-6 py-3 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
+          >
+            Register &amp; Accept
+          </button>
+        ) : (
+          <div className="space-y-4">
+            {submitError && (
+              <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{submitError}</p>
+            )}
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Username
+              </label>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                required
+                className="w-full rounded-lg border border-gray-200 bg-[#FAF8FF] px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                placeholder="choose a username"
+              />
+              {username.length > 0 && (
+                <p className={`mt-1 text-[11px] ${/^[a-z0-9_]{3,24}$/.test(username) ? "text-green-600" : "text-gray-400"}`}>
+                  {/^[a-z0-9_]{3,24}$/.test(username) ? "✓ Valid username" : "○ 3-24 chars: lowercase letters, numbers, _"}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Full Name
+              </label>
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-200 bg-[#FAF8FF] px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                placeholder="your full name"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Password
+              </label>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-200 bg-[#FAF8FF] px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                placeholder="create a strong password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="mt-1 text-xs text-primary-500"
+              >
+                {showPassword ? "Hide" : "Show"} password
+              </button>
+              {password.length > 0 && (
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                  {(["len", "upper", "lower", "digit", "special"] as const).map((k) => (
+                    <span key={k} className={pwChecks[k] ? "text-green-600" : "text-gray-400"}>
+                      {pwChecks[k] ? "✓" : "○"} {k === "len" ? "8+ chars" : k === "upper" ? "Uppercase" : k === "lower" ? "Lowercase" : k === "digit" ? "Number" : "Special char"}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !username || !pwValid || !fullName}
+              className="w-full rounded-xl bg-primary-500 px-6 py-3 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? "Creating Account…" : "Create Account & Join"}
+            </button>
+          </div>
+        )}
+
+        <p className="mt-4 text-center text-xs text-gray-400">
+          Already have an account?{" "}
+          <a href="/01_User_&_Account_Management" className="text-primary-500 hover:underline">
+            Sign in
+          </a>
+        </p>
+      </div>
     </div>
   );
 }
