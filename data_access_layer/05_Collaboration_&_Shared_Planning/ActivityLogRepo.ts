@@ -16,9 +16,9 @@ export async function findByTrip(tripId: string): Promise<ActivityWithUser[]> {
   const db = await getDB();
   const res = await db
     .prepare(
-      `SELECT l.id, l.trip_id, l.user_id, l.action, l.created_at, a.username
+      `SELECT l.id, l.trip_id, l.user_id, l.action, l.created_at, u.username
        FROM activity_logs l
-       JOIN Account a ON a.AccountID = l.user_id
+       JOIN users u ON u.id = l.user_id
        WHERE l.trip_id = ?
        ORDER BY l.id DESC
        LIMIT 50`

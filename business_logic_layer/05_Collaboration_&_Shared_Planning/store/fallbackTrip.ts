@@ -22,10 +22,18 @@ export function buildFallbackTrip(meUserId: string): CollabTrip {
     region: "Langkawi, Kedah, Malaysia",
     members: [
       {
+        id: "dev-user-001",
+        name: "Flandre Scarlet",
+        email: "flandre@travelsync.com",
+        role: "Owner",
+        avatar: "/images.jpg",
+        online: true,
+      },
+      {
         id: "m_marcus",
         name: "Marcus Chen",
         email: "marcus@travelsync.com",
-        role: "Owner",
+        role: "Editor",
         avatar: "/images/collab/avatar-marcus.png",
         online: true,
       },
@@ -55,7 +63,7 @@ export function buildFallbackTrip(meUserId: string): CollabTrip {
         status: "pending",
         invitedAt: Date.now() - 5 * DAY,
         expiresAt: Date.now() + 25 * DAY,
-        invitedBy: "Marcus Chen",
+        invitedBy: "Flandre Scarlet",
       },
     ],
     items: [
@@ -88,13 +96,13 @@ export function buildFallbackTrip(meUserId: string): CollabTrip {
     activity: [
       {
         id: "1",
-        actor: "Marcus Chen",
+        actor: "Flandre Scarlet",
         action: "created the trip",
         at: Date.now() - 6 * DAY,
       },
       {
         id: "2",
-        actor: "Marcus Chen",
+        actor: "Flandre Scarlet",
         action: "invited sam.lee@outlook.com as Viewer",
         at: Date.now() - 5 * DAY,
       },

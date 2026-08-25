@@ -43,6 +43,9 @@ export async function loadBootstrap(
   const trip = await TripRepo.findTripById(tripId);
   if (!trip) throw new Error("Trip not found");
 
+  // Update last_seen for the current user (heartbeat for online status)
+  await CollaboratorRepo.updateLastSeen(tripId, meUserId);
+
   const [itineraries, members, invites, chats, activity] = await Promise.all([
     ItineraryRepo.findByTrip(tripId),
     CollaboratorRepo.findByTrip(tripId),

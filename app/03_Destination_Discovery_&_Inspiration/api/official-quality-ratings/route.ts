@@ -19,7 +19,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { D1QualityRatingRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1QualityRatingRepository";
 import type { OfficialQualityRatingEntity } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/OfficialQualityRatingRepository";
-import { requireAdmin } from "@/app/DEV-ACCOUNT-STATE/api/session";
+import { requireAdmin } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
 
 /** 以当前环境 D1 binding 构建仓储实例 */
 async function qualityRatingRepo(): Promise<D1QualityRatingRepository> {

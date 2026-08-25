@@ -3,25 +3,17 @@
 -- Cloudflare D1 (SQLite) schema
 -- 来源：ERD 相关 6 张表 + 补齐 UI 现有评论(chats)/动态(activity)
 -- ENUM → TEXT CHECK; VARCHAR → TEXT; Date/DATETIME → TEXT(ISO8601)
+-- 
+-- 注意：用户表(users)由模块01管理，此处复用
 -- ============================================================
 
 PRAGMA foreign_keys = ON;
 
 -- ---------- 01 用户 ----------
-CREATE TABLE IF NOT EXISTS Account (
-  AccountID       TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-  username        TEXT NOT NULL,
-  email           TEXT NOT NULL UNIQUE,
-  password_hash   TEXT,
-  google_id       INTEGER,
-  phone_number    TEXT,
-  profile_picture TEXT,
-  join_date       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  status          TEXT NOT NULL DEFAULT 'active'
-                  CHECK (status IN ('active', 'suspended', 'deactivated')),
-  language        TEXT NOT NULL DEFAULT 'en',
-  theme           TEXT NOT NULL DEFAULT 'light'
-);
+-- 注意：users 表由模块01_User_&_Account_Management管理
+-- 结构：id, username, email, password_hash, full_name, phone, ic_hash,
+--        profile_picture, is_verified, is_active, is_locked, failed_attempts,
+--        lock_until, last_login, created_at, role
 
 -- ---------- 02 行程 (Trip) ----------
 CREATE TABLE IF NOT EXISTS Trip (
@@ -33,7 +25,7 @@ CREATE TABLE IF NOT EXISTS Trip (
   Status       TEXT NOT NULL DEFAULT 'planning'
                CHECK (Status IN ('planning', 'active', 'completed', 'cancelled')),
   TripNote     TEXT,
-  UserID       TEXT NOT NULL REFERENCES Account(AccountID)
+  UserID       TEXT NOT NULL REFERENCES users(id)
 );
 
 -- ---------- 03 行程日程 (Itinerary) ----------
@@ -69,8 +61,8 @@ CREATE TABLE IF NOT EXISTS Collaborators (
                   CHECK (status IN ('active', 'pending', 'removed')),
   joined_at       TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   trip_id         TEXT NOT NULL REFERENCES Trip(TripID) ON DELETE CASCADE,
-  user_id         TEXT NOT NULL REFERENCES Account(AccountID),
-  invited_by      TEXT REFERENCES Account(AccountID),
+  user_id         TEXT NOT NULL REFERENCES users(id),
+  invited_by      TEXT REFERENCES users(id),
   UNIQUE (trip_id, user_id)
 );
 
@@ -86,15 +78,15 @@ CREATE TABLE IF NOT EXISTS Collaboration_Invitations (
   expires_at        TEXT NOT NULL,
   sent_at           TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   trip_id           TEXT NOT NULL REFERENCES Trip(TripID) ON DELETE CASCADE,
-  sender_id         TEXT NOT NULL REFERENCES Account(AccountID),
-  receiver_user_id  TEXT REFERENCES Account(AccountID)
+  sender_id         TEXT NOT NULL REFERENCES users(id),
+  receiver_user_id  TEXT REFERENCES users(id)
 );
 
 -- ---------- 07 群聊 / 评论 (chats) — 补充表 ----------
 CREATE TABLE IF NOT EXISTS chats (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   trip_id    TEXT NOT NULL REFERENCES Trip(TripID) ON DELETE CASCADE,
-  user_id    TEXT NOT NULL REFERENCES Account(AccountID),
+  user_id    TEXT NOT NULL REFERENCES users(id),
   text       TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -103,21 +95,17 @@ CREATE TABLE IF NOT EXISTS chats (
 CREATE TABLE IF NOT EXISTS activity_logs (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   trip_id    TEXT NOT NULL REFERENCES Trip(TripID) ON DELETE CASCADE,
-  user_id    TEXT NOT NULL REFERENCES Account(AccountID),
+  user_id    TEXT NOT NULL REFERENCES users(id),
   action     TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- ============================================================
 -- Seed 数据（demo：与旧 CollabStore 界面一致）
+-- 注意：users 表数据需要由模块01管理，此处仅插入协作相关数据
 -- ============================================================
 
-INSERT INTO Account (AccountID, username, email, profile_picture) VALUES
-  ('m_marcus', 'Marcus Chen',     'marcus@travelsync.com',        '/images/collab/avatar-marcus.png'),
-  ('m_elena',  'Elena Rodriguez', 'elena.r@globetrot.co',          '/images/collab/avatar-elena.png'),
-  ('m_jordan', 'Jordan Smyth',    'jsmyth.finance@org.com',        '/images/collab/avatar-jordan.png')
-ON CONFLICT(AccountID) DO NOTHING;
-
+-- Trip seed data
 INSERT INTO Trip (TripID, TripName, StartDate, EndDate, Region, Status, TripNote, UserID) VALUES
   ('trip_langkawi', 'Langkawi Island Escape', '2026-12-20', '2026-12-27', 'Langkawi, Kedah, Malaysia', 'planning', NULL, 'm_marcus')
 ON CONFLICT(TripID) DO NOTHING;

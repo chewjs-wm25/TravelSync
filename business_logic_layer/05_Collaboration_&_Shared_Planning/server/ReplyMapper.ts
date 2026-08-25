@@ -22,15 +22,19 @@ type ChatRow = {
   created_at: string;
 };
 
+const ONLINE_THRESHOLD_MS = 5000;
+
 /** DB 协作者 → UI CollabMember */
 export function mapMember(row: MemberRow): CollabMember {
+  const lastSeen = row.last_seen ? Date.parse(row.last_seen) : 0;
+  const online = lastSeen > 0 && Date.now() - lastSeen < ONLINE_THRESHOLD_MS;
   return {
     id: row.user_id,
     name: row.username,
     email: row.email,
     role: row.role as CollabRole,
     avatar: row.profile_picture ?? "",
-    online: true,
+    online,
   };
 }
 

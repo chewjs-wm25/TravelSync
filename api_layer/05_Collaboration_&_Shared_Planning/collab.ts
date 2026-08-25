@@ -5,6 +5,7 @@ import type {
   CollabComment,
   ItineraryItem,
   BootstrapResponse,
+  CollabRole,
 } from "./types";
 
 const BASE = "/05_Collaboration_&_Shared_Planning/api/collab";
@@ -21,6 +22,24 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   const data = (await res.json()) as T;
   return data;
 }
+
+/** SSE 事件类型 */
+export type SSEEvent =
+  | { type: "connected"; userId: string; tripId: string; timestamp: number }
+  | { type: "member_joined"; member: { id: string; name: string; email: string; role: string; avatar: string } }
+  | { type: "member_left"; userId: string }
+  | { type: "member_removed"; userId: string }
+  | { type: "role_changed"; userId: string; role: string }
+  | { type: "invite_created"; invite: { id: string; email: string; role: string; status: string; invitedBy: string } }
+  | { type: "invite_cancelled"; inviteId: string }
+  | { type: "item_added"; item: { id: string; day: number; title: string; note?: string } }
+  | { type: "item_removed"; itemId: string }
+  | { type: "comment_added"; comment: { id: string; authorId: string; authorName: string; avatar: string; time: string; text: string } }
+  | { type: "activity"; entry: { id: string; actor: string; action: string; at: number } }
+  | { type: "heartbeat"; timestamp: number };
+
+/** SSE 订阅返回的清理函数 */
+export type Unsubscribe = () => void;
 
 export const collabApi = {
   /** 一次拉全行程状态（挂载时用） */
@@ -128,5 +147,29 @@ export const collabApi = {
   /** 拉评论 */
   getComments(userId: string): Promise<{ ok: boolean; comments: CollabComment[] }> {
     return request(`${BASE}/messages`, { headers: headers(userId) });
+  },
+
+  /** 订阅 SSE 实时事件 */
+  subscribeToEvents(userId: string, onEvent: (event: SSEEvent) => void): Unsubscribe {
+    const eventSource = new EventSource(`${BASE}/events?userId=${encodeURIComponent(userId)}`);
+
+    eventSource.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data) as SSEEvent;
+        onEvent(event);
+      } catch {
+        // 忽略解析错误
+      }
+    };
+
+    eventSource.onerror = () => {
+      // 浏览器会自动重连
+      console.log("[SSE] Connection error, will retry...");
+    };
+
+    // 返回清理函数
+    return () => {
+      eventSource.close();
+    };
   },
 };

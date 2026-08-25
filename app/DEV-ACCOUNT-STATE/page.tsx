@@ -1,31 +1,24 @@
 "use client";
-import LogoutBTN from "./logout";
-import LoginBTN from "./login";
 import SyncQualityRatingsBTN from "./syncQualityRatings";
 import SyncEventsBTN from "./syncEvents";
 import ClearImageCachesBTN from "./clearImageCaches";
 import ClearRatedEventsBTN from "./clearRatedEvents";
 
-export default function AccountSettingsPage() {
+export default function DevToolsPage() {
   return (
-    <div>
-      <h1>DEV LOGIN/LOGOUT PAGE</h1>
-      <br />
-      {/* 使用 flex 和 gap 设置水平间距 */}
-      <div className="flex gap-4">
-        <LoginBTN />
-        <LogoutBTN />
-      </div>
-      <br />
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-10">
+      <h1 className="text-2xl font-semibold text-slate-900">Developer Tools</h1>
+      <p className="text-sm text-slate-500">
+        Internal tools for syncing data and clearing caches. Login/logout is now
+        handled by the Account module.
+      </p>
+      <hr className="border-slate-200" />
       {/* 官方品质评级同步（hardcode JSON → Geoapify 补全 → D1） */}
       <SyncQualityRatingsBTN />
-      <br />
       {/* 节日/活动同步（parsed_events.json → D1） */}
       <SyncEventsBTN />
-      <br />
       {/* 清空全部地点图片缓存（内存 + sessionStorage + Cloudflare KV） */}
       <ClearImageCachesBTN />
-      <br />
       {/* 清空全部 Quality Ratings 与 Events 数据（D1） */}
       <ClearRatedEventsBTN />
     </div>
