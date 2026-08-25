@@ -1,345 +1,206 @@
+-- English
+
 # Module 02 — Trip Planning & Itinerary Management Interface
 
-## 1. Module Basic Information
+## 1. Module Responsibility
 
-### Module Name
+Trip Planning & Itinerary Management manages trips, itineraries, and itinerary items. It allows users to create and organize trips by selecting destinations and places, arranging places into itineraries, and scheduling itinerary items.
 
-`02_Trip_Planning_&_Itinerary_Management`
+The module also exchanges trip, place, and travel-time information with other modules to support travel-time calculation and collaborative trip planning.
 
-### Responsibility
+## 2. Dependencies
 
-Module 02 manages trips, daily itineraries, and itinerary items. It provides functions for creating, retrieving, updating, and deleting trips and itinerary data, including itinerary notes, places, item types, references, scheduled times, and item positions.
+### 2.1 Dependencies on Other Modules
 
-The implementation uses server actions in Next.js to call the module's business-logic services and persists data through the module's D1 data-access repositories.
+- **Module 01 — User & Account Management**
+  - Provides the user ID required to associate a trip with a user.
 
-### Service Entry
+- **Module 03 — Destination Discovery & Inspiration**
+  - Provides state information when creating a trip.
+  - Provides place information when adding places to an itinerary.
 
-The implementation exposes two forms of service entry:
+- **Module 04 — Travel Logistics & Map Route Planning**
+  - Provides calculated travel time between places for each itinerary.
+  - Receives trip and itinerary place information from Module 02 for travel-time calculation.
 
-1. **Next.js server actions** — the primary internal module interface used by the UI:
-   - `createTripAction(input)`
-   - `updateTripAction(input)`
-   - `listTripsAction(userId?)`
-   - `deleteTripAction(input)`
-   - `createItineraryAction(input)`
-   - `listItinerariesAction(tripId?)`
-   - `updateItineraryAction(input)`
-   - `deleteItineraryAction(input)`
-   - `createItineraryItemAction(input)`
-   - `listItineraryItemsAction(itineraryId?)`
-   - `updateItineraryItemAction(input)`
-   - `deleteItineraryItemAction(input)`
+- **Module 05 — Collaboration & Shared Planning**
+  - Receives trip information from Module 02 to support sharing and collaboration between users.
 
-2. **Next.js route handlers** present in the module for itinerary-item operations:
-   - `GET /api/itineraries/{itineraryId}/items`
-   - `POST /api/itineraries/{itineraryId}/items`
-   - `PATCH /api/itineraries/{itineraryId}/items/{itemId}`
-   - `PUT /api/itineraries/{itineraryId}/items/{itemId}`
-   - `DELETE /api/itineraries/{itineraryId}/items/{itemId}`
+### 2.2 Environment / Storage Dependencies
 
-The source code does **not** define public REST route handlers for trip or itinerary CRUD; those operations are exposed through server actions.
+- **Cloudflare D1 (`TEST_DB`)**
+  - Stores trip, itinerary, and itinerary-item information.
 
----
+## 3. Exposed Interfaces
 
-## 2. Interface and Data Format Specification
+### 3.1 Providing
 
-## Providing
+#### Module 04 — Travel Logistics & Map Route Planning
 
-### 1. Trip Information to Module 04 — Travel Logistics & Map Route Planning
+Module 02 provides trip information to Module 04 so that travel time can be calculated between all places within each itinerary of a trip.
 
-Module 02 provides trip and itinerary information to Module 04 to allow travel time to be calculated between places within each itinerary.
+**Information provided:**
 
-Information provided:
-- Trip ID
-- Itinerary ID
-- Itinerary date
-- Itinerary items
-- Place ID / Reference ID
-- Place name
-- Place location
-- Item order, if applicable
-
-### 2. Trip Information to Module 05 — Collaboration & Shared Planning
-
-Module 02 provides trip information to Module 05 to support sharing and collaborative planning between users.
-
-Information provided:
 - Trip ID
 - Trip name
-- Trip owner/user ID
-- Trip date range
+- Itinerary ID
+- Itinerary date
+- Place ID
+- Place name
+- Place location
+
+**Purpose:** Module 04 uses the itinerary places and their locations to calculate travel time between places.
+
+#### Module 05 — Collaboration & Shared Planning
+
+Module 02 provides trip information to Module 05 to allow trips to be shared and collaboratively planned between different users.
+
+**Information provided:**
+
+- Trip ID
+- User ID
+- Trip name
+- Trip dates
 - Itinerary information
-- Itinerary items
+- Itinerary item information
 
+**Purpose:** Module 05 uses the trip information to support trip sharing and collaboration.
 
-### Requesting
+### 3.2 Requesting
 
-#### 1. User ID from Module 01 — User & Account Management
+#### Module 01 — User & Account Management
 
-Module 02 requests the user ID from Module 01 to identify the user associated with a trip.
+Module 02 requests the user ID required to associate a trip with the correct user.
 
-#### 2. State Information from Module 03 — Destination Discovery & Inspiration
+**Information requested:**
+
+- User ID
+
+#### Module 03 — Destination Discovery & Inspiration
+
+**State Information**
 
 Module 02 requests state information when creating a trip.
 
-Information requested:
+**Information requested:**
+
 - State ID
 - State name
 - State location
 - State image
 
-#### 3. Place Information from Module 03 — Destination Discovery & Inspiration
+**Place Information**
 
 Module 02 requests place information when adding a place to an itinerary.
 
-Information requested:
+**Information requested:**
+
 - Place ID
 - Place name
 - Place location
 - Place image
 
-#### 4. Calculated Travel Time from Module 04 — Travel Logistics & Map Route Planning
+#### Module 04 — Travel Logistics & Map Route Planning
 
-Module 02 requests calculated travel time between places within each itinerary.
+Module 02 requests the calculated travel time between places within each itinerary.
 
-Information requested:
+**Information requested:**
+
 - Origin place
 - Destination place
-- Travel time
-- Travel mode, if applicable
+- Calculated travel time
 
-The returned travel time is displayed between the corresponding itinerary places.
+**Purpose:** The returned travel time is displayed between the corresponding places in the itinerary.
 
----
+## 4. Core TypeScript Types
 
-## 3. Upstream / Downstream Dependencies and Interaction Flow
+```ts
+/** Trip information provided to Module 04 for travel-time calculation */
+export interface TripRouteData {
+  tripId: string;
+  tripName: string;
+  itineraries: ItineraryRouteData[];
+}
 
-### 3.1 Upstream Dependencies
+export interface ItineraryRouteData {
+  itineraryId: string;
+  date: string;
+  places: RoutePlace[];
+}
 
-The source code shows the following dependencies:
+export interface RoutePlace {
+  placeId: string;
+  name: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+}
 
-| Dependency | Direction | Purpose | Current Implementation |
-|---|---|---|---|
-| User identity / user ID | Upstream input | Associates trips with a user | `userId` is passed into trip services |
-| Module 03 — Destination Discovery & Inspiration | Upstream / potential dependency | Provides place suggestions and place identifiers | The current Module 02 UI uses in-memory stub suggestions instead of making a network call |
-| Cloudflare D1 (`TEST_DB`) | Internal infrastructure dependency | Persistence for trips, itineraries, and itinerary items | Used by server actions through `getCloudflareContext()` |
+/** Trip information provided to Module 05 for collaboration */
+export interface CollaborationTripData {
+  tripId: string;
+  userId: string;
+  tripName: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  itineraries: CollaborationItinerary[];
+}
 
-The code does **not** establish a production API call from Module 02 to Module 03. `DayItineraryCard` contains comments referring to Module 03 `DiscoveryService`, but the current implementation explicitly generates lightweight in-memory suggestions and avoids a network call.
+export interface CollaborationItinerary {
+  itineraryId: string;
+  date: string;
+  title: string;
+  items: CollaborationItem[];
+}
 
-Therefore, the interface document should treat Module 03 as a **planned/potential integration**, not as an active external API dependency.
+export interface CollaborationItem {
+  itemId: string;
+  placeId?: string | null;
+  name: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  } | null;
+}
 
-### 3.2 Internal Data Flow
+/** User information requested from Module 01 */
+export interface UserInfo {
+  userId: string;
+}
 
-```text
-UI Component
-    |
-    v
-Next.js Server Action / Route Handler
-    |
-    v
-Business Logic Service
-    |
-    v
-Data Access Repository
-    |
-    v
-Cloudflare D1 (TEST_DB)
-```
+/** State information requested from Module 03 */
+export interface StateInfo {
+  stateId: string;
+  stateName: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  image: string;
+}
 
-For example:
+/** Place information requested from Module 03 */
+export interface PlaceInfo {
+  placeId: string;
+  placeName: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  image: string;
+}
 
-```text
-CreateItineraryModal
-    -> createItineraryAction()
-    -> createItinerary()
-    -> itineraryRepository
-    -> D1
-```
+/** Travel-time information requested from Module 04 */
+export interface TravelTimeResult {
+  tripId: string;
+  itineraryId: string;
+  travelTimes: TravelTime[];
+}
 
-For itinerary items:
-
-```text
-DayItineraryCard
-    -> createItineraryItemAction()
-       OR
-       POST /api/itineraries/{itineraryId}/items
-    -> createItineraryItem()
-    -> itineraryItemRepository
-    -> D1
-```
-
-### 3.3 Event Broadcast / Callback
-
-No asynchronous event bus, webhook, or external callback mechanism is implemented in the provided source.
-
-The UI instead uses local callbacks after successful operations, for example:
-
-- `onSuccess()`
-- `onClose()`
-- `onInvalidDate()`
-- `onSaveNote(...)`
-- `onEditDay(...)`
-
-These are UI callbacks rather than cross-module asynchronous events.
-
-The current source also contains a local `detectConflictSchedule()` function. It calculates overlapping schedule intervals synchronously and returns a `DetectConflictResult`; no external event or callback is shown for broadcasting the result.
-
----
-
-## 4. Exception Handling and Quick Integration
-
-### 4.1 Error Handling Model
-
-Server actions call the business-logic service and convert unsuccessful service results into JavaScript `Error` objects with a `status` property.
-
-Route handlers then return:
-
-```json
-{
-  "error": "error message"
+export interface TravelTime {
+  fromPlaceId: string;
+  toPlaceId: string;
+  travelTimeMinutes: number;
 }
 ```
-
-with the corresponding HTTP status.
-
-The source does not define symbolic error-code constants. Therefore, the interface uses the actual HTTP status and messages present in the implementation rather than inventing additional error codes.
-
-### 4.2 Error Code Dictionary
-
-| Error Code / HTTP Status | Cause | Example Message | Troubleshooting |
-|---|---|---|---|
-| `400` | Required identifier is missing | `Trip ID is required` | Check that the required ID is passed |
-| `400` | Required itinerary ID is missing | `Itinerary ID is required` | Verify `itineraryId` |
-| `400` | Itinerary item place is missing/invalid | `Place Not Found!` | Supply `place`, `name`, or `destination` |
-| `400` | Item note violates Malaysia scope validation | `Itinerary item note must stay within Malaysia` | Remove unsupported/out-of-scope content |
-| `404` | Requested itinerary does not exist | `Itinerary not found` | Verify the itinerary ID and parent trip |
-| `404` | Requested itinerary item does not exist | `Itinerary item not found` | Verify `itemId` and `itineraryId` |
-| `404` | Requested trip does not exist | `Trip not found` | Verify `tripId` |
-| `500` | Database/environment binding unavailable | `D1 binding TEST_DB is unavailable` | Check Cloudflare D1 `TEST_DB` binding |
-| `500` | Item insertion failed | `Failed to add itinerary item` | Check D1 availability and repository operation |
-| `500` | Item update failed | `Failed to update itinerary item` | Check item ID and D1 operation |
-| `500` | Item deletion failed | `Failed to delete itinerary item` | Check D1 availability and repository operation |
-| `500` | Generic route operation failure | `Failed to create itinerary item` | Inspect server-side error and database state |
-
-### 4.3 Date Validation
-
-The Create Itinerary UI restricts the selected date to the trip's start and end dates. If the date is outside the trip duration, the UI displays:
-
-```text
-Date must fall within trip duration
-```
-
-The source also shows the application using `Invalid date!` as a UI-level message when the corresponding create operation rejects the date.
-
----
-
-## 5. Minimal Integration Test Samples
-
-### 5.1 Create Itinerary Item — cURL
-
-The itinerary-item route handler accepts JSON and can be tested with:
-
-```bash
-curl -X POST "http://localhost:3000/api/itineraries/iti_123/items"   -H "Content-Type: application/json"   -d '{
-    "place": "Batu Caves",
-    "destination": "Batu Caves, Selangor, Malaysia",
-    "type": "attraction",
-    "referenceId": "place_123",
-    "note": "Bring water",
-    "startTime": "2026-09-02T09:00:00",
-    "endTime": "2026-09-02T11:00:00"
-  }'
-```
-
-Expected successful response:
-
-```json
-{
-  "item": {
-    "id": "itm_...",
-    "item_id": "itm_...",
-    "itinerary_id": "iti_123",
-    "place": "Batu Caves",
-    "name": "Batu Caves",
-    "item_name": "Batu Caves",
-    "destination": "Batu Caves, Selangor, Malaysia",
-    "type": "attraction",
-    "reference_id": "place_123",
-    "start_time": "2026-09-02T09:00:00",
-    "end_time": "2026-09-02T11:00:00",
-    "position": 1,
-    "order_index": 1
-  }
-}
-```
-
-### 5.2 List Itinerary Items — cURL
-
-```bash
-curl "http://localhost:3000/api/itineraries/iti_123/items"
-```
-
-Expected response shape:
-
-```json
-{
-  "items": []
-}
-```
-
-or an array containing the persisted itinerary items.
-
-### 5.3 Update Itinerary Item — cURL
-
-```bash
-curl -X PATCH "http://localhost:3000/api/itineraries/iti_123/items/itm_123"   -H "Content-Type: application/json"   -d '{
-    "name": "Batu Caves",
-    "note": "Bring water and comfortable shoes",
-    "startTime": "2026-09-02T09:30:00",
-    "endTime": "2026-09-02T11:30:00"
-  }'
-```
-
-### 5.4 Delete Itinerary Item — cURL
-
-```bash
-curl -X DELETE "http://localhost:3000/api/itineraries/iti_123/items/itm_123"
-```
-
-Expected successful response:
-
-```json
-{
-  "ok": true
-}
-```
-
----
-
-## 6. Interface Summary
-
-| Interface | Entry Point | Main Purpose | Output |
-|---|---|---|---|
-| Create Trip | `createTripAction()` | Create a trip | `TripRecord` |
-| List Trips | `listTripsAction()` | Retrieve user's trips | `TripRecord[]` |
-| Update Trip | `updateTripAction()` | Modify trip details | `TripRecord` |
-| Delete Trip | `deleteTripAction()` | Delete a trip | No object |
-| Create Itinerary | `createItineraryAction()` | Add a day itinerary | `ItineraryRecord` |
-| List Itineraries | `listItinerariesAction()` | Retrieve trip itineraries | `ItineraryRecord[]` |
-| Update Itinerary | `updateItineraryAction()` | Modify itinerary details | `ItineraryRecord` |
-| Delete Itinerary | `deleteItineraryAction()` | Delete an itinerary | No object |
-| Create Itinerary Item | `createItineraryItemAction()` / `POST` | Add a place/item | `ItineraryItemRecord` |
-| List Itinerary Items | `listItineraryItemsAction()` / `GET` | Retrieve items | `ItineraryItemRecord[]` |
-| Update Itinerary Item | `updateItineraryItemAction()` / `PATCH` / `PUT` | Modify an item | `ItineraryItemRecord` |
-| Delete Itinerary Item | `deleteItineraryItemAction()` / `DELETE` | Remove an item | `{ "ok": true }` |
-
-## 7. Scope Notes
-
-This document reflects the interfaces and behavior present in the provided Module 02 source. In particular:
-
-- Trip and itinerary CRUD are currently exposed as Next.js server actions rather than dedicated REST endpoints.
-- REST-style route handlers are explicitly implemented for itinerary-item operations.
-- Module 03 place suggestions are represented by a local stub in the current `DayItineraryCard`; a real cross-module discovery API is not implemented in the supplied code.
-- No asynchronous cross-module event bus, webhook, or callback API is implemented.
-- Conflict detection exists as local business logic, but the supplied source does not expose it as a separate external endpoint.
-- The source contains both `position` and `order_index` representations for itinerary-item ordering.
