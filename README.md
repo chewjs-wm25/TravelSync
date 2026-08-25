@@ -14,3 +14,5 @@ Collaboration Development Assignment
 
 npm install --save-dev @types/leaflet <br>
 npm run preview
+
+<img width="1603" height="310" alt="image" src="https://github.com/user-attachments/assets/5e63373e-9284-492c-8077-30abfcb483b7" />
