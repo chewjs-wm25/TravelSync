@@ -3,7 +3,7 @@
 import { useTripNavigationStore } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 
 const getTimeOfDay = (createdAt?: string) => {
-  if (!createdAt) return "Unknown";
+  if (!createdAt) return "Night";
   const hour = new Date(createdAt).getHours();
   if (hour < 6) return "Night";
   if (hour < 12) return "Morning";
@@ -26,7 +26,13 @@ export default function RouteAnalysisClient() {
   const averageCost = totalTrips ? totalCost / totalTrips : 0;
 
   const pairs: Record<string, number> = {};
-  const times: Record<string, number> = {};
+  const timeBuckets = ["Morning", "Afternoon", "Evening", "Night"] as const;
+  const times: Record<(typeof timeBuckets)[number], number> = {
+    Morning: 0,
+    Afternoon: 0,
+    Evening: 0,
+    Night: 0,
+  };
   savedRoutes.forEach((route) => {
     const pair = `${route.origin?.name || "Unknown"} -> ${route.destination?.name || "Unknown"}`;
     pairs[pair] = (pairs[pair] || 0) + 1;
@@ -34,7 +40,6 @@ export default function RouteAnalysisClient() {
     times[timeOfDay] = (times[timeOfDay] || 0) + 1;
   });
   const commonPair = Object.entries(pairs).sort((a, b) => b[1] - a[1])[0];
-  const commonTime = Object.entries(times).sort((a, b) => b[1] - a[1])[0];
   const longestTrip = savedRoutes.reduce((max, route) =>
     route.summary.distanceKm > max.summary.distanceKm ? route : max,
     savedRoutes[0] || { summary: { distanceKm: 0 }, name: "N/A" }
@@ -65,7 +70,7 @@ export default function RouteAnalysisClient() {
             <div className="rounded-2xl border border-gray-200 bg-gray-100 p-4"><p className="text-sm font-semibold uppercase text-gray-500">Average time</p><p className="text-xl font-bold text-gray-800">{averageTime.toFixed(0)} min</p></div>
             <div className="rounded-2xl border border-gray-200 bg-gray-100 p-4"><p className="text-sm font-semibold uppercase text-gray-500">Average cost</p><p className="text-xl font-bold text-gray-800">RM {averageCost.toFixed(2)}</p></div>
             <div className="rounded-2xl border border-gray-200 bg-gray-100 p-4"><p className="text-sm font-semibold uppercase text-gray-500">Common route</p><p className="text-xl font-bold text-gray-800">{commonPair ? `${commonPair[0]} (${commonPair[1]})` : "N/A"}</p></div>
-            <div className="rounded-2xl border border-gray-200 bg-gray-100 p-4"><p className="text-sm font-semibold uppercase text-gray-500">Common time</p><p className="text-xl font-bold text-gray-800">{commonTime ? `${commonTime[0]} (${commonTime[1]})` : "N/A"}</p></div>
+            <div className="rounded-2xl border border-gray-200 bg-gray-100 p-4"><p className="text-sm font-semibold uppercase text-gray-500">Saved at what time</p><div className="mt-2 space-y-1 text-sm font-semibold text-gray-800">{timeBuckets.map((timeBucket) => <p key={timeBucket}>{timeBucket} ({timeBucket === "Morning" ? "6am-12pm" : timeBucket === "Afternoon" ? "12pm-6pm" : timeBucket === "Evening" ? "6pm-12am" : "12am-6am"}): {times[timeBucket]} {times[timeBucket] === 1 ? "trip" : "trips"}</p>)}</div></div>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-gray-100 p-4">

@@ -72,6 +72,7 @@ interface TripNavigationState {
   currentUserId: string | null; // Track current logged-in user
   publicTransportStops: PublicTransportStop[];
   publicTransportLegs: PublicTransportLeg[];
+  isRouteLoading: boolean;
   setVehicleType: (value: VehicleType) => void;
   setRoutePickerOpen: (open: boolean) => void;
   setActiveField: (field: RouteField | null) => void;
@@ -221,7 +222,20 @@ const generatePublicTransportRoute = async (
       legs: route.legs,
     };
   } catch {
-    return { points: [origin, destination], stops: [], legs: [] };
+    const transitStop = {
+      id: 'estimated-lrt-stop',
+      name: 'Estimated LRT interchange',
+      lat: (origin.lat + destination.lat) / 2,
+      lng: (origin.lng + destination.lng) / 2,
+    };
+    return {
+      points: [origin, transitStop, destination],
+      stops: [origin, transitStop, destination],
+      legs: [
+        { mode: 'walking', name: 'Walk to LRT', points: [origin, transitStop] },
+        { mode: 'lrt', name: 'LRT (estimated)', points: [transitStop, destination] },
+      ],
+    };
   }
 };
 
@@ -279,6 +293,7 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
   currentUserId: null,
   publicTransportStops: [],
   publicTransportLegs: [],
+  isRouteLoading: false,
 
   setVehicleType: (value: VehicleType) => {
     const { origin, destination, optimizationMode, vehicles, selectedVehicleId } = get();
@@ -286,7 +301,6 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
     set({
       vehicleType: value,
       optimizationMode: effectiveMode,
-      summary: calculateSummary(origin, destination, value, effectiveMode, undefined, vehicles.find((vehicle) => vehicle.id === selectedVehicleId)),
     });
     if (origin && destination) {
       void get().generateRoute();
@@ -319,7 +333,12 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
   generateRoute: async () => {
     const requestId = ++latestRouteRequest;
     const { origin, destination, vehicleType, optimizationMode, vehicles, selectedVehicleId } = get();
-    if (!origin || !destination) return;
+    if (!origin || !destination) {
+      set({ isRouteLoading: false });
+      return;
+    }
+
+    set({ isRouteLoading: true });
 
     try {
       const route = await buildRoutePoints(
@@ -341,6 +360,7 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
 
       set({
         generatedRoute: routePoints,
+        isRouteLoading: false,
         summary: calculateSummary(
           origin,
           destination,
@@ -354,8 +374,11 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
         publicTransportLegs: route.legs,
       });
     } catch {
+      if (requestId !== latestRouteRequest) return;
+
       set({
         generatedRoute: [origin, destination],
+        isRouteLoading: false,
         summary: calculateSummary(origin, destination, vehicleType, optimizationMode, undefined, vehicles.find((vehicle) => vehicle.id === selectedVehicleId)),
         publicTransportStops: [],
         publicTransportLegs: [],
@@ -366,11 +389,11 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
   applyOptimization: (mode: OptimizationMode) => {
     const { origin, destination, vehicleType, vehicles, selectedVehicleId } = get();
     const effectiveMode = vehicleType === 'car' ? mode : 'fastest';
+    const shouldRegenerate = Boolean(origin && destination);
     set({
       optimizationMode: effectiveMode,
-      summary: calculateSummary(origin, destination, vehicleType, effectiveMode, undefined, vehicles.find((vehicle) => vehicle.id === selectedVehicleId)),
     });
-    if (origin && destination) {
+    if (shouldRegenerate) {
       void get().generateRoute();
     }
   },

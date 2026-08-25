@@ -1,3 +1,5 @@
+import { fetchRouteShape } from './osrmApi';
+
 export interface PublicTransportStop {
   id: string;
   name: string;
@@ -28,6 +30,24 @@ type OverpassElement = {
   tags?: Record<string, string>;
 };
 
+const distanceBetween = (
+  first: { lat: number; lng: number },
+  second: { lat: number; lng: number }
+) => Math.hypot(first.lat - second.lat, first.lng - second.lng);
+
+const routeLegOnRoads = async (
+  first: { lat: number; lng: number },
+  second: { lat: number; lng: number },
+  vehicleType: 'walk' | 'car'
+) => {
+  try {
+    const route = await fetchRouteShape(first, second, vehicleType, 'fastest');
+    return route.points;
+  } catch {
+    return [first, second];
+  }
+};
+
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
 const getBoundingBox = (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) => {
@@ -44,7 +64,7 @@ export async function fetchPublicTransportRoute(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number }
 ): Promise<PublicTransportRoute> {
-  const aroundStops = `(node["public_transport"="platform"](around:1800,${origin.lat},${origin.lng});node["highway"="bus_stop"](around:1800,${origin.lat},${origin.lng});node["public_transport"="platform"](around:1800,${destination.lat},${destination.lng});node["highway"="bus_stop"](around:1800,${destination.lat},${destination.lng});)`;
+  const aroundStops = `(node["public_transport"="platform"](around:1800,${origin.lat},${origin.lng});node["public_transport"="station"](around:1800,${origin.lat},${origin.lng});node["highway"="bus_stop"](around:1800,${origin.lat},${origin.lng});node["public_transport"="platform"](around:1800,${destination.lat},${destination.lng});node["public_transport"="station"](around:1800,${destination.lat},${destination.lng});node["highway"="bus_stop"](around:1800,${destination.lat},${destination.lng});)`;
   const bbox = getBoundingBox(origin, destination);
   const query = `[out:json][timeout:20];(${aroundStops};relation["route"~"bus|train|tram|subway|light_rail"](${bbox}););out tags center;`;
   const response = await fetch(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`);
@@ -64,14 +84,22 @@ export async function fetchPublicTransportRoute(
       departureTime: element.tags?.departure_time,
     }))
     .filter((stop, index, all) => all.findIndex((candidate) => candidate.id === stop.id) === index)
-    .sort((a, b) => Math.hypot(a.lat - origin.lat, a.lng - origin.lng) - Math.hypot(b.lat - origin.lat, b.lng - origin.lng))
-    .slice(0, 8);
+    .filter((stop) => distanceBetween(stop, origin) <= 0.03 || distanceBetween(stop, destination) <= 0.03);
 
   if (stops.length < 2) throw new Error('No public transport stops found');
 
+  const originStops = stops
+    .filter((stop) => distanceBetween(stop, origin) <= 0.03)
+    .sort((a, b) => distanceBetween(a, origin) - distanceBetween(b, origin));
+  const destinationStops = stops
+    .filter((stop) => distanceBetween(stop, destination) <= 0.03)
+    .sort((a, b) => distanceBetween(a, destination) - distanceBetween(b, destination));
+  const boardingStop = originStops[0] ?? stops[0];
+  const alightingStop = destinationStops[0] ?? stops[stops.length - 1];
   const routeStops = [
     { id: 'origin', name: 'Origin', lat: origin.lat, lng: origin.lng },
-    ...stops,
+    boardingStop,
+    ...(boardingStop.id === alightingStop.id ? [] : [alightingStop]),
     { id: 'destination', name: 'Destination', lat: destination.lat, lng: destination.lng },
   ];
   const routeType = routeRelation?.tags?.route;
@@ -81,17 +109,20 @@ export async function fetchPublicTransportRoute(
       : routeType === 'train' || routeType === 'light_rail'
         ? 'lrt'
       : 'bus';
+  const walkingToTransit = await routeLegOnRoads(origin, boardingStop, 'walk');
+  const transitPath = await routeLegOnRoads(boardingStop, alightingStop, 'car');
+  const walkingToDestination = await routeLegOnRoads(alightingStop, destination, 'walk');
   const legs: PublicTransportLeg[] = [
-    { mode: 'walking', name: 'Walk to transit', points: [origin, routeStops[1]] },
+    { mode: 'walking', name: 'Walk to transit', points: walkingToTransit },
     {
       mode: transitMode,
       name: routeRelation?.tags?.name ?? (transitMode === 'mrt' ? 'MRT' : transitMode === 'lrt' ? 'LRT' : 'Bus'),
-      points: routeStops.slice(1, -1),
+      points: transitPath,
     },
     {
       mode: 'walking',
       name: 'Walk to destination',
-      points: [routeStops[routeStops.length - 2], destination],
+      points: walkingToDestination,
     },
   ].filter((leg) => leg.points.length > 1) as PublicTransportLeg[];
 

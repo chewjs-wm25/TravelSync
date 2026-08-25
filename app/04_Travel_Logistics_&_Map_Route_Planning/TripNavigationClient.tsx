@@ -44,12 +44,28 @@ const defaultMarkerIcon = L.icon({
 L.Marker.prototype.options.icon = defaultMarkerIcon;
 
 const vehicleOptions: Array<{ value: VehicleType; label: string }> = [
-  { value: "car", label: "Car" },
+  { value: "car", label: "Car/Motorcycle" },
   { value: "walk", label: "Walk" },
   { value: "public transport", label: "Public Transport" },
 ];
 
 const publicTransportOptions = ["LRT", "MRT", "Bus", "Walking"];
+
+const transitSpeedsKmPerHour = {
+  lrt: 32,
+  mrt: 35,
+  bus: 20,
+  walking: 5,
+} as const;
+
+const getDistanceKm = (points: Array<{ lat: number; lng: number }>) =>
+  points.slice(1).reduce((distance, point, index) => {
+    const previous = points[index];
+    const latitudeDistance = (point.lat - previous.lat) * 111;
+    const longitudeDistance =
+      (point.lng - previous.lng) * 111 * Math.cos((point.lat * Math.PI) / 180);
+    return distance + Math.hypot(latitudeDistance, longitudeDistance);
+  }, 0);
 
 function AutoZoomToRoute({
   routeCoordinates,
@@ -118,6 +134,7 @@ export default function TripNavigationClient() {
     deleteSavedRoute,
     publicTransportStops,
     publicTransportLegs,
+    isRouteLoading,
     vehicles,
     selectedVehicleId,
     setSelectedVehicleId,
@@ -163,6 +180,25 @@ export default function TripNavigationClient() {
     shortest: 'Shortest route with the straightest path',
     cheapest: 'Cheapest route with cost-saving detours',
   }[optimizationMode];
+
+  const transitDetails = publicTransportLegs.map((leg) => {
+    const distanceKm = getDistanceKm(leg.points);
+    const minutes = Math.max(
+      1,
+      Math.round((distanceKm / transitSpeedsKmPerHour[leg.mode]) * 60)
+    );
+    const stopCount = publicTransportStops.filter((stop) =>
+      leg.points.some((point) => point.lat === stop.lat && point.lng === stop.lng)
+    ).length;
+    const cost = leg.mode === "walking"
+      ? 0
+      : leg.mode === "bus"
+        ? 1
+        : Math.max(1, stopCount - 1) * 0.5;
+
+    return { leg, minutes, cost };
+  });
+  const transitFare = transitDetails.reduce((total, detail) => total + detail.cost, 0);
 
   useEffect(() => {
     setOriginInput(origin?.name ?? "");
@@ -582,7 +618,12 @@ export default function TripNavigationClient() {
               </span>
             </div>
 
-            <div className="mt-4 space-y-3 text-sm text-gray-500">
+              <div className="mt-4 space-y-3 text-sm text-gray-500">
+                {isRouteLoading && (
+                  <p className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
+                    Updating route for {optimizationMode}...
+                  </p>
+                )}
               <div className="flex items-center justify-between">
                 <span>Total distance</span>
                 <span className="font-semibold text-gray-800">
@@ -602,12 +643,43 @@ export default function TripNavigationClient() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>{summary.energyKwh > 0 ? "Electricity cost" : "Fuel cost"}</span>
+                <span>{vehicleType === "public transport" ? "Transit fare" : summary.energyKwh > 0 ? "Electricity cost" : "Fuel cost"}</span>
                 <span className="font-semibold text-gray-800">
-                  RM {(summary.energyKwh > 0 ? summary.energyCost : summary.fuelCost).toFixed(2)}
+                  RM {(vehicleType === "public transport" ? transitFare : summary.energyKwh > 0 ? summary.energyCost : summary.fuelCost).toFixed(2)}
                 </span>
               </div>
             </div>
+
+            {vehicleType === "public transport" && transitDetails.length > 0 && (
+              <div className="mt-5 border-t border-gray-200 pt-4">
+                <p className="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                  Transport details
+                </p>
+                <ul className="mt-3 space-y-2 text-sm text-gray-600">
+                  {transitDetails.map(({ leg, minutes, cost }) => (
+                    <li key={`${leg.mode}-${leg.name}`} className="flex items-start justify-between gap-3">
+                      <span>
+                        <span className="font-semibold text-gray-800">{leg.name}</span>
+                        <span className="block text-xs text-gray-500">
+                          {leg.mode === "walking" ? "Walking" : leg.mode.toUpperCase()}
+                        </span>
+                      </span>
+                      <span className="whitespace-nowrap font-semibold text-gray-800">
+                        {minutes} min · {cost === 0 ? "Free" : `RM ${cost.toFixed(2)}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                  Stops in order
+                </p>
+                <ol className="mt-2 space-y-1 text-sm text-gray-600">
+                  {publicTransportStops.map((stop, index) => (
+                    <li key={stop.id}>{index + 1}. {stop.name}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
 
           <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
@@ -633,20 +705,6 @@ export default function TripNavigationClient() {
               </div>
             </div>
           </div>
-          {vehicleType === "public transport" && publicTransportStops.length > 0 && (
-            <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
-              <h3 className="text-lg font-semibold text-gray-800">Transit stops</h3>
-              <ol className="mt-3 space-y-2 text-sm text-gray-600">
-                {publicTransportStops.map((stop, index) => (
-                  <li key={stop.id} className="flex justify-between gap-3">
-                    <span>{index + 1}. {stop.name}</span>
-                    <span>{stop.departureTime ?? stop.arrivalTime ?? "Time unavailable"}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-
           <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
             <h3 className="text-lg font-semibold text-gray-800">Save route</h3>
             <input

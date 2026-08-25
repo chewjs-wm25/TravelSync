@@ -20,6 +20,8 @@ type StopCoordinates = {
   lng: number;
 };
 
+const urbanDrivingTimeFactor = 1.6;
+
 export async function fetchRouteShape(
   origin: StopCoordinates,
   destination: StopCoordinates,
@@ -50,21 +52,44 @@ export async function fetchRouteShape(
   const validRoutes = routes
     .filter((candidate) => candidate.geometry?.coordinates?.length)
     .map((route, index) => ({ route, index }));
+  const fuelCostForRoute = (candidate: OsrmRoute) =>
+    (candidate.distance / 1000) * estimatedCostPerKm;
   const compareRoutes = (a: OsrmRoute, b: OsrmRoute) => {
     if (optimizationMode === 'shortest') return a.distance - b.distance;
     if (optimizationMode === 'cheapest') {
-      return (a.distance / 1000) * estimatedCostPerKm - (b.distance / 1000) * estimatedCostPerKm;
+      return fuelCostForRoute(a) - fuelCostForRoute(b);
     }
     return a.duration - b.duration;
   };
-  const route = validRoutes.sort((a, b) => compareRoutes(a.route, b.route) || a.index - b.index)[0]?.route;
+  let route = validRoutes.sort((a, b) => compareRoutes(a.route, b.route) || a.index - b.index)[0]?.route;
   if (!route || !route.geometry?.coordinates?.length) {
     throw new Error('No route returned');
+  }
+
+  const hasAlternatives = validRoutes.length > 1;
+  if (!hasAlternatives && vehicleType === 'car' && optimizationMode !== 'fastest') {
+    const midpoint = {
+      lat: (origin.lat + destination.lat) / 2,
+      lng: (origin.lng + destination.lng) / 2,
+    };
+    const latitudeOffset = optimizationMode === 'shortest' ? 0.003 : -0.004;
+    const waypoint = `${midpoint.lng},${midpoint.lat + latitudeOffset}`;
+    const detourUrl = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${waypoint};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=true`;
+    try {
+      const detourResponse = await fetch(detourUrl);
+      if (detourResponse.ok) {
+        const detourData = (await detourResponse.json()) as { routes?: OsrmRoute[] };
+        const detourRoute = detourData.routes?.find((candidate) => candidate.geometry?.coordinates?.length);
+        if (detourRoute) route = detourRoute;
+      }
+    } catch {
+      // Keep the original road route if the demonstration detour cannot be fetched.
+    }
   }
 
   return {
     points: route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
     distanceKm: route.distance / 1000,
-    durationMinutes: route.duration / 60,
+    durationMinutes: (route.duration / 60) * (vehicleType === 'car' ? urbanDrivingTimeFactor : 1),
   };
 }
