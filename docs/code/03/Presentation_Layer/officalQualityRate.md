@@ -22,7 +22,7 @@
 ```
 officalQualityRate（本组件）
   ├─ props.pois ← 父级 page.tsx ← useSearchAndFilter().pois
-  │               ← discoveryService.getQualityRatedPois → Route API /official-quality-ratings → Cloudflare D1
+  │               ← discoveryService.getQualityRatedPois → Route API /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings → Cloudflare D1
   ├─ usePlaceImages(visiblePois) → discoveryService.getPlaceImage（图片查询链 + 缓存）
   └─ 卡片外链 → routes.googleMapsUrl(name + formatted) → Google Maps 新标签页
 ```

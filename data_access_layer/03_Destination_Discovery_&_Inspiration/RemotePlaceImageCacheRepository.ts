@@ -5,7 +5,7 @@
  *       PlaceImageCacheRepository，仅做参数序列化与响应解析，
  *       不含任何 KV 读写逻辑（KV 操作由服务端 CloudflareKvPlaceImageCacheRepository 承担）。
  *
- * 值语义（v3，来源引用格式，与 PlaceImageCacheRepository 一致）：
+ * 值语义（v5，来源引用格式，与 PlaceImageCacheRepository 一致）：
  *   - 缓存条目 PlaceImageCacheEntry（wikimedia url / mapillary imageId / none 确定无图）；
  *   - get 返回 null = 未缓存；{"source":"none"} = 确定无图。
  *
@@ -25,9 +25,9 @@ import type {
 } from "./PlaceImageCacheRepository";
 import { sessionAuthHeaders } from "./sessionAuth";
 
-/** Route API 端点（模块 03 地点图片缓存） */
+/** Route API 端点（模块 03 地点图片缓存；统一路径见 guideline §5，前导 / 保证任意子路由下解析正确） */
 const PLACE_IMAGE_API =
-  "03_Destination_Discovery_&_Inspiration/api/place-image";
+  "/03_Destination_Discovery_&_Inspiration/api/place-image";
 
 export class RemotePlaceImageCacheRepository implements PlaceImageCacheRepository {
   /** 读取缓存条目；null = 未缓存；{source:"none"} = 确定无图（公开读） */

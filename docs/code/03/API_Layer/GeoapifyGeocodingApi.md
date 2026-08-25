@@ -10,8 +10,8 @@
 本文件是模块 03 的 Geoapify 地理编码外部 API 客户端，职责单一：仅负责与 Geoapify Geocoding API 交流（自动联想 `autocomplete` 与正向搜索 `search` 两类端点），不包含业务规则、不触碰本地持久化、不编排跨模块流程。用于搜索框输入联想下拉（自动联想）与搜索栏提交后的真实 POI 搜索（正向搜索）。
 
 关键设计（安全与免费额度）：
-- **API key 不暴露前端**：本客户端不直连 Geoapify，而是只与本地代理端点 `/api/discovery/geocode` 通信，由服务端持有 `GEOAPIFY_API_KEY`（非 `NEXT_PUBLIC`）并转发到 Geoapify；
-- **马来西亚范围强制由服务端代理完成**：代理端点携带 `filter=countrycode:my`（见 `app/api/discovery/geocode/route.ts`），本客户端无需携带国家过滤参数；
+- **API key 不暴露前端**：本客户端不直连 Geoapify，而是只与本地代理端点 `/03_Destination_Discovery_&_Inspiration/api/geocode` 通信，由服务端持有 `GEOAPIFY_API_KEY`（非 `NEXT_PUBLIC`）并转发到 Geoapify；
+- **马来西亚范围强制由服务端代理完成**：代理端点携带 `filter=countrycode:my`（见 `app/03_Destination_Discovery_&_Inspiration/api/geocode/route.ts`），本客户端无需携带国家过滤参数；
 - **免费额度**：使用 Geoapify 免费套餐（3000 credits/天，1 次请求 = 1 credit），请求最小化（默认 limit 6/5）。
 
 错误处理：网络错误、HTTP 非 2xx（含 500 密钥未配置 / 502 上游故障）、Geoapify 业务错误（`error` 字段）均抛出 `Error`，属瞬时失败，由上层决定不缓存搜索结果。
@@ -42,7 +42,7 @@
 - 类型：类
 - 传入：无
 - 传出：客户端实例
-- 用处：Geoapify 地理编码客户端。持有本地代理端点 `proxyEndpoint = "/api/discovery/geocode"`（服务端持有密钥并转发）。
+- 用处：Geoapify 地理编码客户端。持有本地代理端点 `proxyEndpoint = "/03_Destination_Discovery_&_Inspiration/api/geocode"`（服务端持有密钥并转发）。
 
 #### `autocompletePlaces(text: string, limit = 6)`
 - 类型：方法（async）

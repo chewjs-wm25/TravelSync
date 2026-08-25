@@ -34,7 +34,7 @@
     - `GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete|search&text&limit` —— Geoapify 代理，服务端注入密钥并强制 `filter=countrycode:my`
     - `GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=search|image&bbox|imageId` —— Mapillary 代理，服务端注入 token 并强制 bbox 落在马来西亚边界框内
   - **类型出口**：`business_logic_layer/03_Destination_Discovery_&_Inspiration/types.ts`（Presentation 层唯一类型来源，含下层类型 re-export）。
-  - **供模块 02 消费的地点/州省数据**：`PoiItem` / `PlaceDetail` 的地点字段（`placeId` / `name` / `lat` / `lon` / `imageUrl`）可直接映射为模块 02 的 `PlaceInfo`；`StateInfo`（见 §4）供模块 02 创建旅行时选择州/省。
+  - **供模块 02 消费的地点/州省数据**：`PoiItem` / `PlaceDetail` 的地点字段（`placeId` / `name` / `lat` / `lon` / `imageUrl`）可直接映射为模块 02 的 `PlaceInfo`；`StateInfo`（见 §4）供模块 02 创建旅行时选择州/省，经 `discoveryService.getStateInfo(): Promise<StateInfo[]>` 获取（BL 层，数据源当前为 api_layer 静态候选占位，未来替换真实 API 时签名不变）。
 - **回调与触发事件：**
   - `onProgress?: (done: number, total: number) => void` —— `syncQualityRatings` 每处理一条调用一次（进度/超时提示）。
   - `favoritesService.togglePoiFavourite(poi: PoiItem): Promise<boolean>` —— 切换收藏，返回切换后的收藏状态；未登录抛 `Error("Please log in first")`。

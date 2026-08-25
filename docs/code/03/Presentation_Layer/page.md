@@ -20,7 +20,7 @@ TravelInspirationPage（本页面，纯组装）
   ├─ useSearchAndFilter() ──→ discoveryService.getFilterOptions / getQualityRatedPois / getSuggestions
   │                             （BL 层 → Route API → Cloudflare D1 / Geoapify）
   ├─ useFavorites() ────────→ favoritesService.getSavedItems / togglePoiFavourite / addToTrip
-  │                             （BL 层 → Route API /api/discovery/favorites → D1；addToTrip 经 stub 桥接模块 02）
+  │                             （BL 层 → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → D1；addToTrip 经 stub 桥接模块 02）
   └─ 子组件（受控 props 注入）
        ├─ SearchAndFilter      ← 筛选/搜索状态
        ├─ CuratedInspirations  ← 无 props（内部消费 hooks）

@@ -20,10 +20,10 @@
 ## 请求 / 响应示例
 
 ```
-GET /api/discovery/geocode?type=autocomplete&text=Batu&limit=5
+GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete&text=Batu&limit=5
     → 200 GeoJSON（Geoapify 原始响应透传，含 features[]；前端由 GeoapifyGeocodingApi 解析 DTO）
 
-GET /api/discovery/geocode?type=search&text=Batu Caves
+GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=search&text=Batu Caves
     → 200 GeoJSON（服务端强制追加 filter=countrycode:my&lang=en&limit=5）
 ```
 
@@ -31,11 +31,11 @@ GET /api/discovery/geocode?type=search&text=Batu Caves
 
 | 状态码 | 场景 | 响应体 |
 | --- | --- | --- |
-| 400 | `type` 不在白名单 | `{ "error": "type must be 'autocomplete' or 'search'" }` |
-| 400 | `text` 为空或超长（>200） | `{ "error": "text is required and must be <= 200 chars" }` |
-| 400 | `limit` 非 1~20 整数 | `{ "error": "limit must be an integer between 1 and 20" }` |
-| 500 | `GEOAPIFY_API_KEY` 缺失 | `{ "error": "Missing GEOAPIFY_API_KEY. ..." }` |
-| 502 | 上游 fetch 网络异常 | `{ "error": "Geoapify {type} request failed (network error): ..." }` |
+| 400 | `type` 不在白名单 | `{ "message": "type must be 'autocomplete' or 'search'" }` |
+| 400 | `text` 为空或超长（>200） | `{ "message": "text is required and must be <= 200 chars" }` |
+| 400 | `limit` 非 1~20 整数 | `{ "message": "limit must be an integer between 1 and 20" }` |
+| 500 | `GEOAPIFY_API_KEY` 缺失 | `{ "message": "Missing GEOAPIFY_API_KEY. ..." }` |
+| 502 | 上游 fetch 网络异常 | `{ "message": "Geoapify {type} request failed (network error): ..." }` |
 | 透传 | 上游 4xx/5xx | 原状态码 + 上游原始响应体 |
 
 ## 安全与分层要点
@@ -79,12 +79,12 @@ GET /api/discovery/geocode?type=search&text=Batu Caves
 
 ### `GET`
 - 类型：函数（Route API handler）
-- HTTP 方法：`GET /api/discovery/geocode?type=autocomplete|search&text=...&limit=...`
+- HTTP 方法：`GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete|search&text=...&limit=...`
 - 请求参数（query）与白名单校验：
-  - `type`：`trim` 后须在 `ALLOWED_TYPES` 内，否则 400 `{ error: "type must be 'autocomplete' or 'search'" }`；
-  - `text`：`trim` 后非空且 `<= 200` 字符，否则 400 `{ error: "text is required and must be <= 200 chars" }`；
-  - `limit`：可选，缺省 5；提供时须为 `1~20` 的整数（`Number.isInteger` + 范围判断），否则 400 `{ error: "limit must be an integer between 1 and 20" }`。
+  - `type`：`trim` 后须在 `ALLOWED_TYPES` 内，否则 400 `{ message: "type must be 'autocomplete' or 'search'" }`；
+  - `text`：`trim` 后非空且 `<= 200` 字符，否则 400 `{ message: "text is required and must be <= 200 chars" }`；
+  - `limit`：可选，缺省 5；提供时须为 `1~20` 的整数（`Number.isInteger` + 范围判断），否则 400 `{ message: "limit must be an integer between 1 and 20" }`。
 - 服务端注入：`apiKey = geoapifyApiKey()`（缺失 catch 后返回 500 + 错误消息）；**先校验参数再读密钥**，保证非法参数恒返回 400。
 - 转发的外部端点：`${GEOAPIFY_GEOCODE_BASE_URL}/${type}`，固定参数：`text`、`filter=countrycode:my`（强制马来西亚，前端不可绕过）、`lang=en`、`limit`、`apiKey`。
 - 响应体：透传上游——`new Response(body, { status: res.status, headers: { "Content-Type": "application/json" } })`，body 为上游原始 GeoJSON 文本（前端客户端负责 DTO 解析）。
-- 错误处理：`fetch` 网络异常返回 502 `{ error: "Geoapify {type} request failed (network error): ..." }`；密钥缺失返回 500；参数非法返回 400（各自独立错误消息）。上游的 4xx/5xx 状态码原样透传（如 Geoapify 的 401/429），响应体为上游原始文本。
+- 错误处理：`fetch` 网络异常返回 502 `{ message: "Geoapify {type} request failed (network error): ..." }`；密钥缺失返回 500；参数非法返回 400（各自独立 `message`）。上游的 4xx/5xx 状态码原样透传（如 Geoapify 的 401/429），响应体为上游原始文本。

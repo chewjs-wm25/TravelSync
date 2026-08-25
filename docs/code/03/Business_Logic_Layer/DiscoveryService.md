@@ -53,6 +53,11 @@
 - 传出：`Promise<FilterOptions>`（`experienceTypes: string[]` + `states: string[]`）
 - 用处：获取筛选面板候选项（体验类型 / 马来西亚州属），数据来自 `DiscoveryExternalApi`。
 
+#### `getStateInfo()`
+- 传入：无
+- 传出：`Promise<StateInfo[]>`（`{ stateId, name, lat, lon, imageUrl }`，坐标遵循 guideline §5 扁平 `lat`/`lon` 标准）
+- 用处：获取州/省信息（供模块 02 创建旅行时选择州/省）。数据来自 `DiscoveryExternalApi.fetchStateInfo()`（当前为静态候选占位：马来西亚 13 州 + 3 联邦直辖区，坐标为州首府/主要城市，imageUrl 空串前端占位）；浏览器端 BL 直接编排，不依赖后端服务，未来替换真实 API 时签名不变。
+
 #### `getEventFeed()`
 - 传入：无
 - 传出：`Promise<EventFeedItem[]>`（活动流条目，`nearby` 恒为空数组）

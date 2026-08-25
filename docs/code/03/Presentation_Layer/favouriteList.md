@@ -23,7 +23,7 @@
 ```
 FavouriteList（本组件）
   ├─ useFavorites()  → favoritesService.getSavedItems / removeSavedItem / addToTrip / togglePoiFavourite
-  │                    → Route API /api/discovery/favorites → Cloudflare D1
+  │                    → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → Cloudflare D1
   │                    → addToTrip 经 RoutePlannerBridge stub 桥接模块 02
   └─ 受控 props（父级 page.tsx 注入）：isDrawerOpen / typeOptions / activeType
 ```

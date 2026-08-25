@@ -7,7 +7,7 @@
 
 ## 责任
 
-本文件是模块 03 节日/活动仓储的「远程」实现，运行于**浏览器端**，通过 HTTP 调用 Route API（`app/api/discovery/events`）实现 `EventRepository` 接口。职责单一：仅做参数序列化与响应解析，**不含任何 SQL / 数据库逻辑**（数据库操作由服务端 `D1EventRepository` 承担）。
+本文件是模块 03 节日/活动仓储的「远程」实现，运行于**浏览器端**，通过 HTTP 调用 Route API（`app/03_Destination_Discovery_&_Inspiration/api/events`）实现 `EventRepository` 接口。职责单一：仅做参数序列化与响应解析，**不含任何 SQL / 数据库逻辑**（数据库操作由服务端 `D1EventRepository` 承担）。
 
 依赖方向为：浏览器端 BL → 本类 → Route API → `D1EventRepository` → Cloudflare D1。
 
@@ -19,10 +19,12 @@
 | `upsertAll` | POST | JSON `{ items }` | `{ synced?: number }` | `data.synced ?? 0` |
 | `clearAll` | DELETE | 无 | `{ cleared?: number }` | `data.cleared ?? 0` |
 
+**写操作鉴权**：`upsertAll` / `clearAll` 为危险写操作，请求携带当前会话凭证（Authorization 头），服务端要求管理员会话（未登录 401 / 非 admin 403）。
+
 请求/响应示例（示意，非代码内固定值）：
 
 ```jsonc
-// POST /api/discovery/events
+// POST /03_Destination_Discovery_&_Inspiration/api/events
 { "items": [{ "id": "tatreez-reclaiming-palestine", "title": "...", "categories": ["Arts & Culture"], "date": "...", "location": "...", "url": "...", "syncedAt": 1755000000000 }] }
 // 响应
 { "synced": 1 }
@@ -44,7 +46,7 @@
 
 - 类型：常量（未导出）
 - 传入：无
-- 传出：字符串 `"/api/discovery/events"`。
+- 传出：字符串 `"/03_Destination_Discovery_&_Inspiration/api/events"`。
 - 用处：Route API 端点（模块 03 节日/活动），三个方法共用；为相对路径，由浏览器端按当前站点 origin 解析。
 
 ### `RemoteEventRepository`

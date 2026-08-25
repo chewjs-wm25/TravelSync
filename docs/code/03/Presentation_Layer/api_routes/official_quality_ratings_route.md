@@ -12,23 +12,23 @@
 数据流（读取方向）：`officalQualityRate` 组件 → `hooks.useSearchAndFilter` 的 `pois` → BL 层 `discoveryService.getQualityRatedPois` → 本 Route API → `D1QualityRatingRepository` → Cloudflare D1（`TEST_DB`）。注意 BL 层 `getQualityRatedPois` **不接受筛选条件**——无论主页筛选状态如何始终返回全部官方评级数据（Recommended Places 与搜索栏完全解绑）。写入方向：`officalQualityRating_hardcode.json` 同步时经 `POST` 批量 upsert，`DELETE` 清空数据。
 
 端点提供三个操作：
-- `GET /api/discovery/official-quality-ratings` —— 返回全部官方评级条目（`OfficialQualityRatingEntity[]`）；
-- `POST /api/discovery/official-quality-ratings`（body `{ items }`）—— 批量 upsert（非空数组校验），供 hardcode 数据同步；
-- `DELETE /api/discovery/official-quality-ratings` —— 清空全部官方评级数据，返回 `{ cleared }`。
+- `GET /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 返回全部官方评级条目（`OfficialQualityRatingEntity[]`）；
+- `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`（body `{ items }`）—— 批量 upsert（非空数组校验），供 hardcode 数据同步；
+- `DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 清空全部官方评级数据，返回 `{ cleared }`。
 
 `POST` 校验 body 中 `items` 必须为非空数组，否则返回 400；响应携带同步条数 `{ synced }`（201 Created）。
 
 ## 请求 / 响应示例
 
 ```
-GET  /api/discovery/official-quality-ratings
+GET  /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings
      → 200 [ { "id": "json-1", "name": "Batu Caves", "qualityBadge": "gold", "formatted": "...", "phone": "...", "ratingDuration": "2024-2026", "lat": 3.237, "lon": 101.684 } ]
 
-POST /api/discovery/official-quality-ratings
+POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings
      body: { "items": [ { "id": "json-1", "name": "Batu Caves", ... } ] }
      → 201 { "synced": 1 }
 
-DELETE /api/discovery/official-quality-ratings
+DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings
      → 200 { "cleared": true }
 ```
 
@@ -36,7 +36,7 @@ DELETE /api/discovery/official-quality-ratings
 
 | 状态码 | 场景 | 响应体 |
 | --- | --- | --- |
-| 400 | `items` 缺失 / 非数组 / 空数组 | `{ "error": "items (non-empty array) is required" }` |
+| 400 | `items` 缺失 / 非数组 / 空数组 | `{ "message": "items (non-empty array) is required" }` |
 | 400 | body 非合法 JSON | 同 items 校验错误（按空 body 处理） |
 | 500（默认） | D1 绑定缺失 / 数据库异常 | 框架默认错误页（未捕获异常） |
 
@@ -46,6 +46,7 @@ DELETE /api/discovery/official-quality-ratings
 - **binding 获取**：`getCloudflareContext({ async: true })` 在 Cloudflare Workers 环境异步解析 `TEST_DB` binding；
 - **批量 upsert 语义**：`POST` 一次写入整批（`officalQualityRating_hardcode.json` 同步入口），空数组拒绝；
 - **只读消费**：`GET` 是主页 Recommended Places（`getQualityRatedPois`）的唯一数据入口；BL 层不接收筛选条件，始终全量返回（与搜索栏筛选解绑的设计基础）。
+- **管理员写保护**：POST（批量 upsert）/ DELETE（清空）为危险写操作，必须携带管理员会话凭证（Authorization 头，未登录 401 / 非 admin 403），`GET` 保持匿名公开读。
 
 ## 依赖
 
@@ -65,21 +66,21 @@ DELETE /api/discovery/official-quality-ratings
 
 ### `GET`
 - 类型：函数（Route API handler）
-- HTTP 方法：`GET /api/discovery/official-quality-ratings`
+- HTTP 方法：`GET /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`
 - 请求参数：无
 - 响应体：`Response.json(items)` —— 全部官方评级条目（`OfficialQualityRatingEntity[]`，空数组表示暂无数据）。
 - 用处：`repo.listAll()` 委托 Data Access 层读取全表；主页 Recommended Places 数据源（BL 层 `getQualityRatedPois` 不接收筛选条件，始终返回全部官方评级数据；组件侧空列表时显示「No officially rated places available yet.」）。
 
 ### `POST`
 - 类型：函数（Route API handler）
-- HTTP 方法：`POST /api/discovery/official-quality-ratings`
-- 请求参数：body `{ items: OfficialQualityRatingEntity[] }`；`request.json()` 解析失败（`.catch(() => null)`）视为空 body。校验：`items` 非数组或空数组返回 400 `{ error: "items (non-empty array) is required" }`。
+- HTTP 方法：`POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`
+- 请求参数：body `{ items: OfficialQualityRatingEntity[] }`；`request.json()` 解析失败（`.catch(() => null)`）视为空 body。校验：`items` 非数组或空数组返回 400 `{ message: "items (non-empty array) is required" }`。
 - 响应体：`Response.json({ synced }, { status: 201 })` —— 同步成功条数。
 - 用处：`repo.upsertAll(items)` 委托 Data Access 层批量 upsert 到 D1（`officalQualityRating_hardcode.json` 同步入口，幂等更新）。
 
 ### `DELETE`
 - 类型：函数（Route API handler）
-- HTTP 方法：`DELETE /api/discovery/official-quality-ratings`
+- HTTP 方法：`DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`
 - 请求参数：无
 - 响应体：`Response.json({ cleared })` —— 清除操作结果。
 - 用处：`repo.clearAll()` 委托 Data Access 层清空全部官方评级数据。
