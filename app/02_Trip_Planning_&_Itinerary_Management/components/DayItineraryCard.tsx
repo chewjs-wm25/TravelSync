@@ -111,63 +111,26 @@ export function DayItineraryCard({
     setIsEditingNote(true);
   };
 
-  // Stubbed suggestions (module 02 only). Avoids network calls to module 03 by
-  // generating lightweight in-memory suggestion items based on the searchValue.
+  // Suggestions are provided by module 03 in production. The previous module-02
+  // in-memory stub generator was removed to avoid local-only drivers/stubs.
+  // Keep suggestions empty here; the parent may supply real suggestions via
+  // onSelectSuggestion or other props when integrated with module 03.
   useEffect(() => {
-    const value = searchValue.trim();
-    if (suggestionsTimer.current) {
-      window.clearTimeout(suggestionsTimer.current);
-      suggestionsTimer.current = null;
-    }
-
-    if (!value) {
+    if (!searchValue || !searchValue.trim()) {
       setSuggestions([]);
       setIsSuggestionsOpen(false);
-      // inform parent selection cleared
       onSelectSuggestion?.(undefined);
       return;
     }
 
-    suggestionsTimer.current = window.setTimeout(() => {
-      // Create up to 5 stub suggestions. SuggestionItem shape:
-      // { placeId, name, formatted, lat, lon }
-      const baseLat = 3.1390; // Kuala Lumpur base
-      const baseLon = 101.6869;
-      const states = [
-        "Kuala Lumpur",
-        "Selangor",
-        "Penang",
-        "Johor",
-        "Kedah",
-        "Perak",
-        "Melaka",
-      ];
-
-      const stubs: SuggestionItem[] = Array.from({ length: 5 }).map((_, i) => {
-        const idx = i % states.length;
-        const lat = baseLat + (i + value.length % 3) * 0.01;
-        const lon = baseLon + (i + value.length % 5) * 0.01;
-        const name = `${value} ${i + 1}`;
-        const formatted = `${name}, ${states[idx]}, Malaysia`;
-        return {
-          placeId: `stub:${value}:${i + 1}`,
-          name,
-          formatted,
-          lat,
-          lon,
-        };
-      });
-
-      setSuggestions(stubs);
-      setIsSuggestionsOpen(stubs.length > 0);
-    }, 300) as unknown as number;
-
-    return () => {
-      if (suggestionsTimer.current) {
-        window.clearTimeout(suggestionsTimer.current);
-        suggestionsTimer.current = null;
-      }
-    };
+    // No local stubs — await real suggestions from module 03 integration in the parent.
+    setSuggestions([]);
+    setIsSuggestionsOpen(false);
+    // Clean up any timers if present
+    if (suggestionsTimer.current) {
+      window.clearTimeout(suggestionsTimer.current);
+      suggestionsTimer.current = null;
+    }
   }, [searchValue, onSelectSuggestion]);
 
   const handleSaveNote = async (nextNote: string) => {

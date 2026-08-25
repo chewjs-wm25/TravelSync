@@ -195,6 +195,15 @@ export async function createItineraryItem(
     };
   }
 
+  // Trigger itinerary change notification (module 02 event bus)
+  try {
+    // Import here to avoid circular dependency at module init time
+    const events = await import("./events");
+    events.triggerItineraryChanged(validation.itineraryId);
+  } catch (e) {
+    // ignore errors from the event trigger
+  }
+
   return {
     ok: true,
     item: {
@@ -385,6 +394,14 @@ export async function updateItineraryItemById(
     };
   }
 
+  // Trigger itinerary change notification (module 02 event bus)
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(updatedItem.itinerary_id);
+  } catch (e) {
+    // ignore
+  }
+
   return {
     ok: true,
     item: updatedItem,
@@ -432,6 +449,14 @@ export async function deleteItineraryItemById(
     };
   }
 
+  // Trigger itinerary change notification (module 02 event bus)
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(existingItem.itinerary_id);
+  } catch (e) {
+    // ignore
+  }
+
   return { ok: true };
 }
 
@@ -453,4 +478,63 @@ export async function getItineraryItemsForDay(
   itineraryId?: string | null
 ) {
   return getItineraryItemsForItinerary(db, itineraryId);
+}
+
+/**
+ * Import multiple places into an itinerary as itinerary items.
+ */
+export async function importPlaces(
+  db: D1Database,
+  itineraryId: string,
+  items: { placeId?: string | null; name: string; lat?: number | null; lon?: number | null }[]
+): Promise<{ success: boolean; importedCount: number }> {
+  const resolvedItineraryId = normalizeText(itineraryId);
+  if (!resolvedItineraryId) {
+    return { success: false, importedCount: 0 };
+  }
+
+  const existingItinerary = await getItineraryById(db, resolvedItineraryId);
+  if (!existingItinerary) {
+    return { success: false, importedCount: 0 };
+  }
+
+  let importedCount = 0;
+  let nextOrderIndex = (await getItineraryItemsByItineraryId(db, resolvedItineraryId)).length + 1;
+
+  for (const entry of items) {
+    const name = normalizeText(entry.name);
+    if (!name) continue;
+
+    const itemId = `itm_${crypto.randomUUID()}`;
+    const wasInserted = await addItineraryItem(
+      db,
+      itemId,
+      resolvedItineraryId,
+      name,
+      undefined,
+      undefined,
+      nextOrderIndex,
+      name,
+      "other",
+      normalizeText(entry.placeId) ?? undefined,
+      undefined,
+      undefined
+    );
+
+    if (wasInserted) {
+      importedCount += 1;
+      nextOrderIndex += 1;
+    }
+  }
+
+  if (importedCount > 0) {
+    try {
+      const events = await import("./events");
+      events.triggerItineraryChanged(resolvedItineraryId);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  return { success: true, importedCount };
 }

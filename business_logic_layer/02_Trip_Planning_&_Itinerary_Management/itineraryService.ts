@@ -350,6 +350,15 @@ export async function createItinerary(
     db,
     validation.normalized
   );
+
+  // notify listeners that an itinerary changed for this trip
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(itinerary.trip_id);
+  } catch (e) {
+    // ignore
+  }
+
   return {
     ok: true,
     itinerary,
@@ -399,6 +408,13 @@ export async function deleteItinerary(
       status: 404,
       message: "Itinerary not found",
     };
+  }
+
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(existingItinerary.trip_id);
+  } catch (e) {
+    // ignore
   }
 
   return { ok: true };
@@ -512,6 +528,13 @@ export async function updateItinerary(
       status: 404,
       message: "Itinerary not found",
     };
+  }
+
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(itinerary.trip_id);
+  } catch (e) {
+    // ignore
   }
 
   return {

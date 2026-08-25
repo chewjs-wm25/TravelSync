@@ -3,15 +3,18 @@ import {
   insertTrip,
   listTripsByUser,
   updateTrip as updateTripInRepository,
+  getTripById,
   type CreateTripInput,
   type TripRecord,
   type UpdateTripInput as TripRepositoryUpdateInput,
 } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
-import { createItinerary } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
+import { createItinerary, getItinerariesByTripId } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 import {
   hasMalaysiaBlocklistMatch,
   normalizeText,
 } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
+import { getItineraryItemsByItineraryId } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
+import { discoveryService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
 
 export const DEFAULT_USER_ID = "usr_demo";
 const MAX_TRIP_NAME_LENGTH = 100;
@@ -239,6 +242,132 @@ export async function updateTrip(
 
 export async function getTripsForUser(db: D1Database, userId?: string | null) {
   return listTripsByUser(db, normalizeText(userId) ?? DEFAULT_USER_ID);
+}
+
+/**
+ * Assemble TripRouteData for module 04 consumption.
+ */
+export async function getTripRouteData(db: D1Database, tripId?: string | null) {
+  const resolvedTripId = normalizeText(tripId);
+  if (!resolvedTripId) {
+    throw new Error("Trip ID is required");
+  }
+
+  const trip = await getTripById(db, resolvedTripId);
+  if (!trip) {
+    throw new Error("Trip not found");
+  }
+
+  const itineraries = await getItinerariesByTripId(db, resolvedTripId);
+  const itineraryRouteData = [] as {
+    itineraryId: string;
+    date: string;
+    places: { id: string; name: string; lat: number; lon: number }[];
+  }[];
+
+  for (const it of itineraries) {
+    const items = await getItineraryItemsByItineraryId(db, it.itinerary_id);
+    const places = [] as { id: string; name: string; lat: number; lon: number }[];
+
+    for (const item of items) {
+      let lat = 0;
+      let lon = 0;
+
+      if (item.reference_id) {
+        try {
+          // discoveryService.getPlaceDetail expects (placeId, queryText)
+          const detail = await discoveryService.getPlaceDetail(item.reference_id, "");
+          if (detail && typeof (detail as any).lat === "number") {
+            lat = (detail as any).lat as number;
+          }
+          if (detail && typeof (detail as any).lon === "number") {
+            lon = (detail as any).lon as number;
+          }
+        } catch (e) {
+          // fallback to zeros
+        }
+      }
+
+      places.push({ id: item.item_id, name: item.item_name, lat, lon });
+    }
+
+    itineraryRouteData.push({
+      itineraryId: it.itinerary_id,
+      date: it.date,
+      places,
+    });
+  }
+
+  return {
+    tripId: trip.trip_id,
+    tripName: trip.trip_name,
+    itineraries: itineraryRouteData,
+  };
+}
+
+/**
+ * Assemble CollaborationTripData for module 05 consumption.
+ */
+export async function getCollaborationTripData(db: D1Database, tripId?: string | null) {
+  const resolvedTripId = normalizeText(tripId);
+  if (!resolvedTripId) {
+    throw new Error("Trip ID is required");
+  }
+
+  const trip = await getTripById(db, resolvedTripId);
+  if (!trip) {
+    throw new Error("Trip not found");
+  }
+
+  const itineraries = await getItinerariesByTripId(db, resolvedTripId);
+  const collabItineraries = [] as any[];
+
+  for (const it of itineraries) {
+    const items = await getItineraryItemsByItineraryId(db, it.itinerary_id);
+
+    const collabItems = items.map((item) => ({
+      itemId: item.item_id,
+      placeId: item.reference_id ?? null,
+      name: item.item_name,
+      day: undefined,
+      note: item.itinerary_item_note ?? undefined,
+      lat: undefined,
+      lon: undefined,
+    }));
+
+    // Try to enrich lat/lon for items with reference_id
+    for (const ci of collabItems) {
+      if (ci.placeId) {
+        try {
+          const detail = await discoveryService.getPlaceDetail(ci.placeId, "");
+          if (detail && typeof (detail as any).lat === "number") {
+            ci.lat = (detail as any).lat;
+          }
+          if (detail && typeof (detail as any).lon === "number") {
+            ci.lon = (detail as any).lon;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    collabItineraries.push({
+      itineraryId: it.itinerary_id,
+      date: it.date,
+      title: it.title,
+      items: collabItems,
+    });
+  }
+
+  return {
+    tripId: trip.trip_id,
+    userId: trip.user_id,
+    tripName: trip.trip_name,
+    startDate: trip.start_date ?? null,
+    endDate: trip.end_date ?? null,
+    itineraries: collabItineraries,
+  };
 }
 
 export async function deleteTrip(

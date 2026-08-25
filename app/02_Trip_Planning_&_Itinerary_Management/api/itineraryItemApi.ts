@@ -7,6 +7,7 @@ import {
   deleteItineraryItemById,
   getItineraryItemsForItinerary,
   updateItineraryItemById,
+  importPlaces,
   type DeleteItineraryItemInput,
   type ItineraryItemServiceInput,
   type UpdateItineraryItemInput,
@@ -70,4 +71,12 @@ export async function listItineraryItemsAction(
 ): Promise<ItineraryItemRecord[]> {
   const db = await getDb();
   return getItineraryItemsForItinerary(db, itineraryId);
+}
+
+export async function importPlacesAction(
+  itineraryId: string,
+  items: { placeId?: string | null; name: string; lat?: number | null; lon?: number | null }[]
+): Promise<{ success: boolean; importedCount: number }> {
+  const db = await getDb();
+  return importPlaces(db, itineraryId, items);
 }
