@@ -10,7 +10,8 @@
 ## 2. 依赖项 (需要其他模块/环境支持)
 - **依赖接口/组件：**
   - **模块 01 会话**：`useAuthStore`（`app/DEV-ACCOUNT-STATE/authUser.ts`，zustand persist）——`currentUserId()` 动态读取登录用户；服务端授权 `getAuthSession` / `requireUser` / `requireAdmin`（`app/DEV-ACCOUNT-STATE/api/session.ts`）——收藏写、图片缓存写、事件/评级同步等受限操作依赖会话凭证（`Authorization: Bearer <token>`）。
-  - **模块 02 行程导入**：`RoutePlannerBridge.pushItem(item)`——收藏地点"加入行程"的跨模块调用（BL 层编排）。当前为 stub（mock 实现，签名与返回结构固定），未来替换为模块 02 真实导入端点后上层无需改动。
+  - **模块 02 行程导入**：`RoutePlannerBridge.pushItem(item)`——收藏地点"加入行程"的跨模块调用（BL 层编排）。当前为 stub（mock 实现，签名与返回结构固定），未来替换为调用模块 02 的 `importPlaces`（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）后上层无需改动。
+  - **模块 04 交通物流与地图路线规划**：将选中地点（`PoiItem`/`PlaceDetail`）转换为模块 04 的 `Stop`（`id`/`name`/`lat`/`lon`）后传入路线接口（`generateRoute` / `importCoordinates`），供路线生成与地图轨迹绘制。
   - **模块 01 侧 DEV 页面**（`app/DEV-ACCOUNT-STATE/`）会反向调用本模块的同步服务与清缓存接口（见 §3 暴露项）。
 - **环境与 Context 依赖：**
   - `.env`（服务端 `process.env`，非 `NEXT_PUBLIC`）：`GEOAPIFY_API_KEY`（Geoapify 代理）、`MAPILLARY_ACCESS_TOKEN`（Mapillary 代理）；缺失时对应 Route API 返回 500，图片链路自动降级。
@@ -25,14 +26,15 @@
     - `eventSyncService.syncEvents(): Promise<EventSyncResult>`、`clearEvents(): Promise<number>`
     - `qualityRatingSyncService.syncQualityRatings(onProgress?): Promise<QualityRatingSyncResult>`、`clearQualityRatings(): Promise<number>`
     - `discoveryService.clearImageCaches(): Promise<number>`
-  - **Route API**（HTTP 传输通道，浏览器端仓储经此读写 D1/KV）：
+  - **Route API**（HTTP 传输通道，浏览器端仓储经此读写 D1/KV；路径遵循 guideline §5）：
     - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/favourites` —— 收藏 CRUD（POST 需登录、DELETE 需登录；userId 一律由服务端会话解析）
-    - `GET/POST/DELETE /.../api/events` —— 活动（GET 公开；POST 批量 upsert / DELETE 清空需管理员）
-    - `GET/POST/DELETE /.../api/official-quality-ratings` —— 官方评级（GET 公开；写需管理员）
-    - `GET/PUT/DELETE /.../api/place-image` —— 地点图片 KV 缓存（GET 公开；PUT 需登录；DELETE 清空需管理员）
-    - `GET /.../api/geocode?type=autocomplete|search&text&limit` —— Geoapify 代理，服务端注入密钥并强制 `filter=countrycode:my`
-    - `GET /.../api/mapillary?action=search|image&bbox|imageId` —— Mapillary 代理，服务端注入 token 并强制 bbox 落在马来西亚边界框内
+    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/events` —— 活动（GET 公开；POST 批量 upsert / DELETE 清空需管理员）
+    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 官方评级（GET 公开；写需管理员）
+    - `GET/PUT/DELETE /03_Destination_Discovery_&_Inspiration/api/place-image` —— 地点图片 KV 缓存（GET 公开；PUT 需登录；DELETE 清空需管理员）
+    - `GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete|search&text&limit` —— Geoapify 代理，服务端注入密钥并强制 `filter=countrycode:my`
+    - `GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=search|image&bbox|imageId` —— Mapillary 代理，服务端注入 token 并强制 bbox 落在马来西亚边界框内
   - **类型出口**：`business_logic_layer/03_Destination_Discovery_&_Inspiration/types.ts`（Presentation 层唯一类型来源，含下层类型 re-export）。
+  - **供模块 02 消费的地点/州省数据**：`PoiItem` / `PlaceDetail` 的地点字段（`placeId` / `name` / `lat` / `lon` / `imageUrl`）可直接映射为模块 02 的 `PlaceInfo`；`StateInfo`（见 §4）供模块 02 创建旅行时选择州/省。
 - **回调与触发事件：**
   - `onProgress?: (done: number, total: number) => void` —— `syncQualityRatings` 每处理一条调用一次（进度/超时提示）。
   - `favoritesService.togglePoiFavourite(poi: PoiItem): Promise<boolean>` —— 切换收藏，返回切换后的收藏状态；未登录抛 `Error("Please log in first")`。
@@ -128,5 +130,14 @@ export interface PushToRoutePlannerResult {
   success: boolean;
   pushedCount: number;
   target: "02_Trip_Planning_&_Itinerary_Management";
+}
+
+/** 州/省信息（供模块 02 创建旅行时使用；字段遵循 guideline §5 坐标标准） */
+export interface StateInfo {
+  stateId: string;
+  name: string;
+  lat: number;
+  lon: number;
+  imageUrl: string;
 }
 ```

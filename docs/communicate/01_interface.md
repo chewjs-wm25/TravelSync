@@ -15,13 +15,14 @@
 - **导出的组件/函数/API：**
   - `DashboardPage` — 账户仪表盘页面组件（含 Profile / Security / Settings / Delete 四个 Tab）
   - `AccountAction` — 账户操作请求函数类型，供 DashboardPage 调用
-  - `useAuthStore`（Zustand Store）— 全站登录状态源，其他模块可读取 `isLoggedIn` / `user`
+  - `useAuthStore`（Zustand Store）— 全站登录状态源，其他模块可读取 `isLoggedIn` / `user`；提供 `getCurrentUserId()`（返回 `user.id`，供模块 02/04 归属数据）与 `login` / `logout` / `refresh` actions
   - `mapAccountUser` — 将服务端 `PublicUser` 转换为前端 `User` 格式的工具函数
-  - API Route: `POST /01_User_&_Account_Management/account-actions?action=<action>` — 统一账户操作入口
-  - API Route: `GET /01_User_&_Account_Management/account-actions` — 获取当前登录用户
+  - `AccountRepo.findAccountById(id): Promise<PublicUser | null>` / `AccountRepo.findAccountByEmail(email): Promise<PublicUser | null>` — 按 ID / 邮箱查找用户（供模块 05 邀请流程使用）
+  - API Route: `POST /01_User_&_Account_Management/api/account-actions?action=<action>` — 统一账户操作入口（路径遵循 guideline §5）
+  - API Route: `GET /01_User_&_Account_Management/api/account-actions` — 获取当前登录用户
 - **回调与触发事件：**
   - `onUserChange(user: DashboardUser)` — 用户资料更新后触发
-  - `onLogout()` — 登出时触发
+  - `onLogout()` — 登出时触发（模块 04 经 `clearCurrentUser()` 同步）
 
 ## 4. 核心 TypeScript 类型
 ```typescript
@@ -45,69 +46,8 @@ interface User {
   role?: string;
 }
 
-// 账户操作函数签名
-type AccountAction = (
-  action: string,
-  data?: Record<string, unknown>
-) => Promise<{ user?: DashboardUser; message?: string }>;
-
-// API 请求参数
-interface LoginInput {
-  identifier: string;
-  password: string;
-  rememberMe: boolean;
-  ipAddress?: string | null;
-}
-
-interface RegisterInput {
-  username: string;
-  fullName: string;
-  email?: string;
-  phone: string;
-  icNumber: string;
-  password: string;
-  acceptTerms: boolean;
-}
-
-interface SettingsInput {
-  notificationsEnabled: boolean;
-  language: string;
-  theme: "light" | "dark";
-  privacyLevel: "private" | "contacts" | "public";
-}
-```
-
----
-
-# User & Account Management Lightweight Integration Guide
-
-## 1. Module Overview
-> Handles user registration, login, session management, profile/security/settings maintenance, email verification, and account deletion. Provides a unified account-operation API Route and a global login-state Store.
-
-## 2. Dependencies (Required from Other Modules/Environment)
-- **Dependent Interfaces/Components:** None (this module is a foundational service with no dependencies on other business modules).
-- **Environment & Context Dependencies:**
-  - Cloudflare D1 database binding `TEST_DB` (obtained via `getCloudflareContext`)
-  - `JWT_SECRET` env var (optional; falls back to a default in development)
-  - `GOOGLE_CLIENT_ID` / `GOOGLE_REDIRECT_URI` (optional; Google sign-in)
-  - Test-account deletion is disabled when `NODE_ENV=production`
-
-## 3. Exports (Provided to Other Modules)
-- **Exported Components/Functions/APIs:**
-  - `DashboardPage` — Account dashboard page component (Profile / Security / Settings / Delete tabs)
-  - `AccountAction` — Type for the request function used by DashboardPage
-  - `useAuthStore` (Zustand Store) — Global login-state source; other modules can read `isLoggedIn` / `user`
-  - `mapAccountUser` — Utility to convert server `PublicUser` to frontend `User` format
-  - API Route: `POST /01_User_&_Account_Management/account-actions?action=<action>` — Unified account-operation endpoint
-  - API Route: `GET /01_User_&_Account_Management/account-actions` — Retrieve current logged-in user
-- **Callbacks & Events:**
-  - `onUserChange(user: DashboardUser)` — Triggered after profile update
-  - `onLogout()` — Triggered on sign-out
-
-## 4. Core TypeScript Types
-```typescript
-// Frontend display user
-interface DashboardUser {
+// 服务端公开用户（mapAccountUser / AccountRepo 的输出）
+interface PublicUser {
   id: string;
   username: string;
   email: string | null;
@@ -118,21 +58,13 @@ interface DashboardUser {
   isVerified: boolean;
 }
 
-// Global store user (useAuthStore)
-interface User {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-  role?: string;
-}
-
-// Account action function signature
+// 账户操作函数签名（success 标志遵循 guideline §5）
 type AccountAction = (
   action: string,
   data?: Record<string, unknown>
-) => Promise<{ user?: DashboardUser; message?: string }>;
+) => Promise<{ success: boolean; user?: DashboardUser; message?: string }>;
 
-// API request parameters
+// API 请求参数
 interface LoginInput {
   identifier: string;
   password: string;

@@ -10,8 +10,8 @@
 ## 2. 依赖项 (需要其他模块/环境支持)
 - **依赖接口/组件：**
   - **模块 01 用户与账户管理**：登录成功后调用 `setCurrentUser(userId)`，登出时调用 `clearCurrentUser()`；当前用户 ID 会写入新保存的路线。
-  - **模块 02 行程与明细管理**：通过 `generateRoute()` 获取路线点与路线概览，并可调用保存、读取、删除和导航导出函数。
-  - **模块 03 目的地发现与灵感**：将选中的地点转换为 `Stop`（`id`、`name`、`lat`、`lng`）后传入路线接口。
+  - **模块 03 目的地发现与灵感**：将选中的地点转换为 `Stop`（`id`、`name`、`lat`、`lon`）后传入路线接口（坐标标准见 guideline §5）。
+  - **说明（服务方向）**：本模块**不依赖**模块 02；相反，模块 02 调用本模块的 `generateRoute` / `getTravelTimeMatrix` 等接口获取路线与交通时间（见 §3 暴露项）。模块 02 提供的行程停靠点数据是上述接口的入参，不是本模块的依赖。
   - **OSRM**：`api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi.ts`，为驾车和步行路线提供路线几何；公共交通当前复用步行路线形状。
   - **Nominatim**：`api_layer/04_Travel_Logistics_&_Map_Route_Planning/nominatimApi.ts`，仅由 Module 04 页面用于地点联想搜索，不属于 `moduleAPI.ts` 的直接调用接口。
   - **导航链接工具**：`api_layer/04_Travel_Logistics_&_Map_Route_Planning/navigationApi.ts`，生成 Google Maps 与 Waze URL。
@@ -24,7 +24,9 @@
 ## 3. 暴露项 (提供给其他模块使用)
 - **导出的组件/函数/API：**
   - **公共 API 文件**：`business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/moduleAPI.ts`。
-  - `generateRoute(origin, destination, vehicleType?, optimizationMode?): Promise<{ routePoints, summary, success }>` —— 生成路线；默认出行方式为 `car`，默认策略为 `fastest`。
+  - `generateRoute(origin: Stop, destination: Stop, vehicleType?, optimizationMode?): Promise<{ routePoints, summary, success }>` —— 生成路线；默认出行方式为 `car`，默认策略为 `fastest`。
+  - `getTravelTimeMatrix(stops: Stop[], context?: { tripId?: string; itineraryId?: string }): Promise<TravelTimeMatrixResult>` —— **批量交通时间矩阵**（服务模块 02 行程时间计算）；对全部停靠点两两计算耗时，经 ORS matrix 代理 + KV 缓存；`context` 回显在结果中供模块 02 归位到行程/行程日期。
+  - `importItineraryStops(stops: Stop[]): Promise<GenerateRouteResult>` —— 将模块 02 的行程停靠点批量导入为路线并生成路线（`stops` 的 `id` 即模块 02 行程明细 ID）。
   - `saveRoute(name): SavedRoute | null` —— 保存当前起点、终点和路线；缺少起点或终点时返回 `null`。
   - `getSavedRoutes(userId?): SavedRoute[]` —— 获取保存路线；传入 `userId` 时按用户过滤。
   - `loadSavedRoute(routeId): boolean` —— 加载指定路线到当前路线状态。
@@ -32,9 +34,9 @@
   - `getVehicles(): Vehicle[]`、`getDefaultVehicle(): Vehicle | null` —— 获取车辆列表或默认车辆。
   - `addVehicle(vehicle: Omit<Vehicle, "id" | "isDefault">): Vehicle` —— 新增车辆。
   - `setSelectedVehicle(vehicleId): boolean` —— 设置当前选中的车辆。
-  - `setCurrentUser(userId): void`、`clearCurrentUser(): void`、`getCurrentUserId(): string | null` —— 同步账户登录态。
+  - `setCurrentUser(userId): void`、`clearCurrentUser(): void`、`getCurrentUserId(): string | null` —— 同步账户登录态（模块 01 会话）。
   - `exportToGoogleMaps(origin, destination): string`、`exportToWaze(destination): string` —— 生成第三方导航链接。
-  - **类型出口**：`Stop`、`RoutePoint`、`RouteSummary`、`Vehicle`、`SavedRoute`、`VehicleType`、`OptimizationMode`。
+  - **类型出口**：`Stop`、`RoutePoint`、`RouteSummary`、`Vehicle`、`SavedRoute`、`VehicleType`、`OptimizationMode`、`GenerateRouteResult`、`TravelTimeMatrixResult`、`TravelTime`。
 - **回调与触发事件：**
   - `moduleAPI.ts` 不接收回调参数，也不广播跨模块事件。
   - `generateRoute()` 返回 Promise，调用方必须等待 Promise 完成后再读取 `routePoints` 和 `summary`。
@@ -52,14 +54,14 @@ export interface Stop {
   id: string;
   name: string;
   lat: number;
-  lng: number;
+  lon: number;
 }
 
 export interface RoutePoint {
   id?: string;
   name?: string;
   lat: number;
-  lng: number;
+  lon: number;
 }
 
 export interface RouteSummary {
@@ -67,6 +69,20 @@ export interface RouteSummary {
   timeMinutes: number;
   fuelLiters: number;
   fuelCost: number;
+}
+
+/** 批量交通时间矩阵结果（服务模块 02 行程时间计算；context 回显） */
+export interface TravelTimeMatrixResult {
+  tripId?: string;
+  itineraryId?: string;
+  travelTimes: TravelTime[];
+}
+
+/** 单对停靠点耗时（fromId/toId 对应 Stop.id，即模块 02 行程明细 ID） */
+export interface TravelTime {
+  fromId: string;
+  toId: string;
+  timeMinutes: number;
 }
 
 export interface Vehicle {

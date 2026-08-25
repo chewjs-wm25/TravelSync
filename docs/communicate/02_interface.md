@@ -1,121 +1,44 @@
--- English
+# 模块 02 — 行程规划与行程明细管理 极简对接文档
 
-# Module 02 — Trip Planning & Itinerary Management Interface
+## 1. 模块职责简述
+行程规划与行程明细管理（Trip Planning & Itinerary Management）负责管理旅行（Trip）、行程（Itinerary，一天内计划）以及行程明细（Itinerary Item，具体地点 + 起止时间）。它允许用户通过选择目的地和地点、将地点安排进行程并为行程明细规划时间，从而创建和组织旅行。该模块是行程数据的**所有者**：向模块 04 提供行程停靠点以换取交通时间，向模块 05 提供旅行/明细数据以支持协作编辑，并接收模块 03 的地点导入。
 
-## 1. Module Responsibility
+## 2. 依赖项 (需要其他模块/环境支持)
+- **依赖接口/组件：**
+  - **模块 01 用户与账户管理**：经 `useAuthStore`（全站登录态 Store）读取当前登录用户 `user.id` 作为行程归属的 `userId`；登出/未登录时创建旅行需先引导登录。
+  - **模块 03 目的地探索与灵感**：
+    - 创建旅行时请求州/省信息 → `StateInfo`（stateId / name / lat / lon / imageUrl）。
+    - 向行程添加地点时请求地点信息 → `PlaceInfo`（placeId / name / lat / lon / imageUrl）。
+    - 接收模块 03 的"加入行程"调用（`importPlaces`，见 §3 暴露项）。
+  - **模块 04 交通物流与地图路线规划**：请求行程停靠点之间的批量交通时间 → `getTravelTimeMatrix(stops, context)`（返回 `TravelTimeMatrixResult`），并将行程地点按 `Stop`（id / name / lat / lon）格式提供给模块 04。
+- **环境与 Context 依赖：**
+  - Cloudflare D1（`TEST_DB`）：存储旅行、行程及行程明细（表 `trip`、`itinerary_item`、`item_category`）。
+  - 顶层会话 Store：`useAuthStore`（模块 01 提供，localStorage 持久化），非 React Provider。
 
-Trip Planning & Itinerary Management manages trips, itineraries, and itinerary items. It allows users to create and organize trips by selecting destinations and places, arranging places into itineraries, and scheduling itinerary items.
+## 3. 暴露项 (提供给其他模块使用)
+- **导出的组件/函数/API：**
 
-The module also exchanges trip, place, and travel-time information with other modules to support travel-time calculation and collaborative trip planning.
+  **→ 提供给模块 04（交通时间计算）**
+  - `getTripRouteData(tripId): TripRouteData` —— 组装某次旅行全部行程的停靠点数据（含 `ItineraryRouteData` / `RoutePlace`）；`RoutePlace` 与模块 04 的 `Stop` 同构（`id` = 行程明细 ID，`lat`/`lon` 扁平坐标），可直接作为 `importItineraryStops` / `getTravelTimeMatrix` 的入参。
+  - 向模块 04 提供的旅行信息：旅行 ID、旅行名称、行程 ID、行程日期、地点 ID（明细 ID）、地点名称、地点位置（lat/lon）。
 
-## 2. Dependencies
+  **→ 提供给模块 05（协作与共享规划）**
+  - `getCollaborationTripData(tripId): CollaborationTripData` —— 组装协作所需的旅行 + 行程 + 明细数据（`CollaborationTripData` / `CollaborationItinerary` / `CollaborationItem`）。
+  - 向模块 05 提供的旅行信息：旅行 ID、用户 ID、旅行名称、旅行日期（startDate/endDate）、行程信息、行程明细信息（itemId / placeId / name / day / note / lat / lon）。
+  - `ItineraryRepo.findByTrip(tripId)` / `ItemRepo.insertItem(item)` / `ItemRepo.updateItem(item)` / `ItemRepo.deleteItem(itemId)` —— 行程与明细的仓储能力，供模块 05 的协作 CRUD 使用（数据归属本模块，字段以 `CollaborationItem` 为准）。
 
-### 2.1 Dependencies on Other Modules
+  **→ 提供给模块 03（地点导入）**
+  - `importPlaces(itineraryId: string, items: ImportPlaceInput[]): Promise<ImportPlacesResult>` —— 将模块 03 选中的地点批量加入指定行程日期，生成行程明细（BL 层函数）。
+  - API Route：`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import` —— 同上能力的 HTTP 通道（模块 03 的 `RoutePlannerBridge.pushItem` 未来替换为调用此端点）。
 
-- **Module 01 — User & Account Management**
-  - Provides the user ID required to associate a trip with a user.
+- **回调与触发事件：**
+  - `onItineraryChanged(tripId: string)` —— 行程/明细发生增删改后触发（模块 05 轮询 / 模块 04 重算交通时间的触发信号）。
+  - 无对外回调参数；跨模块数据获取均为同步函数或 Promise 返回值。
 
-- **Module 03 — Destination Discovery & Inspiration**
-  - Provides state information when creating a trip.
-  - Provides place information when adding places to an itinerary.
-
-- **Module 04 — Travel Logistics & Map Route Planning**
-  - Provides calculated travel time between places for each itinerary.
-  - Receives trip and itinerary place information from Module 02 for travel-time calculation.
-
-- **Module 05 — Collaboration & Shared Planning**
-  - Receives trip information from Module 02 to support sharing and collaboration between users.
-
-### 2.2 Environment / Storage Dependencies
-
-- **Cloudflare D1 (`TEST_DB`)**
-  - Stores trip, itinerary, and itinerary-item information.
-
-## 3. Exposed Interfaces
-
-### 3.1 Providing
-
-#### Module 04 — Travel Logistics & Map Route Planning
-
-Module 02 provides trip information to Module 04 so that travel time can be calculated between all places within each itinerary of a trip.
-
-**Information provided:**
-
-- Trip ID
-- Trip name
-- Itinerary ID
-- Itinerary date
-- Place ID
-- Place name
-- Place location
-
-**Purpose:** Module 04 uses the itinerary places and their locations to calculate travel time between places.
-
-#### Module 05 — Collaboration & Shared Planning
-
-Module 02 provides trip information to Module 05 to allow trips to be shared and collaboratively planned between different users.
-
-**Information provided:**
-
-- Trip ID
-- User ID
-- Trip name
-- Trip dates
-- Itinerary information
-- Itinerary item information
-
-**Purpose:** Module 05 uses the trip information to support trip sharing and collaboration.
-
-### 3.2 Requesting
-
-#### Module 01 — User & Account Management
-
-Module 02 requests the user ID required to associate a trip with the correct user.
-
-**Information requested:**
-
-- User ID
-
-#### Module 03 — Destination Discovery & Inspiration
-
-**State Information**
-
-Module 02 requests state information when creating a trip.
-
-**Information requested:**
-
-- State ID
-- State name
-- State location
-- State image
-
-**Place Information**
-
-Module 02 requests place information when adding a place to an itinerary.
-
-**Information requested:**
-
-- Place ID
-- Place name
-- Place location
-- Place image
-
-#### Module 04 — Travel Logistics & Map Route Planning
-
-Module 02 requests the calculated travel time between places within each itinerary.
-
-**Information requested:**
-
-- Origin place
-- Destination place
-- Calculated travel time
-
-**Purpose:** The returned travel time is displayed between the corresponding places in the itinerary.
-
-## 4. Core TypeScript Types
+## 4. 核心 TypeScript 类型
 
 ```ts
-/** Trip information provided to Module 04 for travel-time calculation */
+/** 提供给模块 04 用于计算交通时间的旅行信息 */
 export interface TripRouteData {
   tripId: string;
   tripName: string;
@@ -128,16 +51,18 @@ export interface ItineraryRouteData {
   places: RoutePlace[];
 }
 
+/**
+ * 行程停靠点 —— 与模块 04 的 Stop 同构（单一坐标标准 lat/lon，见 guideline §5）。
+ * id 为行程明细 ID（itemId），供模块 04 的 TravelTime.fromId/toId 回映射。
+ */
 export interface RoutePlace {
-  placeId: string;
+  id: string;
   name: string;
-  location: {
-    latitude: number;
-    longitude: number;
-  };
+  lat: number;
+  lon: number;
 }
 
-/** Trip information provided to Module 05 for collaboration */
+/** 提供给模块 05 用于协作的旅行信息 */
 export interface CollaborationTripData {
   tripId: string;
   userId: string;
@@ -154,53 +79,61 @@ export interface CollaborationItinerary {
   items: CollaborationItem[];
 }
 
+/** 行程明细（数据所有者为本模块；模块 05 的 ItineraryItem 与本结构字段对齐） */
 export interface CollaborationItem {
   itemId: string;
   placeId?: string | null;
   name: string;
-  location?: {
-    latitude: number;
-    longitude: number;
-  } | null;
+  day?: number;             // 第几天（可选；可由所属 CollaborationItinerary.date 派生）
+  note?: string;            // 备注（模块 05 协作编辑）
+  lat?: number | null;      // 扁平坐标标准（guideline §5）
+  lon?: number | null;
 }
 
-/** User information requested from Module 01 */
+/** 从模块 01 请求的用户信息（经 useAuthStore.user.id 获取） */
 export interface UserInfo {
   userId: string;
 }
 
-/** State information requested from Module 03 */
+/** 从模块 03 请求的州/省信息（字段与模块 03 输出对齐） */
 export interface StateInfo {
   stateId: string;
-  stateName: string;
-  location: {
-    latitude: number;
-    longitude: number;
-  };
-  image: string;
+  name: string;
+  lat: number;
+  lon: number;
+  imageUrl: string;
 }
 
-/** Place information requested from Module 03 */
+/** 从模块 03 请求的地点信息（字段与模块 03 的 PoiItem/PlaceDetail 核心字段对齐） */
 export interface PlaceInfo {
   placeId: string;
-  placeName: string;
-  location: {
-    latitude: number;
-    longitude: number;
-  };
-  image: string;
+  name: string;
+  lat: number;
+  lon: number;
+  imageUrl: string;
 }
 
-/** Travel-time information requested from Module 04 */
-export interface TravelTimeResult {
-  tripId: string;
-  itineraryId: string;
-  travelTimes: TravelTime[];
+/** 接收模块 03 地点导入的输入条目 */
+export interface ImportPlaceInput {
+  placeId?: string | null;
+  name: string;
+  lat?: number | null;
+  lon?: number | null;
 }
 
-export interface TravelTime {
-  fromPlaceId: string;
-  toPlaceId: string;
-  travelTimeMinutes: number;
+export interface ImportPlacesResult {
+  success: boolean;
+  importedCount: number;
 }
+
+/**
+ * 从模块 04 请求的交通时间信息 —— 与模块 04 的 `getTravelTimeMatrix` 返回类型一致，
+ * 单一来源为模块 04 接口文档 §4（本模块不另立结构）：
+ *
+ *   interface TravelTimeMatrixResult {
+ *     tripId?: string;           // context 回显
+ *     itineraryId?: string;      // context 回显
+ *     travelTimes: TravelTime[]; // { fromId, toId, timeMinutes }，fromId/toId = RoutePlace.id
+ *   }
+ */
 ```
