@@ -20,6 +20,8 @@ import {
   Loader2,
   RefreshCw,
   Mail,
+  Copy,
+  AlertCircle,
 } from "lucide-react";
 import {
   can,
@@ -98,6 +100,7 @@ export default function CollaborationPage() {
 
   const canComment = can(me.role, "comment");
   const canInvite = can(me.role, "invite");
+  const isOwner = me.role === "Owner";
   const invite = trip.invites.find((i) => i.token === inviteToken && i.status === "pending");
 
   const handleSendComment = () => {
@@ -106,19 +109,167 @@ export default function CollaborationPage() {
     setCommentText("");
   };
 
-  const handleShareLink = async () => {
-    const url = window.location.href;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      /* demo only */
-    }
-  };
-
   const handleInviteScroll = () => {
     document
       .getElementById("invite-panel")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleShareLink = async () => {
+    const tripId = trip.id;
+    const url = `${window.location.origin}/05_Collaboration_&_Shared_Planning?trip=${tripId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Trip share link copied!");
+    } catch {
+      showToast(url);
+    }
+  };
+
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (text: string) => {
+    setToast(text);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const exportPDF = () => {
+    if (!trip) return;
+    const content = generateExportContent(trip, "pdf");
+    const blob = new Blob([content], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank");
+    win?.document.write(content);
+    win?.document.close();
+  };
+
+  const exportCSV = () => {
+    if (!trip) return;
+    const csv = generateCSV(trip);
+    downloadFile(csv, `${trip.name.replace(/\s+/g, "_")}_itinerary.csv`, "text/csv");
+  };
+
+  const exportICS = () => {
+    if (!trip) return;
+    const ics = generateICS(trip);
+    downloadFile(ics, `${trip.name.replace(/\s+/g, "_")}_itinerary.ics`, "text/calendar");
+  };
+
+  const generateExportContent = (t: typeof trip, _format: string) => {
+    if (!t) return "";
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>${t.name} - Itinerary</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; line-height: 1.6; }
+    h1 { color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
+    .meta { color: #6b7280; margin-bottom: 30px; }
+    .day { margin-top: 30px; page-break-inside: avoid; }
+    .day-title { background: #3b82f6; color: white; padding: 10px 15px; border-radius: 8px 8px 0 0; font-weight: 600; }
+    .item { border: 1px solid #e5e7eb; border-top: none; padding: 15px; background: #fafafa; }
+    .item:last-child { border-radius: 0 0 8px 8px; }
+    .item-title { font-weight: 600; color: #1f2937; }
+    .item-note { color: #6b7280; font-size: 0.9em; margin-top: 5px; }
+    .members { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+    .member { background: #eff6ff; padding: 5px 12px; border-radius: 20px; font-size: 0.85em; color: #1e40af; }
+    @media print { body { padding: 0; } .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <h1>${t.name}</h1>
+  <div class="meta">
+    <p><strong>Dates:</strong> ${t.dates}</p>
+    <p><strong>Region:</strong> ${t.region}</p>
+    <p><strong>Exported:</strong> ${new Date().toLocaleString()}</p>
+  </div>
+  <div class="meta">
+    <strong>Collaborators:</strong>
+    <div class="members">
+      ${t.members.map(m => `<span class="member">${m.name} (${m.role})</span>`).join("")}
+    </div>
+  </div>
+  ${t.items.length === 0 ? '<p style="color: #9ca3af; text-align: center; padding: 40px;">No itinerary items yet</p>' : 
+    Object.entries(
+      t.items.reduce((acc, item) => {
+        (acc[item.day] = acc[item.day] || []).push(item);
+        return acc;
+      }, {} as Record<number, typeof t.items>)
+    ).map(([day, items]) => `
+    <div class="day">
+      <div class="day-title">Day ${day}</div>
+      ${items.map(item => `
+      <div class="item">
+        <div class="item-title">${item.title}</div>
+        ${item.note ? `<div class="item-note">${item.note}</div>` : ""}
+      </div>`).join("")}
+    </div>`).join("")}
+  ${t.comments.length > 0 ? `
+  <div class="day" style="margin-top: 40px;">
+    <div class="day-title" style="background: #8b5cf6;">Comments</div>
+    ${t.comments.map(c => `
+    <div class="item" style="background: #faf5ff; border-color: #e9d5ff;">
+      <div class="item-title">${c.authorName}</div>
+      <div class="item-note">${c.text}</div>
+    </div>`).join("")}
+  </div>` : ""}
+</body>
+</html>`;
+  };
+
+  const generateCSV = (t: typeof trip) => {
+    if (!t) return "";
+    const headers = ["Day", "Title", "Note"];
+    const rows = t.items.map(item => [
+      `Day ${item.day}`,
+      `"${item.title.replace(/"/g, '""')}"`,
+      `"${(item.note || "").replace(/"/g, '""')}"`
+    ]);
+    return [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+  };
+
+  const generateICS = (t: typeof trip) => {
+    if (!t) return "";
+    const parseDate = (dateStr: string) => {
+      const match = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (match) return new Date(+match[3], +match[1] - 1, +match[2]);
+      return new Date();
+    };
+    const startDate = parseDate(t.dates.split("–")[0].split("-")[0].trim());
+    const now = new Date();
+    const dtstamp = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const events = t.items.map((item, idx) => {
+      const eventDate = new Date(startDate);
+      eventDate.setDate(startDate.getDate() + item.day - 1);
+      const dtstart = eventDate.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+      return `BEGIN:VEVENT
+UID:${t.id}-${item.id}@travelsync
+DTSTAMP:${dtstamp}
+DTSTART:${dtstart}
+SUMMARY:${item.title}
+DESCRIPTION:${item.note || "No notes"}
+END:VEVENT`;
+    }).join("\n");
+    return `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//TravelSync//Itinerary Export//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+${events}
+END:VCALENDAR`;
+  };
+
+  const downloadFile = (content: string, filename: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`${filename} downloaded`);
   };
 
   return (
@@ -176,7 +327,7 @@ export default function CollaborationPage() {
           {/* ── Left: Invite + Members + Itinerary (8 cols) ── */}
           <div id="invite-panel" className="scroll-mt-24 space-y-6 lg:col-span-8">
             <InviteCollaboratorsPanel />
-            <PendingInvitesPanel />
+            <PendingInvitesPanel isOwner={isOwner} />
             <MemberManagementPanel />
             <ItineraryPermissionDemo />
           </div>
@@ -191,19 +342,28 @@ export default function CollaborationPage() {
                 Export Itinerary
               </p>
               <div className="space-y-3">
-                <button className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]">
+                <button
+                  onClick={exportPDF}
+                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]"
+                >
                   <FileText size={20} className="shrink-0 text-red-500" />
                   <span className="text-sm font-medium text-gray-800">
                     Export as PDF
                   </span>
                 </button>
-                <button className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]">
+                <button
+                  onClick={exportCSV}
+                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]"
+                >
                   <Download size={20} className="shrink-0 text-green-600" />
                   <span className="text-sm font-medium text-gray-800">
                     Download CSV
                   </span>
                 </button>
-                <button className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]">
+                <button
+                  onClick={exportICS}
+                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]"
+                >
                   <CalendarDays size={20} className="shrink-0 text-primary-500" />
                   <span className="text-sm font-medium text-gray-800">
                     Sync to ICS
@@ -387,6 +547,12 @@ export default function CollaborationPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white shadow-2xl animate-fade-in">
+          {toast}
         </div>
       )}
     </div>
