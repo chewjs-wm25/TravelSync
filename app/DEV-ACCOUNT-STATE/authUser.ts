@@ -46,6 +46,11 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
+/** 获取当前登录用户 ID（供 Module 02/04 等跨模块调用） */
+export function getCurrentUserId(): string | null {
+  return useAuthStore.getState().user?.id ?? null;
+}
+
 const ACCOUNT_API = "/01_User_&_Account_Management/account-actions";
 
 export const useAuthStore = create<AuthState>()(

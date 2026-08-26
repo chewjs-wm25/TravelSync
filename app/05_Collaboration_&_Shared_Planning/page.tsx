@@ -284,10 +284,12 @@ END:VCALENDAR`;
         {/* ─── Page Header ─── */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-1 flex items-center gap-2 text-xs font-medium text-gray-400">
-              <MapPin size={13} />
-              {trip.region}
-            </div>
+            {trip.region && (
+              <div className="mb-1 flex items-center gap-2 text-xs font-medium text-gray-400">
+                <MapPin size={13} />
+                {trip.region}
+              </div>
+            )}
             <h1 className="text-2xl font-semibold text-gray-800">{trip.tripName}</h1>
             <p className="mt-1 text-gray-500">{formatTripDates(trip.startDate, trip.endDate)}</p>
           </div>
