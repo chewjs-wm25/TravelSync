@@ -283,12 +283,13 @@ export async function getTripRouteData(
     const places: RoutePlace[] = [];
 
     for (const item of items) {
-      let lat = 0;
-      let lon = 0;
+      // Prefer stored lat/lon when available (imported items may carry coordinates)
+      let lat = typeof (item as any).lat === 'number' && (item as any).lat !== null ? (item as any).lat as number : 0;
+      let lon = typeof (item as any).lon === 'number' && (item as any).lon !== null ? (item as any).lon as number : 0;
 
-      if (item.reference_id) {
+      // If stored coords are not present, try discoveryService when reference_id exists
+      if ((lat === 0 && lon === 0) && item.reference_id) {
         try {
-          // discoveryService.getPlaceDetail expects (placeId, queryText)
           const detail = await discoveryService.getPlaceDetail(item.reference_id, "");
           if (detail && typeof (detail as any).lat === "number") {
             lat = (detail as any).lat as number;
@@ -347,19 +348,19 @@ export async function getCollaborationTripData(
       name: item.item_name,
       day: undefined,
       note: item.itinerary_item_note ?? undefined,
-      lat: undefined,
-      lon: undefined,
+      lat: typeof (item as any).lat === 'number' && (item as any).lat !== null ? (item as any).lat : undefined,
+      lon: typeof (item as any).lon === 'number' && (item as any).lon !== null ? (item as any).lon : undefined,
     }));
 
-    // Try to enrich lat/lon for items with reference_id
+    // Try to enrich lat/lon for items with reference_id if not already present
     for (const ci of collabItems) {
-      if (ci.placeId) {
+      if ((ci.lat === undefined || ci.lon === undefined) && ci.placeId) {
         try {
           const detail = await discoveryService.getPlaceDetail(ci.placeId, "");
-          if (detail && typeof (detail as any).lat === "number") {
+          if (detail && typeof (detail as any).lat === "number" && (ci.lat === undefined)) {
             ci.lat = (detail as any).lat;
           }
-          if (detail && typeof (detail as any).lon === "number") {
+          if (detail && typeof (detail as any).lon === "number" && (ci.lon === undefined)) {
             ci.lon = (detail as any).lon;
           }
         } catch (e) {

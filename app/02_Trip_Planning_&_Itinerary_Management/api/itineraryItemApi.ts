@@ -9,11 +9,13 @@ import {
   updateItineraryItemById,
   importPlaces,
   type DeleteItineraryItemInput,
-  type ImportPlaceInput,
-  type ImportPlacesResult,
   type ItineraryItemServiceInput,
   type UpdateItineraryItemInput,
 } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemService";
+import type {
+  ImportPlaceInput,
+  ImportPlacesResult,
+} from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/types";
 import type { ItineraryItemRecord } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
 
 async function getDb() {

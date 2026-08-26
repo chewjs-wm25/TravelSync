@@ -23,6 +23,8 @@ export type ItineraryItemServiceInput = {
   image?: string | null;
   note?: string | null;
   referenceId?: string | null;
+  lat?: number | null;
+  lon?: number | null;
   type?: string | null;
   startTime?: string | null;
   endTime?: string | null;
@@ -38,6 +40,8 @@ export type UpdateItineraryItemInput = {
   image?: string | null;
   destination?: string | null;
   referenceId?: string | null;
+  lat?: number | null;
+  lon?: number | null;
   type?: string | null;
   startTime?: string | null;
   endTime?: string | null;
@@ -217,12 +221,15 @@ export async function createItineraryItem(
       itinerary_item_note: validation.normalized.note ?? null,
       destination: validation.normalized.destination,
       reference_id: normalizeText(input.referenceId),
+      lat: typeof input.lat === 'number' ? input.lat : null,
+      lon: typeof input.lon === 'number' ? input.lon : null,
       type: normalizeText(input.type) ?? "other",
       start_time: normalizeText(input.startTime),
       end_time: normalizeText(input.endTime),
       position: nextOrderIndex,
       order_index: nextOrderIndex,
     },
+
   };
 }
 
@@ -521,7 +528,9 @@ export async function importPlaces(
       "other",
       normalizeText(entry.placeId) ?? undefined,
       undefined,
-      undefined
+      undefined,
+      typeof entry.lat === 'number' ? entry.lat : null,
+      typeof entry.lon === 'number' ? entry.lon : null
     );
 
     if (wasInserted) {

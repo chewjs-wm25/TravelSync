@@ -8,10 +8,59 @@ import type {
   ImportPlacesResult,
 } from "./types";
 
-import { getTripRouteData, getCollaborationTripData } from "./tripService";
-import { importPlaces } from "./itineraryItemService";
-import { addItineraryChangedListener, removeItineraryChangedListener } from "./events";
+import {
+  getTripRouteData,
+  getCollaborationTripData,
+  createTrip,
+  updateTrip,
+  deleteTrip,
+  getTripsForUser,
+} from "./tripService";
 
-export { getTripRouteData, getCollaborationTripData, importPlaces, addItineraryChangedListener, removeItineraryChangedListener };
+import {
+  createItinerary,
+  getItinerariesForTrip,
+  updateItinerary,
+  deleteItinerary,
+} from "./itineraryService";
+
+import {
+  createItineraryItem,
+  updateItineraryItemById,
+  deleteItineraryItemById,
+  getItineraryItemsForItinerary,
+  importPlaces,
+} from "./itineraryItemService";
+
+import {
+  addItineraryChangedListener,
+  removeItineraryChangedListener,
+  triggerItineraryChanged,
+} from "./events";
+
+export {
+  // trip operations
+  getTripRouteData,
+  getCollaborationTripData,
+  createTrip,
+  updateTrip,
+  deleteTrip,
+  getTripsForUser,
+  // itinerary operations
+  createItinerary,
+  getItinerariesForTrip,
+  updateItinerary,
+  deleteItinerary,
+  // itinerary item operations
+  createItineraryItem,
+  updateItineraryItemById,
+  deleteItineraryItemById,
+  getItineraryItemsForItinerary,
+  importPlaces,
+  // events
+  addItineraryChangedListener,
+  removeItineraryChangedListener,
+  triggerItineraryChanged,
+};
 
 export type { TripRouteData, CollaborationTripData, ImportPlaceInput, ImportPlacesResult };

@@ -7,6 +7,8 @@ import {
   deleteTrip,
   getTripsForUser,
   updateTrip,
+  getTripRouteData,
+  getCollaborationTripData,
   type DeleteTripInput,
   type TripServiceInput,
   type UpdateTripServiceInput,
@@ -64,4 +66,19 @@ export async function deleteTripAction(input: DeleteTripInput): Promise<void> {
     (error as Error & { status?: number }).status = result.status;
     throw error;
   }
+}
+
+// New: expose TripRouteData and CollaborationTripData via server actions
+import type { TripRouteData, CollaborationTripData } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/types";
+
+export async function getTripRouteDataAction(tripId?: string | null): Promise<TripRouteData> {
+  const db = await getDb();
+  if (!tripId) throw new Error("Trip ID is required");
+  return getTripRouteData(db, tripId);
+}
+
+export async function getCollaborationTripDataAction(tripId?: string | null): Promise<CollaborationTripData> {
+  const db = await getDb();
+  if (!tripId) throw new Error("Trip ID is required");
+  return getCollaborationTripData(db, tripId);
 }

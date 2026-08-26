@@ -6,6 +6,8 @@ export type ItineraryItemRecord = {
   itinerary_item_note: string | null;
   destination: string | null;
   reference_id: string | null;
+  lat: number | null;
+  lon: number | null;
   type: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -22,6 +24,8 @@ export type ItineraryItem = {
   order_index?: number;
   destination?: string;
   reference_id?: string;
+  lat?: number | null;
+  lon?: number | null;
   type?: string;
   start_time?: string;
   end_time?: string;
@@ -49,9 +53,24 @@ export async function getItineraryItemById(
   db: D1Database,
   itemId: string
 ): Promise<ItineraryItemRecord | null> {
-  return db
-    .prepare(
-      `SELECT
+  // Dynamically include lat/lon if the columns exist
+  try {
+    const pragma = await db.prepare(`PRAGMA table_info('itinerary_items')`).all();
+    const cols = (pragma && ((pragma as any).results ?? pragma)) as any;
+    let hasLat = false;
+    let hasLon = false;
+    if (Array.isArray(cols)) {
+      for (const r of cols) {
+        const name = (r && (r.name || r.NAME || r[1])) || "";
+        if (name === "lat") hasLat = true;
+        if (name === "lon") hasLon = true;
+      }
+    }
+
+    const latSelect = hasLat ? "lat," : "NULL AS lat,";
+    const lonSelect = hasLon ? "lon," : "NULL AS lon,";
+
+    const sql = `SELECT
         item_id,
         itinerary_id,
         item_name,
@@ -59,6 +78,31 @@ export async function getItineraryItemById(
         itinerary_item_note,
         destination,
         reference_id,
+        ${latSelect}
+        ${lonSelect}
+        type,
+        start_time,
+        end_time,
+        position,
+        position AS order_index
+      FROM itinerary_items
+      WHERE item_id = ?`;
+
+    return db.prepare(sql).bind(itemId).first<ItineraryItemRecord>();
+  } catch (e) {
+    // Fallback to a conservative select without lat/lon
+    return db
+      .prepare(
+        `SELECT
+        item_id,
+        itinerary_id,
+        item_name,
+        image_url,
+        itinerary_item_note,
+        destination,
+        reference_id,
+        NULL AS lat,
+        NULL AS lon,
         type,
         start_time,
         end_time,
@@ -66,9 +110,10 @@ export async function getItineraryItemById(
         position AS order_index
       FROM itinerary_items
       WHERE item_id = ?`
-    )
-    .bind(itemId)
-    .first<ItineraryItemRecord>();
+      )
+      .bind(itemId)
+      .first<ItineraryItemRecord>();
+  }
 }
 
 export async function addItineraryItem(
@@ -83,9 +128,12 @@ export async function addItineraryItem(
   itemType: string = "other",
   referenceId?: string,
   startTime?: string,
-  endTime?: string
+  endTime?: string,
+  lat?: number | null,
+  lon?: number | null
 ): Promise<boolean> {
-  const result = await db
+  // Insert without lat/lon first for maximum compatibility, then attempt to set lat/lon via UPDATE if provided and supported.
+  const insertResult = await db
     .prepare(
       `INSERT INTO itinerary_items (
         item_id,
@@ -116,8 +164,24 @@ export async function addItineraryItem(
     )
     .run();
 
-  return wasD1MutationSuccessful(result);
+  const inserted = wasD1MutationSuccessful(insertResult);
+
+  if (inserted && (typeof lat === 'number' || typeof lon === 'number')) {
+    try {
+      // Attempt to update lat/lon — if columns don't exist, this will fail and be ignored
+      await db
+        .prepare(`UPDATE itinerary_items SET lat = ?, lon = ? WHERE item_id = ?`)
+        .bind(lat ?? null, lon ?? null, itemId)
+        .run();
+    } catch (e) {
+      // ignore failures to set lat/lon on older schemas
+    }
+  }
+
+  return inserted;
 }
+
+
 
 export async function updateItineraryItem(
   db: D1Database,
@@ -155,6 +219,16 @@ export async function updateItineraryItem(
   if (typeof updates.reference_id === "string") {
     setClauses.push("reference_id = ?");
     values.push(updates.reference_id.trim() || null);
+  }
+
+  if (typeof updates.lat === "number") {
+    setClauses.push("lat = ?");
+    values.push(updates.lat);
+  }
+
+  if (typeof updates.lon === "number") {
+    setClauses.push("lon = ?");
+    values.push(updates.lon);
   }
 
   if (typeof updates.type === "string") {
@@ -219,9 +293,24 @@ export async function getItineraryItemsByItineraryId(
   db: D1Database,
   itineraryId: string
 ): Promise<ItineraryItemRecord[]> {
-  const result = await db
-    .prepare(
-      `SELECT
+  // Dynamically include lat/lon when selecting by itinerary
+  try {
+    const pragma = await db.prepare(`PRAGMA table_info('itinerary_items')`).all();
+    const cols = (pragma && ((pragma as any).results ?? pragma)) as any;
+    let hasLat = false;
+    let hasLon = false;
+    if (Array.isArray(cols)) {
+      for (const r of cols) {
+        const name = (r && (r.name || r.NAME || r[1])) || "";
+        if (name === "lat") hasLat = true;
+        if (name === "lon") hasLon = true;
+      }
+    }
+
+    const latSelect = hasLat ? "lat," : "NULL AS lat,";
+    const lonSelect = hasLon ? "lon," : "NULL AS lon,";
+
+    const sql = `SELECT
         item_id,
         itinerary_id,
         item_name,
@@ -229,6 +318,32 @@ export async function getItineraryItemsByItineraryId(
         itinerary_item_note,
         destination,
         reference_id,
+        ${latSelect}
+        ${lonSelect}
+        type,
+        start_time,
+        end_time,
+        position,
+        position AS order_index
+      FROM itinerary_items
+      WHERE itinerary_id = ?
+      ORDER BY position ASC, item_id ASC`;
+
+    const result = await db.prepare(sql).bind(itineraryId).all<ItineraryItemRecord>();
+    return result.results ?? [];
+  } catch (e) {
+    const result = await db
+      .prepare(
+        `SELECT
+        item_id,
+        itinerary_id,
+        item_name,
+        image_url,
+        itinerary_item_note,
+        destination,
+        reference_id,
+        NULL AS lat,
+        NULL AS lon,
         type,
         start_time,
         end_time,
@@ -237,11 +352,12 @@ export async function getItineraryItemsByItineraryId(
       FROM itinerary_items
       WHERE itinerary_id = ?
       ORDER BY position ASC, item_id ASC`
-    )
-    .bind(itineraryId)
-    .all<ItineraryItemRecord>();
+      )
+      .bind(itineraryId)
+      .all<ItineraryItemRecord>();
 
-  return result.results ?? [];
+    return result.results ?? [];
+  }
 }
 
 export async function getItineraryItemsByDayId(
