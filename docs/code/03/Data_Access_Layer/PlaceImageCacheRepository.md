@@ -22,7 +22,7 @@
 
 本文件还定义了**仓储所需的最小 KV 结构类型 `PlaceImageKvBinding`**（get/put/list/delete），不绑定 `@cloudflare/workers-types` 的具体类型：`@opennextjs/cloudflare` 的 `CloudflareEnv` 类型与 workers-types 的 `KVNamespace` 结构不完全兼容，用结构类型（structural typing）同时兼容两者。
 
-实现分工：`CloudflareKvPlaceImageCacheRepository`（本文件）直连 KV binding（`env.PLACE_IMAGE_CACHE`），由 Route API（`app/api/discovery/place-image`）实例化；浏览器端经 `RemotePlaceImageCacheRepository`（同目录另一文件）→ Route API 完成读写。
+实现分工：`CloudflareKvPlaceImageCacheRepository`（本文件）直连 KV binding（`env.PLACE_IMAGE_CACHE`），由 Route API（`app/03_Destination_Discovery_&_Inspiration/api/place-image`）实例化；浏览器端经 `RemotePlaceImageCacheRepository`（同目录另一文件）→ Route API 完成读写。
 
 ## 依赖
 

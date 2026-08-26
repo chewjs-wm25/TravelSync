@@ -1,5 +1,5 @@
 /**
- * app/03_Destination_Discovery_&_Inspiration/api/discovery/favorites_route.ts — 模块 03 收藏夹 Route API（薄传输桥）
+ * app/03_Destination_Discovery_&_Inspiration/api/favourites/route.ts — 模块 03 收藏夹 Route API（薄传输桥）
  *
  * 职责（单一）：HTTP 传输层。
  *   - 解析 / 校验请求参数；
@@ -28,7 +28,7 @@ async function favoritesRepo(userId: string): Promise<D1FavoritesRepository> {
   return new D1FavoritesRepository(env.TEST_DB, userId);
 }
 
-/** GET /api/discovery/favorites → 当前登录用户的收藏夹条目列表（未登录返回 []） */
+/** GET /03_Destination_Discovery_&_Inspiration/api/favourites → 当前登录用户的收藏夹条目列表（未登录返回 []） */
 export async function GET(request: Request) {
   const session = await getAuthSession(request);
   if (!session) {
@@ -40,12 +40,12 @@ export async function GET(request: Request) {
   return Response.json(items);
 }
 
-/** POST /api/discovery/favorites  body: { item } → 为当前登录用户新增收藏（忽略传入 userId） */
+/** POST /03_Destination_Discovery_&_Inspiration/api/favourites  body: { item } → 为当前登录用户新增收藏（忽略传入 userId） */
 export async function POST(request: Request) {
   const session = await getAuthSession(request);
   if (!session) {
     return Response.json(
-      { error: "Unauthorized: please log in first" },
+      { message: "Unauthorized: please log in first" },
       { status: 401 }
     );
   }
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   const item = body?.item;
   if (!item?.id || !item?.placeId || !item?.name) {
     return Response.json(
-      { error: "item (id, placeId, name) is required" },
+      { message: "item (id, placeId, name) is required" },
       { status: 400 }
     );
   }
@@ -64,18 +64,18 @@ export async function POST(request: Request) {
   return Response.json(added, { status: 201 });
 }
 
-/** DELETE /api/discovery/favorites?id=yyy → 移除当前登录用户的一条收藏（忽略传入 userId） */
+/** DELETE /03_Destination_Discovery_&_Inspiration/api/favourites?id=yyy → 移除当前登录用户的一条收藏（忽略传入 userId） */
 export async function DELETE(request: Request) {
   const session = await getAuthSession(request);
   if (!session) {
     return Response.json(
-      { error: "Unauthorized: please log in first" },
+      { message: "Unauthorized: please log in first" },
       { status: 401 }
     );
   }
   const id = new URL(request.url).searchParams.get("id");
   if (!id) {
-    return Response.json({ error: "id is required" }, { status: 400 });
+    return Response.json({ message: "id is required" }, { status: 400 });
   }
   const repo = await favoritesRepo(session.userId);
   await repo.removeItem(id);

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
+import type { SuggestionItem } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 
 export type DayItinerary = {
   id: string;
@@ -17,11 +18,13 @@ type DayItineraryCardProps = {
   day: DayItinerary;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  /** Called when a user selects a suggestion from module 03 */
+  onSelectSuggestion?: (suggestion?: { placeId: string; formatted: string }) => void;
   onAddItem: () => void;
   onDeleteItem: (itemId: string) => void | Promise<void>;
   onDeleteDay: () => void;
-  onAddDayBefore: () => void;
-  onAddDayAfter: () => void;
+  onAddDayBefore: (dayId: string) => void;
+  onAddDayAfter: (dayId: string) => void;
   onToggleCollapse: (collapseValue?: boolean) => void;
   onToggleItemEdit: (itemId: string) => void;
   onSaveItem: (
@@ -51,6 +54,7 @@ export function DayItineraryCard({
   day,
   searchValue,
   onSearchChange,
+  onSelectSuggestion,
   onAddItem,
   onDeleteItem,
   onDeleteDay,
@@ -71,6 +75,12 @@ export function DayItineraryCard({
   const [isSavingNote, setIsSavingNote] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Suggestions from module 03 (DiscoveryService)
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const suggestionsTimer = useRef<number | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -78,6 +88,15 @@ export function DayItineraryCard({
         !dropdownRef.current.contains(event.target as Node)
       ) {
         setIsDropdownOpen(false);
+      }
+
+      // close suggestions if click outside input area
+      if (
+        inputRef.current &&
+        event.target instanceof Node &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setIsSuggestionsOpen(false);
       }
     }
 
@@ -91,6 +110,28 @@ export function DayItineraryCard({
     setDraftNote(day.note ?? "");
     setIsEditingNote(true);
   };
+
+  // Suggestions are provided by module 03 in production. The previous module-02
+  // in-memory stub generator was removed to avoid local-only drivers/stubs.
+  // Keep suggestions empty here; the parent may supply real suggestions via
+  // onSelectSuggestion or other props when integrated with module 03.
+  useEffect(() => {
+    if (!searchValue || !searchValue.trim()) {
+      setSuggestions([]);
+      setIsSuggestionsOpen(false);
+      onSelectSuggestion?.(undefined);
+      return;
+    }
+
+    // No local stubs — await real suggestions from module 03 integration in the parent.
+    setSuggestions([]);
+    setIsSuggestionsOpen(false);
+    // Clean up any timers if present
+    if (suggestionsTimer.current) {
+      window.clearTimeout(suggestionsTimer.current);
+      suggestionsTimer.current = null;
+    }
+  }, [searchValue, onSelectSuggestion]);
 
   const handleSaveNote = async (nextNote: string) => {
     setIsSavingNote(true);
@@ -158,7 +199,7 @@ export function DayItineraryCard({
               <button
                 type="button"
                 onClick={() => {
-                  onAddDayBefore();
+                  onAddDayBefore(day.id);
                   setIsDropdownOpen(false);
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
@@ -168,7 +209,7 @@ export function DayItineraryCard({
               <button
                 type="button"
                 onClick={() => {
-                  onAddDayAfter();
+                  onAddDayAfter(day.id);
                   setIsDropdownOpen(false);
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
@@ -409,18 +450,49 @@ export function DayItineraryCard({
 
           <div className="mt-2 border-t border-gray-200/60 pt-2">
             <div className="relative flex items-center">
-              <input
-                type="text"
-                placeholder="Add a place"
-                value={searchValue}
-                onChange={(event) => onSearchChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && searchValue.trim()) {
-                    onAddItem();
-                  }
-                }}
-                className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-10 pl-4 text-xs text-gray-800 shadow-2xs focus:ring-2 focus:outline-none"
-              />
+              <div className="relative w-full">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Add a place"
+                  value={searchValue}
+                  onChange={(event) => {
+                    onSearchChange(event.target.value);
+                    // clear any previously selected suggestion when user types
+                    onSelectSuggestion?.(undefined);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && searchValue.trim()) {
+                      onAddItem();
+                    }
+                  }}
+                  className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-10 pl-4 text-xs text-gray-800 shadow-2xs focus:ring-2 focus:outline-none"
+                />
+
+                {isSuggestionsOpen && suggestions.length > 0 && (
+                  <ul className="absolute left-0 right-9 top-full z-30 max-h-56 w-full overflow-auto rounded-md border border-gray-200 bg-white text-left text-xs shadow-lg">
+                    {suggestions.map((s) => (
+                      <li
+                        key={s.placeId}
+                        onClick={() => {
+                          const formatted = s.formatted || s.name;
+                          onSearchChange(formatted);
+                          onSelectSuggestion?.({
+                            placeId: s.placeId,
+                            formatted,
+                          });
+                          setIsSuggestionsOpen(false);
+                        }}
+                        className="cursor-pointer px-3 py-2 hover:bg-gray-50"
+                      >
+                        <div className="font-medium text-gray-800">{s.name}</div>
+                        <div className="text-gray-500">{s.formatted}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={onAddItem}

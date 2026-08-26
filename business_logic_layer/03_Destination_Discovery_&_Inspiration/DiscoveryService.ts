@@ -70,6 +70,7 @@ import type {
   PlaceImageResult,
   PoiItem,
   SearchFilters,
+  StateInfo,
   SuggestionItem,
 } from "./types";
 
@@ -566,6 +567,22 @@ export class DiscoveryService {
       experienceTypes: dto.experienceTypes,
       states: dto.states,
     };
+  }
+
+  /**
+   * 州/省信息（供模块 02 创建旅行时选择州/省；字段遵循 guideline §5 坐标标准）。
+   * 数据源：api_layer DiscoveryExternalApi.fetchStateInfo（当前为静态候选占位，
+   * 未来替换真实 API 时签名不变）；浏览器端 BL 直接编排，不依赖后端服务。
+   */
+  async getStateInfo(): Promise<StateInfo[]> {
+    const dto = await this.externalApi.fetchStateInfo();
+    return dto.map(({ stateId, name, lat, lon, imageUrl }) => ({
+      stateId,
+      name,
+      lat,
+      lon,
+      imageUrl,
+    }));
   }
 
   /**

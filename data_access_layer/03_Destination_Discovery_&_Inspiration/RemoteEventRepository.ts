@@ -16,8 +16,8 @@
 import type { EventEntity, EventRepository } from "./EventRepository";
 import { sessionAuthHeaders } from "./sessionAuth";
 
-/** Route API 端点（模块 03 节日/活动） */
-const EVENTS_API = "03_Destination_Discovery_&_Inspiration/api/events";
+/** Route API 端点（模块 03 节日/活动；统一路径见 guideline §5，前导 / 保证任意子路由下解析正确） */
+const EVENTS_API = "/03_Destination_Discovery_&_Inspiration/api/events";
 
 export class RemoteEventRepository implements EventRepository {
   async listAll(): Promise<EventEntity[]> {

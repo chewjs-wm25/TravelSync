@@ -4,7 +4,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useFavorites } from "./hooks";
+import { useFavorites, usePlaceImages } from "./hooks";
+import PlaceImageAttribution from "./placeImageAttribution";
 import type { SavedItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { placeDetailPath } from "./routes";
 import { safeHttpUrl } from "./safeUrl";
@@ -57,6 +58,16 @@ export default function FavouriteList({
     removeItem,
     addToTrip,
   } = useFavorites();
+  /**
+   * 收藏条目图片（统一图片链路，与 Recommended Places / Search Places 一致）：
+   * 经 discoveryService.getPlaceImage（Wikivoyage → Wikipedia 条目配图 → Commons
+   * Geosearch → Mapillary 兜底，马来西亚限定）动态获取并复用同一缓存——收藏保存的
+   * thumbnailUrl 恒为空（POI 的 imageUrl 均为占位，见 BL 层映射），因此缩略图必须
+   * 走与推荐/搜索一致的真实图片链路；缓存键为 placeId，同地点在其他页面已查过的
+   * 图直接命中，不重复消耗免费 API 额度。收藏条目无坐标，Geosearch/Mapillary
+   * 环节自动跳过，Wikivoyage/Wikipedia 名称搜索链路仍可正常取图。
+   */
+  const images = usePlaceImages(visibleItems);
   const [addingToTripId, setAddingToTripId] = useState<string | null>(null);
   const [tripToast, setTripToast] = useState<{
     status: "success" | "error";
@@ -179,21 +190,38 @@ export default function FavouriteList({
               onClick={() => handleOpenPlace(item)}
               className="flex cursor-pointer gap-4 rounded-2xl border border-gray-200 p-4 transition-all duration-150 hover:bg-gray-100 active:scale-[0.99] active:bg-gray-200"
             >
-              {item.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={safeHttpUrl(item.thumbnailUrl)}
-                  alt={item.name}
-                  className="h-16 w-16 flex-shrink-0 rounded-2xl object-cover"
-                />
-              ) : (
-                <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-200">
-                  <ImageOff
-                    className="h-6 w-6 text-gray-400"
-                    aria-label="No image available"
-                  />
-                </div>
-              )}
+              {(() => {
+                // 图片优先级：统一图片链路结果（真实图片 + 署名）→ 旧数据
+                // thumbnailUrl 兜底（兼容历史收藏）→ ImageOff 无图占位；
+                // 两种来源的 URL 均经 safeHttpUrl 协议白名单过滤（与
+                // Recommended/Search 一致，见 safeUrl.ts 安全审计规范）
+                const imageUrl =
+                  safeHttpUrl(images[item.id]?.url) ||
+                  safeHttpUrl(item.thumbnailUrl);
+                return imageUrl ? (
+                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageUrl}
+                      alt={item.name}
+                      className="h-16 w-16 object-cover"
+                    />
+                    {/* 作者与许可署名（开源协议合规：CC BY-SA 等要求保留原作者与许可声明） */}
+                    {images[item.id]?.attribution && (
+                      <PlaceImageAttribution
+                        attribution={images[item.id].attribution}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-200">
+                    <ImageOff
+                      className="h-6 w-6 text-gray-400"
+                      aria-label="No image available"
+                    />
+                  </div>
+                );
+              })()}
               <div className="flex-1">
                 <h4 className="line-clamp-1 text-base font-semibold text-gray-800">
                   {item.name}

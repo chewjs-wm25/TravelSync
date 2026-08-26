@@ -1,5 +1,5 @@
 /**
- * app/03_Destination_Discovery_&_Inspiration/api/discovery/mapillary/route.ts — 模块 03 Mapillary 代理 Route API
+ * app/03_Destination_Discovery_&_Inspiration/api/mapillary/route.ts — 模块 03 Mapillary 代理 Route API
  *
  * 职责（单一）：服务端代理传输层。
  *   - 白名单校验请求参数（action / bbox / imageId），拒绝非法输入；
@@ -78,7 +78,7 @@ function parseBbox(raw: string): {
   return { minLon, minLat, maxLon, maxLat };
 }
 
-/** GET /api/discovery/mapillary?action=... → 透传 Mapillary JSON */
+/** GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=... → 透传 Mapillary JSON */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
 
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
   const action = params.get("action")?.trim() ?? "";
   if (!ALLOWED_ACTIONS.has(action)) {
     return Response.json(
-      { error: "action must be 'search' or 'image'" },
+      { message: "action must be 'search' or 'image'" },
       { status: 400 }
     );
   }
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
     if (!bbox) {
       return Response.json(
         {
-          error:
+          message:
             "bbox must be 4 numbers: minLon,minLat,maxLon,maxLat (span <= 0.5 deg, fully within Malaysia)",
         },
         { status: 400 }
@@ -115,7 +115,7 @@ export async function GET(request: Request) {
     const imageId = params.get("imageId")?.trim() ?? "";
     if (!imageId || !IMAGE_ID_PATTERN.test(imageId)) {
       return Response.json(
-        { error: "imageId is required and must be alphanumeric" },
+        { message: "imageId is required and must be alphanumeric" },
         { status: 400 }
       );
     }
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
   try {
     token = mapillaryAccessToken();
   } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 500 });
+    return Response.json({ message: (err as Error).message }, { status: 500 });
   }
   url.searchParams.set("access_token", token);
 
@@ -137,7 +137,7 @@ export async function GET(request: Request) {
   } catch (err) {
     return Response.json(
       {
-        error: `Mapillary request failed (network error): ${(err as Error).message}`,
+        message: `Mapillary request failed (network error): ${(err as Error).message}`,
       },
       { status: 502 }
     );
