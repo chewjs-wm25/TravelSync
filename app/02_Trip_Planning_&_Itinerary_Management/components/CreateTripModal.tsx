@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { createTripAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
+import {
+  getStateSuggestions,
+  type StateSuggestion,
+} from "@/app/02_Trip_Planning_&_Itinerary_Management/api/stateSuggestionApi";
 
 type CreateTripModalProps = {
   isOpen: boolean;
@@ -20,6 +24,9 @@ export default function CreateTripModal({
   const [endDate, setEndDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [stateSuggestions, setStateSuggestions] = useState<StateSuggestion[]>(
+    []
+  );
   const tripNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,38 +45,18 @@ export default function CreateTripModal({
     return () => window.clearTimeout(timerId);
   }, [isOpen]);
 
-  const stateSuggestions = useMemo(() => {
-    if (!tripName.trim()) {
-      return [];
-    }
+  useEffect(() => {
+    let isCurrentRequest = true;
 
-    const allStates = [
-      "Kuala Lumpur",
-      "Selangor",
-      "Penang",
-      "Johor",
-      "Kedah",
-      "Perak",
-      "Negeri Sembilan",
-      "Melaka",
-      "Terengganu",
-      "Pahang",
-    ];
+    getStateSuggestions(tripName).then((suggestions) => {
+      if (isCurrentRequest) {
+        setStateSuggestions(suggestions);
+      }
+    });
 
-    const query = tripName.trim().toLowerCase();
-    const matches = allStates.filter((state) =>
-      state.toLowerCase().includes(query)
-    );
-
-    if (matches.length > 0) {
-      return matches.slice(0, 5);
-    }
-
-    const firstLetterMatches = allStates.filter(
-      (state) => state[0]?.toLowerCase() === query[0]
-    );
-
-    return firstLetterMatches.length > 0 ? firstLetterMatches.slice(0, 5) : allStates.slice(0, 5);
+    return () => {
+      isCurrentRequest = false;
+    };
   }, [tripName]);
 
   useEffect(() => {
@@ -180,16 +167,16 @@ export default function CreateTripModal({
 
               {stateSuggestions.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {stateSuggestions.map((s) => (
+                  {stateSuggestions.map((state) => (
                     <button
-                      key={s}
+                      key={state.stateId}
                       type="button"
                       onClick={() => {
-                        setTripName(s);
+                        setTripName(state.name);
                       }}
                       className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700 shadow-sm hover:bg-gray-50"
                     >
-                      {s}
+                      {state.name}
                     </button>
                   ))}
                 </div>
