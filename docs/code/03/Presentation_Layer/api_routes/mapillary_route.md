@@ -22,10 +22,10 @@
 ## 请求 / 响应示例
 
 ```
-GET /api/discovery/mapillary?action=search&bbox=101.5,3.0,101.6,3.1
+GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=search&bbox=101.5,3.0,101.6,3.1
     → 200 { "data": [ { "id": "123456789" }, ... ] }          // 图片 id 列表（limit=10）
 
-GET /api/discovery/mapillary?action=image&imageId=123456789
+GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=image&imageId=123456789
     → 200 { "id": "123456789", "thumb_1024_url": "https://...（有时效的 URL）" }
 ```
 
@@ -33,11 +33,11 @@ GET /api/discovery/mapillary?action=image&imageId=123456789
 
 | 状态码 | 场景 | 响应体 |
 | --- | --- | --- |
-| 400 | `action` 不在白名单 | `{ "error": "action must be 'search' or 'image'" }` |
-| 400 | `search` 分支 `bbox` 非法（格式/范围/超马来西亚） | `{ "error": "bbox must be 4 numbers: minLon,minLat,maxLon,maxLat (span <= 0.5 deg, fully within Malaysia)" }` |
-| 400 | `image` 分支 `imageId` 非法 | `{ "error": "imageId is required and must be alphanumeric" }` |
-| 500 | `MAPILLARY_ACCESS_TOKEN` 缺失 | `{ "error": "Missing MAPILLARY_ACCESS_TOKEN. ..." }` |
-| 502 | 上游 fetch 网络异常 | `{ "error": "Mapillary request failed (network error): ..." }` |
+| 400 | `action` 不在白名单 | `{ "message": "action must be 'search' or 'image'" }` |
+| 400 | `search` 分支 `bbox` 非法（格式/范围/超马来西亚） | `{ "message": "bbox must be 4 numbers: minLon,minLat,maxLon,maxLat (span <= 0.5 deg, fully within Malaysia)" }` |
+| 400 | `image` 分支 `imageId` 非法 | `{ "message": "imageId is required and must be alphanumeric" }` |
+| 500 | `MAPILLARY_ACCESS_TOKEN` 缺失 | `{ "message": "Missing MAPILLARY_ACCESS_TOKEN. ..." }` |
+| 502 | 上游 fetch 网络异常 | `{ "message": "Mapillary request failed (network error): ..." }` |
 | 透传 | 上游 4xx/5xx | 原状态码 + 上游原始响应体 |
 
 ## 安全与分层要点
@@ -92,15 +92,15 @@ GET /api/discovery/mapillary?action=image&imageId=123456789
 
 ### `GET`
 - 类型：函数（Route API handler）
-- HTTP 方法：`GET /api/discovery/mapillary?action=search&bbox=...` 或 `GET /api/discovery/mapillary?action=image&imageId=...`
+- HTTP 方法：`GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=search&bbox=...` 或 `GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=image&imageId=...`
 - 请求参数（query）与白名单校验：
-  - `action`：必填，`trim` 后须在 `ALLOWED_ACTIONS` 内，否则 400 `{ error: "action must be 'search' or 'image'" }`；
-  - `search` 分支：`bbox` 须通过 `parseBbox`，否则 400 `{ error: "bbox must be 4 numbers: minLon,minLat,maxLon,maxLat (span <= 0.5 deg, fully within Malaysia)" }`；
-  - `image` 分支：`imageId` 须非空且匹配 `IMAGE_ID_PATTERN`，否则 400 `{ error: "imageId is required and must be alphanumeric" }`。
+  - `action`：必填，`trim` 后须在 `ALLOWED_ACTIONS` 内，否则 400 `{ message: "action must be 'search' or 'image'" }`；
+  - `search` 分支：`bbox` 须通过 `parseBbox`，否则 400 `{ message: "bbox must be 4 numbers: minLon,minLat,maxLon,maxLat (span <= 0.5 deg, fully within Malaysia)" }`；
+  - `image` 分支：`imageId` 须非空且匹配 `IMAGE_ID_PATTERN`，否则 400 `{ message: "imageId is required and must be alphanumeric" }`。
 - 服务端注入：`token = mapillaryAccessToken()`（缺失 catch 后返回 500）；**先校验参数再读 token**，保证非法参数恒返回 400。
 - 转发的外部端点：
   - search：`${BASE}/images`，参数 `bbox`（格式化回 `minLon,minLat,maxLon,maxLat`）、`fields=id`、`limit=10`；
   - image：`${BASE}/${imageId}`，参数 `fields=thumb_1024_url`；
   - 两者均追加 `access_token=<token>`。
 - 响应体：透传上游——`new Response(body, { status: res.status, headers: { "Content-Type": "application/json" } })`，body 为上游原始 JSON 文本（前端客户端负责 DTO 解析）。
-- 错误处理：`fetch` 网络异常返回 502 `{ error: "Mapillary request failed (network error): ..." }`；token 缺失返回 500；参数非法返回 400（各自独立错误消息）。上游的 4xx/5xx 状态码原样透传（如 401/429），响应体为上游原始文本。
+- 错误处理：`fetch` 网络异常返回 502 `{ message: "Mapillary request failed (network error): ..." }`；token 缺失返回 500；参数非法返回 400（各自独立 `message`）。上游的 4xx/5xx 状态码原样透传（如 401/429），响应体为上游原始文本。

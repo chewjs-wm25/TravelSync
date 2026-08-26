@@ -17,8 +17,8 @@
 
 ```
 PlaceDetailView（本页核心组件）
-  ├─ discoveryService.getPlaceDetail(placeId, q) → Route API /api/discovery/geocode?type=search → Geoapify
-  ├─ useFavorites()     → favoritesService.getSavedItems / togglePoiFavourite → Route API /favorites → D1
+  ├─ discoveryService.getPlaceDetail(placeId, q) → Route API /03_Destination_Discovery_&_Inspiration/api/geocode?type=search → Geoapify
+  ├─ useFavorites()     → favoritesService.getSavedItems / togglePoiFavourite → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → D1
   └─ usePlaceImages([place]) → discoveryService.getPlaceImage（图片查询链 + 缓存，马来西亚限定）
 ```
 

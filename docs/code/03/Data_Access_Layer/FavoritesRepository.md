@@ -12,18 +12,18 @@
 数据模型要点（代码注释明确约定）：
 
 - **每个用户只有一个收藏夹**：不区分文件夹，条目按 `user_id` 归属；
-- **所有方法均需携带 `userId`**：当前由 BL 层硬编码注入（见 `FavoritesService`），即项目现阶段没有真实用户体系，用固定 userId 区分数据归属，为将来接入鉴权预留结构。
+- **userId 语义（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）**：接口方法不再接收 `userId` 参数——`D1FavoritesRepository`（服务端）的 userId 由 Route API 从服务端会话（`Authorization: Bearer <token>`）解析后经构造器注入，`RemoteFavoritesRepository`（浏览器端）省略 userId 参数、以会话凭证为准，杜绝"前端指定任意 userId"的越权路径。
 
 ### 实现类一览
 
 | 实现类 | 运行环境 | 数据源/方式 | 场景 |
 | --- | --- | --- | --- |
 | `D1FavoritesRepository` | 服务端（Route API） | 直接操作 Cloudflare D1，SQL 内聚于该类 | 收藏数据持久化 |
-| `RemoteFavoritesRepository` | 浏览器端 | 经 Route API（`app/api/discovery/favorites`）转发到服务端实现 | 页面收藏夹读写 |
+| `RemoteFavoritesRepository` | 浏览器端 | 经 Route API（`/03_Destination_Discovery_&_Inspiration/api/favourites`）转发到服务端实现 | 页面收藏夹读写 |
 
 ### 数据流
 
-- 浏览器端 BL → `RemoteFavoritesRepository.{listItems|addItem|removeItem}` → Route API（`app/api/discovery/favorites`）→ `D1FavoritesRepository` 对应方法 → D1 表 `favorite_items`。
+- 浏览器端 BL → `RemoteFavoritesRepository.{listItems|addItem|removeItem}` → Route API（`/03_Destination_Discovery_&_Inspiration/api/favourites`）→ `D1FavoritesRepository` 对应方法 → D1 表 `favorite_items`。
 
 调用方（Business Logic Layer）只依赖本接口，切换实现时无需改动。
 
@@ -57,11 +57,11 @@
 
 | 方法 | 签名 | 语义 |
 | --- | --- | --- |
-| `listItems` | `(userId: string): Promise<FavoriteItemEntity[]>` | 列出某用户收藏夹的全部条目 |
-| `addItem` | `(userId: string, item: FavoriteItemEntity): Promise<FavoriteItemEntity>` | 新增一条收藏（`id` 由调用方生成），返回新增的条目 |
-| `removeItem` | `(userId: string, id: string): Promise<void>` | 按 `id` 删除某用户的一条收藏 |
+| `listItems` | `(): Promise<FavoriteItemEntity[]>` | 列出当前用户收藏夹的全部条目（userId 由实现方决定：D1 经构造器注入，Remote 以会话为准） |
+| `addItem` | `(item: FavoriteItemEntity): Promise<FavoriteItemEntity>` | 新增一条收藏（`id` 由调用方生成），返回新增的条目 |
+| `removeItem` | `(id: string): Promise<void>` | 按 `id` 删除当前用户的一条收藏 |
 
-- 用处：所有 Favorites 仓储实现的统一契约。接口刻意把 `userId` 作为每个方法的显式参数，保证数据按用户隔离；`removeItem` 同时携带 `userId` 与 `id`，为删除语句提供双重限定（见 `D1FavoritesRepository` 的 `DELETE ... WHERE id = ? AND user_id = ?`），防止越权删除。
+- 用处：所有 Favorites 仓储实现的统一契约。接口刻意**不接收 `userId` 参数**：D1 实现（服务端）经构造器注入会话解析出的 userId（`DELETE ... WHERE id = ? AND user_id = ?` 双重限定），Remote 实现（浏览器端）以会话凭证为准——从接口层面杜绝"前端指定任意 userId"的越权路径（安全审计修复）。
 
 ## 边界情况与错误处理
 
@@ -69,7 +69,7 @@
 - **重复收藏**：`addItem` 无幂等语义（接口未约定），D1 实现的普通 `INSERT` 在重复 `id` 时抛主键冲突错误，由 BL 层负责去重（如先查询再添加）。
 - **删除不存在的条目**：`removeItem` 对不存在的 `id` 静默成功（D1 的 DELETE 影响 0 行），接口语义为幂等删除。
 - **空收藏夹**：`listItems` 对无条目的用户返回空数组。
-- **userId 缺失/空串**：接口未约定校验，由调用方保证非空；D1 实现中空串 userId 也能查询（返回该「用户」的空列表）。
+- **会话鉴权**：userId 由服务端会话解析（Remote 实现携带 `Authorization` 凭证，服务端 D1 实现经构造器注入），接口与方法均不接收前端传入的 userId。
 
 ## 设计要点与注意事项
 

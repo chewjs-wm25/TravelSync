@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 // Component（纯展示，数据经 Presentation hooks 从 Business Logic Layer 获取）
 import SearchAndFilter from "./searchAndFilter";
@@ -35,7 +35,13 @@ export default function TravelInspirationPage() {
     pois,
     isLoading,
   } = useSearchAndFilter();
-  const { typeOptions, activeType, setActiveType, addToTrip } = useFavorites();
+  const { typeOptions, activeType, setActiveType, addToTrip, toggleItem, savedItems } =
+    useFavorites();
+  /** 已收藏地点 id 集合（Recommended Places 卡片星标状态；toggleItem 后随 savedItems 即时更新） */
+  const favouriteIds = useMemo(
+    () => new Set(savedItems.map((item) => item.id)),
+    [savedItems]
+  );
 
   /** 加入行程反馈（toast）：进行中的地点 id + 结果提示 */
   const [addingToTripId, setAddingToTripId] = useState<string | null>(null);
@@ -131,6 +137,8 @@ export default function TravelInspirationPage() {
             isLoading={isLoading}
             onAddToTrip={handleAddToTrip}
             addingToTripId={addingToTripId}
+            favouriteIds={favouriteIds}
+            onToggleFavourite={toggleItem}
           />
         )}
       </div>
