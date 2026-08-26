@@ -72,7 +72,15 @@ export async function fetchPublicTransportRoute(
 
   const data = (await response.json()) as { elements?: OverpassElement[] };
   const elements = data.elements ?? [];
-  const routeRelation = elements.find((element) => element.tags?.route);
+  const routeRelations = elements.filter((element) => element.tags?.route);
+  let routeRelation = routeRelations[0];
+  if (routeRelations.length > 0) {
+    const preferredOrder = ['light_rail', 'train', 'tram', 'subway', 'bus'];
+    const found = preferredOrder
+      .map((type) => routeRelations.find((r) => r.tags?.route === type))
+      .find((r) => r !== undefined);
+    routeRelation = found ?? routeRelations[0];
+  }
   const stops = elements
     .filter((element) => element.lat !== undefined && element.lon !== undefined)
     .map((element) => ({

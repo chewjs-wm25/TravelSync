@@ -163,10 +163,11 @@ const calculateSummary = (
 
   const baseDistance = actualDistanceKm ?? getDistanceKm(origin, destination);
   const distance = baseDistance;
+  // Walking speed set to 1.2 m/s (4.32 km/h) to make walking slower than driving
   const speeds: Record<VehicleType, number> = {
     car: 50,
-    walk: 4,
-    'public transport': 30, // Improved speed for public transport
+    walk: 4.32,
+    'public transport': 30,
   };
 
   const timeMinutes = actualTimeMinutes ?? (distance / speeds[vehicleType]) * 60;
@@ -174,7 +175,7 @@ const calculateSummary = (
   if (vehicleType !== 'car') {
     return {
       distanceKm: Number(distance.toFixed(1)),
-      timeMinutes: Math.round(timeMinutes),
+      timeMinutes: Number(timeMinutes.toFixed(1)),
       fuelLiters: 0,
       fuelCost: 0,
       energyKwh: 0,
@@ -196,7 +197,7 @@ const calculateSummary = (
 
   return {
     distanceKm: Number(distance.toFixed(1)),
-    timeMinutes: Math.round(timeMinutes),
+    timeMinutes: Number(timeMinutes.toFixed(1)),
     fuelLiters: Number(fuelLiters.toFixed(1)),
     fuelCost: Number((isElectric ? 0 : fuelCost).toFixed(2)),
     energyKwh: Number(energyKwh.toFixed(1)),

@@ -20,7 +20,7 @@ type StopCoordinates = {
   lng: number;
 };
 
-const urbanDrivingTimeFactor = 1.6;
+const urbanDrivingTimeFactor = 1.2;
 
 export async function fetchRouteShape(
   origin: StopCoordinates,

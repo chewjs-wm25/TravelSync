@@ -55,7 +55,8 @@ const transitSpeedsKmPerHour = {
   lrt: 32,
   mrt: 35,
   bus: 20,
-  walking: 5,
+  // align walking speed with store: 1.2 m/s = 4.32 km/h
+  walking: 4.32,
 } as const;
 
 const getDistanceKm = (points: Array<{ lat: number; lng: number }>) =>
@@ -185,7 +186,7 @@ export default function TripNavigationClient() {
     const distanceKm = getDistanceKm(leg.points);
     const minutes = Math.max(
       1,
-      Math.round((distanceKm / transitSpeedsKmPerHour[leg.mode]) * 60)
+      Number(((distanceKm / transitSpeedsKmPerHour[leg.mode]) * 60).toFixed(1))
     );
     const stopCount = publicTransportStops.filter((stop) =>
       leg.points.some((point) => point.lat === stop.lat && point.lng === stop.lng)
@@ -194,7 +195,9 @@ export default function TripNavigationClient() {
       ? 0
       : leg.mode === "bus"
         ? 1
-        : Math.max(1, stopCount - 1) * 0.5;
+        : (leg.mode === 'lrt' || leg.mode === 'mrt')
+          ? 2.5
+          : Math.max(1, stopCount - 1) * 0.5;
 
     return { leg, minutes, cost };
   });
@@ -633,7 +636,7 @@ export default function TripNavigationClient() {
               <div className="flex items-center justify-between">
                 <span>Total time</span>
                 <span className="font-semibold text-gray-800">
-                  {summary.timeMinutes} min
+                  {summary.timeMinutes.toFixed(1)} min
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -665,7 +668,7 @@ export default function TripNavigationClient() {
                         </span>
                       </span>
                       <span className="whitespace-nowrap font-semibold text-gray-800">
-                        {minutes} min · {cost === 0 ? "Free" : `RM ${cost.toFixed(2)}`}
+                        {minutes.toFixed(1)} min · {cost === 0 ? "Free" : `RM ${cost.toFixed(2)}`}
                       </span>
                     </li>
                   ))}
