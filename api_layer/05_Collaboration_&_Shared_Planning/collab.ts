@@ -5,6 +5,7 @@ import type {
   CollabComment,
   ItineraryItem,
   BootstrapResponse,
+  CollabRole,
 } from "./types";
 
 const BASE = "/05_Collaboration_&_Shared_Planning/api/collab";
@@ -22,6 +23,24 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   return data;
 }
 
+/** SSE 事件类型 */
+export type SSEEvent =
+  | { type: "connected"; userId: string; tripId: string; timestamp: number }
+  | { type: "member_joined"; member: { id: string; name: string; email: string; role: string; avatar: string } }
+  | { type: "member_left"; userId: string }
+  | { type: "member_removed"; userId: string }
+  | { type: "role_changed"; userId: string; role: string }
+  | { type: "invite_created"; invite: { id: string; email: string; role: string; status: string; invitedBy: string } }
+  | { type: "invite_cancelled"; inviteId: string }
+  | { type: "item_added"; item: { itemId: string; day: number; name: string; note?: string } }
+  | { type: "item_removed"; itemId: string }
+  | { type: "comment_added"; comment: { id: string; authorId: string; authorName: string; avatar: string; time: string; text: string } }
+  | { type: "activity"; entry: { id: string; actor: string; action: string; at: number } }
+  | { type: "heartbeat"; timestamp: number };
+
+/** SSE 订阅返回的清理函数 */
+export type Unsubscribe = () => void;
+
 export const collabApi = {
   /** 一次拉全行程状态（挂载时用） */
   bootstrap(userId?: string): Promise<BootstrapResponse> {
@@ -36,7 +55,7 @@ export const collabApi = {
     email: string,
     role: InviteRole
   ): Promise<InviteResult> {
-    const data = await request<{ ok: boolean; message?: string; invite?: CollabInvite }>(
+    const data = await request<{ success: boolean; message?: string; invite?: CollabInvite }>(
       `${BASE}/invites`,
       {
         method: "POST",
@@ -44,13 +63,13 @@ export const collabApi = {
         body: JSON.stringify({ email, role }),
       }
     );
-    return data.ok
-      ? { ok: true, invite: data.invite }
-      : { ok: false, message: data.message ?? "Could not send invite." };
+    return data.success
+      ? { success: true, invite: data.invite }
+      : { success: false, message: data.message ?? "Could not send invite." };
   },
 
   /** 取消邀请 */
-  cancelInvite(userId: string, inviteId: string): Promise<{ ok: boolean }> {
+  cancelInvite(userId: string, inviteId: string): Promise<{ success: boolean }> {
     return request(`${BASE}/invites/${inviteId}`, {
       method: "DELETE",
       headers: headers(userId),
@@ -68,7 +87,7 @@ export const collabApi = {
   },
 
   /** 模拟 30 天过期 */
-  expireInvites(): Promise<{ ok: boolean; expired: number }> {
+  expireInvites(): Promise<{ success: boolean; expired: number }> {
     return request(`${BASE}/invites/expire`, { method: "POST", headers: headers() });
   },
 
@@ -100,7 +119,7 @@ export const collabApi = {
     day: number,
     title: string,
     note?: string
-  ): Promise<{ ok: boolean; item?: ItineraryItem }> {
+  ): Promise<{ success: boolean; item?: ItineraryItem }> {
     return request(`${BASE}/items`, {
       method: "POST",
       headers: headers(userId),
@@ -126,7 +145,31 @@ export const collabApi = {
   },
 
   /** 拉评论 */
-  getComments(userId: string): Promise<{ ok: boolean; comments: CollabComment[] }> {
+  getComments(userId: string): Promise<{ success: boolean; comments: CollabComment[] }> {
     return request(`${BASE}/messages`, { headers: headers(userId) });
+  },
+
+  /** 订阅 SSE 实时事件 */
+  subscribeToEvents(userId: string, onEvent: (event: SSEEvent) => void): Unsubscribe {
+    const eventSource = new EventSource(`${BASE}/events?userId=${encodeURIComponent(userId)}`);
+
+    eventSource.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data) as SSEEvent;
+        onEvent(event);
+      } catch {
+        // 忽略解析错误
+      }
+    };
+
+    eventSource.onerror = () => {
+      // 浏览器会自动重连
+      console.log("[SSE] Connection error, will retry...");
+    };
+
+    // 返回清理函数
+    return () => {
+      eventSource.close();
+    };
   },
 };

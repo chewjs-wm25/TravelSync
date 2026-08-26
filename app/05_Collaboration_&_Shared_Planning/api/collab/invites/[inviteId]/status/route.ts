@@ -2,13 +2,15 @@
 import * as CollaboratorRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
 import * as AccountRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/AccountRepo";
 import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
+import { broadcaster } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/EventBroadcaster";
 import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
 type Ctx = { params: Promise<{ inviteId: string }> };
 
 /**
  * PATCH { status: 'accepted' | 'rejected' }
- * demo 妯″紡锛氫笉绠℃槸璋侊紝鍙閭€璇峰瓨鍦ㄤ笖 pending 灏辫兘鎺ュ彈/鎷掔粷锛堟ā鎷熷彈閭€鑰呮搷浣滐級銆? */
+ * 接受/拒绝邀请
+ */
 export async function PATCH(req: Request, ctx: Ctx) {
   try {
     const { inviteId } = await ctx.params;
@@ -38,23 +40,55 @@ export async function PATCH(req: Request, ctx: Ctx) {
       await CollaboratorRepo.insertCollaborator({
         role: invite.role === "Editor" ? "Editor" : "Viewer",
         trip_id: ACTIVE_TRIP_ID,
-        user_id: account.AccountID,
+        user_id: account.id,
         invited_by: invite.sender_id,
       });
       await logActivity({
         trip_id: ACTIVE_TRIP_ID,
-        user_id: account.AccountID,
+        user_id: account.id,
         action: `accepted the invite as ${invite.role}`,
+      });
+
+      // 广播新成员加入事件
+      broadcaster.broadcast(ACTIVE_TRIP_ID, {
+        type: "member_joined",
+        member: {
+          id: account.id,
+          name: account.username,
+          email: account.email,
+          role: invite.role,
+          avatar: account.profile_picture ?? "",
+        },
+      });
+
+      broadcaster.broadcast(ACTIVE_TRIP_ID, {
+        type: "activity",
+        entry: {
+          id: `act-${Date.now()}`,
+          actor: account.username,
+          action: `accepted the invite as ${invite.role}`,
+          at: Date.now(),
+        },
       });
     } else {
       await logActivity({
         trip_id: ACTIVE_TRIP_ID,
-        user_id: actorAccount.AccountID,
+        user_id: actorAccount.id,
         action: `${invite.receiver_email} declined the invite to join as ${invite.role}`,
+      });
+
+      broadcaster.broadcast(ACTIVE_TRIP_ID, {
+        type: "activity",
+        entry: {
+          id: `act-${Date.now()}`,
+          actor: invite.receiver_email,
+          action: `declined the invite to join as ${invite.role}`,
+          at: Date.now(),
+        },
       });
     }
 
-    return json({ ok: true, status });
+    return json({ success: true, status });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not update invite");
   }

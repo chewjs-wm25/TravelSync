@@ -22,9 +22,13 @@ import {
   type CollabInvite,
 } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 
-export default function PendingInvitesPanel() {
+interface PendingInvitesPanelProps {
+  isOwner: boolean;
+}
+
+export default function PendingInvitesPanel({ isOwner }: PendingInvitesPanelProps) {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const cancelInvite = useCollabStore((s) => s.cancelInvite);
@@ -33,11 +37,12 @@ export default function PendingInvitesPanel() {
   const expirePendingInvites = useCollabStore((s) => s.expirePendingInvites);
 
   const me = trip?.members.find((m) => m.id === currentUserId);
-  const isOwner = can(me?.role ?? "Viewer", "cancelInvite");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   if (!trip) return null;
+
+  if (!isOwner) return null;
 
   const invites = trip.invites;
   const pending = invites.filter((i) => i.status === "pending");
@@ -163,19 +168,17 @@ export default function PendingInvitesPanel() {
                     Decline
                   </button>
 
-                  {isOwner && (
-                    <button
-                      onClick={() => {
-                        cancelInvite(invite.id);
-                        showToast(`Invitation to ${invite.email} cancelled`);
-                      }}
-                      className="flex items-center gap-1.5 rounded-md border border-error/30 bg-error/5 px-2.5 py-1 text-xs font-semibold text-error transition hover:bg-error/10"
-                      title="Cancel this invitation"
-                    >
-                      <Trash2 size={13} />
-                      Cancel
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      cancelInvite(invite.id);
+                      showToast(`Invitation to ${invite.email} cancelled`);
+                    }}
+                    className="flex items-center gap-1.5 rounded-md border border-error/30 bg-error/5 px-2.5 py-1 text-xs font-semibold text-error transition hover:bg-error/10"
+                    title="Cancel this invitation"
+                  >
+                    <Trash2 size={13} />
+                    Cancel
+                  </button>
                 </div>
               </div>
             );

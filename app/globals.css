@@ -22,3 +22,18 @@
   --shadow-base: 0 2px 20px rgba(0, 0, 0, 0.03); /* 基础无交互投影[cite: 1] */
   --shadow-hover: 0 12px 32px rgba(255, 107, 107, 0.15); /* 悬浮态品牌色阴影[cite: 1] */
 }
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}

@@ -9,5 +9,5 @@ export function json(data: unknown, status = 200): Response {
 }
 
 export function error(message: string, status = 400): Response {
-  return json({ ok: false, message }, status);
+  return json({ success: false, message }, status);
 }

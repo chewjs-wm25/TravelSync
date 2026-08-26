@@ -5,8 +5,8 @@ import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collabora
 export async function GET(req: Request) {
   try {
     const demoUser = await resolveDemoUser(extractUserId(req));
-    const data = await loadBootstrap(ACTIVE_TRIP_ID, demoUser.AccountID);
-    return json({ ok: true, ...data });
+    const data = await loadBootstrap(ACTIVE_TRIP_ID, demoUser.id);
+    return json({ success: true, ...data });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Bootstrap failed");
   }

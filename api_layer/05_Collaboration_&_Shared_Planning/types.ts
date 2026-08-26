@@ -25,10 +25,13 @@ export interface CollabInvite {
 }
 
 export interface ItineraryItem {
-  id: string;
+  itemId: string;
+  placeId?: string | null;
+  name: string;
   day: number;
-  title: string;
   note?: string;
+  lat?: number | null;
+  lon?: number | null;
 }
 
 export interface CollabComment {
@@ -49,10 +52,11 @@ export interface ActivityEntry {
 }
 
 export interface CollabTrip {
-  id: string;
-  name: string;
-  dates: string;
-  region: string;
+  tripId: string;
+  tripName: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  region?: string;
   members: CollabMember[];
   invites: CollabInvite[];
   items: ItineraryItem[];
@@ -60,10 +64,10 @@ export interface CollabTrip {
   activity: ActivityEntry[];
 }
 
-export type InviteResult = { ok: boolean; message?: string; invite?: CollabInvite };
+export type InviteResult = { success: boolean; message?: string; invite?: CollabInvite };
 
 export interface BootstrapResponse {
-  ok: boolean;
+  success: boolean;
   trip: CollabTrip;
   meUserId: string;
 }

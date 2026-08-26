@@ -19,19 +19,6 @@ export interface BootstrapOutput {
   meUserId: string;
 }
 
-function formatDates(start: string | null, end: string | null): string {
-  const s = start ?? "";
-  const e = end ?? "";
-  const sDate = s ? new Date(s + "T00:00:00") : null;
-  const eDate = e ? new Date(e + "T00:00:00") : null;
-  if (!sDate) return "";
-  const sStr = sDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const eStr = eDate
-    ? eDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    : "";
-  return sStr === eStr || !e ? `${sStr}, ${sDate.getFullYear()}` : `${sStr}-${eStr}`;
-}
-
 /**
  * 组装前端 CollabTrip。所有读取只针对当前 active trip（固定 trip_langkawi，
  * 后续接入模块 02/多行程后改为 read activeTripId）。
@@ -42,6 +29,9 @@ export async function loadBootstrap(
 ): Promise<BootstrapOutput> {
   const trip = await TripRepo.findTripById(tripId);
   if (!trip) throw new Error("Trip not found");
+
+  // Update last_seen for the current user (heartbeat for online status)
+  await CollaboratorRepo.updateLastSeen(tripId, meUserId);
 
   const [itineraries, members, invites, chats, activity] = await Promise.all([
     ItineraryRepo.findByTrip(tripId),
@@ -62,10 +52,11 @@ export async function loadBootstrap(
   return {
     meUserId,
     trip: {
-      id: trip.TripID,
-      name: trip.TripName,
-      dates: formatDates(trip.StartDate, trip.EndDate),
-      region: trip.Region ?? "",
+      tripId: trip.TripID,
+      tripName: trip.TripName,
+      startDate: trip.StartDate ?? null,
+      endDate: trip.EndDate ?? null,
+      region: trip.Region ?? undefined,
       members: members.map(mapMember),
       invites: invites.map(mapInvite),
       items: items.map((row) => mapItem(row, itineraryDayMap)),

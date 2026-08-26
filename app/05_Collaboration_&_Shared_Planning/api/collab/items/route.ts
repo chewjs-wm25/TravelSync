@@ -3,13 +3,14 @@ import * as ItemRepo from "@/data_access_layer/05_Collaboration_&_Shared_Plannin
 import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
 import { requirePermission } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/PermissionValidator";
 import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
+import { broadcaster } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/EventBroadcaster";
 import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
-/** POST { day, title, note? } 鏂板鏄庣粏锛堣惤鍦ㄥ搴?day 鐨?Itinerary锛?*/
+/** POST { day, title, note? } 新增行程明细 */
 export async function POST(req: Request) {
   try {
     const me = await resolveDemoUser(extractUserId(req));
-    await requirePermission(ACTIVE_TRIP_ID, me.AccountID, "editItinerary");
+    await requirePermission(ACTIVE_TRIP_ID, me.id, "editItinerary");
 
     const body = (await req.json()) as { day?: number; title?: string; note?: string };
     const title = body.title?.trim() ?? "";
@@ -38,11 +39,29 @@ export async function POST(req: Request) {
 
     await logActivity({
       trip_id: ACTIVE_TRIP_ID,
-      user_id: me.AccountID,
+      user_id: me.id,
       action: `added "${title}" to ${dayLabel}`,
     });
 
-    return json({ ok: true, item: { id: item.ItemID, day, title, note: item.ItineraryNote ?? undefined } });
+    const itemData = { itemId: item.ItemID, day, name: title, note: item.ItineraryNote ?? undefined };
+
+    // 广播行程明细新增事件
+    broadcaster.broadcast(ACTIVE_TRIP_ID, {
+      type: "item_added",
+      item: itemData,
+    }, me.id);
+
+    broadcaster.broadcast(ACTIVE_TRIP_ID, {
+      type: "activity",
+      entry: {
+        id: `act-${Date.now()}`,
+        actor: me.username,
+        action: `added "${title}" to ${dayLabel}`,
+        at: Date.now(),
+      },
+    });
+
+    return json({ success: true, item: itemData });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not add item");
   }

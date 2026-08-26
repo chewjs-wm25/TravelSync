@@ -16,16 +16,25 @@ function chatTime(fromNowMs: number): string {
  */
 export function buildFallbackTrip(meUserId: string): CollabTrip {
   return {
-    id: "trip_langkawi",
-    name: "Langkawi Island Escape",
-    dates: "Dec 20-Dec 27, 2026",
+    tripId: "trip_langkawi",
+    tripName: "Langkawi Island Escape",
+    startDate: "2026-12-20",
+    endDate: "2026-12-27",
     region: "Langkawi, Kedah, Malaysia",
     members: [
+      {
+        id: "dev-user-001",
+        name: "Flandre Scarlet",
+        email: "flandre@travelsync.com",
+        role: "Owner",
+        avatar: "/images.jpg",
+        online: true,
+      },
       {
         id: "m_marcus",
         name: "Marcus Chen",
         email: "marcus@travelsync.com",
-        role: "Owner",
+        role: "Editor",
         avatar: "/images/collab/avatar-marcus.png",
         online: true,
       },
@@ -55,15 +64,15 @@ export function buildFallbackTrip(meUserId: string): CollabTrip {
         status: "pending",
         invitedAt: Date.now() - 5 * DAY,
         expiresAt: Date.now() + 25 * DAY,
-        invitedBy: "Marcus Chen",
+        invitedBy: "Flandre Scarlet",
       },
     ],
     items: [
-      { id: "it_1", day: 1, title: "Arrive Langkawi, check in at Cenang", note: "SkyCab cable car" },
-      { id: "it_2", day: 1, title: "Sunset dinner at Pantai Cenang" },
-      { id: "it_3", day: 2, title: "Island hopping (Pulau Dayang Bunting)", note: "Bring sunscreen" },
-      { id: "it_4", day: 2, title: "Kilim Karst Geoforest mangrove tour" },
-      { id: "it_5", day: 3, title: "Underwater World Langkawi" },
+      { itemId: "it_1", day: 1, name: "Arrive Langkawi, check in at Cenang", note: "SkyCab cable car" },
+      { itemId: "it_2", day: 1, name: "Sunset dinner at Pantai Cenang" },
+      { itemId: "it_3", day: 2, name: "Island hopping (Pulau Dayang Bunting)", note: "Bring sunscreen" },
+      { itemId: "it_4", day: 2, name: "Kilim Karst Geoforest mangrove tour" },
+      { itemId: "it_5", day: 3, name: "Underwater World Langkawi" },
     ],
     comments: [
       {
@@ -88,13 +97,13 @@ export function buildFallbackTrip(meUserId: string): CollabTrip {
     activity: [
       {
         id: "1",
-        actor: "Marcus Chen",
+        actor: "Flandre Scarlet",
         action: "created the trip",
         at: Date.now() - 6 * DAY,
       },
       {
         id: "2",
-        actor: "Marcus Chen",
+        actor: "Flandre Scarlet",
         action: "invited sam.lee@outlook.com as Viewer",
         at: Date.now() - 5 * DAY,
       },

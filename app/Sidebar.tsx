@@ -35,12 +35,7 @@ const MENU_ITEMS = [
     href: "/05_Collaboration_&_Shared_Planning",
   },
   {
-    name: "[Abandoned] Account Settings",
-    icon: Settings,
-    href: "/DEV-ACCOUNT-STATE",
-  },
-  {
-    name: "REAL Account Settings",
+    name: "Account",
     icon: Settings,
     href: "/01_User_&_Account_Management",
   },
