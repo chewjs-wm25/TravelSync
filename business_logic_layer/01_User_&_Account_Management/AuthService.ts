@@ -3,11 +3,10 @@ import { SessionRepository } from "../../data_access_layer/01_User_&_Account_Man
 import { UserRepository } from "../../data_access_layer/01_User_&_Account_Management/UserRepository";
 import { PasswordResetRepository } from "../../data_access_layer/01_User_&_Account_Management/PasswordResetRepository";
 import type { UserRecord } from "../../data_access_layer/01_User_&_Account_Management/types";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../../api_layer/01_User_&_Account_Management/EmailVerificationApi";
-import { consumeVerificationToken, saveVerificationToken } from "./VerificationTokenStore";
+import { sendPasswordResetEmail } from "../../api_layer/01_User_&_Account_Management/EmailVerificationApi";
 
 const SESSION_TTL = 30 * 60 * 1000;
-const REMEMBERED_SESSION_TTL = 31 * 24 * 60 * 60 * 1000;
+const REMEMBERED_SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 const LOCK_TTL = 15 * 60 * 1000;
 const RATE_WINDOW = 60 * 1000;
 const MAX_REQUESTS = 10;
@@ -72,26 +71,34 @@ export class AuthService {
   async register(input: RegisterInput): Promise<{ user: PublicUser; verificationToken: string; verificationRequired: boolean }> {
     const username = input.username.trim().toLowerCase();
     const email = input.email?.trim() ? normalizeEmail(input.email) : null;
+    if (!email) throw new Error("Email is required");
     if (!/^[a-z0-9_]{3,24}$/.test(username) || !input.fullName.trim() || (!email && !input.phone.trim()) || (email && !validEmail(email)) || !input.icNumber.trim() || !validPassword(input.password)) throw new Error("Invalid registration details");
     if (!input.acceptTerms) throw new Error("Terms must be accepted");
     if (await this.users.findByUsername(username) || (email && await this.users.findByIdentifier(email)) || (input.phone.trim() && await this.users.findByIdentifier(input.phone.trim()))) throw new Error("Username, email, or phone is already registered");
     const user: UserRecord = { id: crypto.randomUUID(), username, email, password_hash: await hashPassword(input.password), full_name: input.fullName.trim(), phone: input.phone.trim() || null, ic_hash: await hashPassword(input.icNumber.trim()), profile_picture: null, is_verified: 1, is_active: 1, is_locked: 0, failed_attempts: 0, lock_until: null, last_login: null, created_at: new Date().toISOString() };
     await this.users.create(user);
-    const verificationToken = randomToken();
-    saveVerificationToken(verificationToken, user.id);
-    return { user: publicUser(user), verificationToken, verificationRequired: false };
+    return { user: publicUser(user), verificationToken: "", verificationRequired: false };
   }
 
   async login(input: LoginInput): Promise<{ user: PublicUser; token: string; expiresAt: string }> {
     const identifier = input.identifier.trim().toLowerCase();
     const ip = input.ipAddress ?? "unknown";
+    if (!identifier || !input.password) throw new Error("Identifier and password are required");
+    if (identifier.includes("@") && !validEmail(identifier)) throw new Error("Invalid email format");
     const now = Date.now();
     const recent = (requestLog.get(ip) ?? []).filter((timestamp) => timestamp > now - RATE_WINDOW);
     if (recent.length >= MAX_REQUESTS) throw new Error("Too many login attempts");
     recent.push(now); requestLog.set(ip, recent);
     const user = await this.users.findByIdentifier(identifier);
     if (!user || !(await verifyPassword(input.password, user.password_hash))) {
-      if (user) { const attempts = user.failed_attempts + 1; const lockUntil = attempts >= 5 ? new Date(now + LOCK_TTL).toISOString() : null; await this.users.updateLoginFailure(user.id, attempts, lockUntil); }
+      if (user) {
+        const attempts = user.failed_attempts + 1;
+        const lockUntil = attempts >= 5 ? new Date(now + LOCK_TTL).toISOString() : null;
+        await this.users.updateLoginFailure(user.id, attempts, lockUntil);
+        await this.audit.write(user.id, "login-failed", ip, `Failed login attempt`);
+      } else {
+        await this.audit.write(null, "login-failed", ip, `Failed login attempt for identifier ${identifier}`);
+      }
       throw new Error("Invalid email or password");
     }
     if (!user.is_active) throw new Error("Account is inactive");
@@ -116,6 +123,7 @@ export class AuthService {
   async forgotPassword(emailInput: string): Promise<void> { const user = await this.users.findByEmail(normalizeEmail(emailInput)); if (!user || !user.email) return; const token = randomToken(); await this.resetTokens.create({ id: crypto.randomUUID(), user_id: user.id, token, expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() }); await sendPasswordResetEmail({ email: user.email, token }); }
   async resetPassword(token: string, newPassword: string): Promise<void> { if (!validPassword(newPassword)) throw new Error("Password does not meet strength requirements"); const reset = await this.resetTokens.consume(token); if (!reset) throw new Error("Reset token is invalid or expired"); await this.users.updatePassword(reset.user_id, await hashPassword(newPassword)); }
   async verifyEmail(token: string): Promise<void> { const userId = consumeVerificationToken(token); if (!userId) throw new Error("Verification token is invalid or expired"); const user = await this.users.findById(userId); if (!user) throw new Error("User not found"); await this.users.verify(userId); }
+  async verifyEmail(_token: string): Promise<void> { throw new Error("Email verification is not enabled in this deployment"); }
 
   private async authorize(token: string): Promise<UserRecord> { const session = await this.sessions.findValid(token); if (!session) throw new Error("Unauthorized"); const user = await this.users.findById(session.user_id); if (!user || !user.is_active) throw new Error("Unauthorized"); return user; }
 }
