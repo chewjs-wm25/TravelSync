@@ -19,6 +19,16 @@
 ## 4. 核心 TypeScript 类型
 - **数据结构定义：** 贴出该模块对外交互使用的核心 `interface` 或 `type` 定义。
 
+## 5. 系统级统一约定（所有模块必须遵守）
+> 以下约定用于消除跨模块接口设计不一致；任何模块的新增接口都必须遵循，既有接口如与本约定冲突应在本轮统一工作中对齐。
+
+- **地理坐标**：统一使用扁平字段 `lat: number`（纬度）与 `lon: number`（经度）。禁止 `lng` 缩写，禁止嵌套对象（如 `{ latitude, longitude }`）。
+  - 依据：模块 03 的 `lat`/`lon` 与第三方地图 API（Nominatim、Geoapify、Wikivoyage 等）响应字段名一致，受外部约束不可更改，故作为全系统坐标标准；模块 04 的 `lng` 与模块 02 的嵌套写法均向其对齐。
+- **标识符命名**：地点 ID 统一 `placeId`；行程 ID 统一 `tripId`；行程明细 ID 统一 `itemId`；跨模块传递路线停靠点统一使用模块 04 的 `Stop`（`id` / `name` / `lat` / `lon`）。
+- **Route API 路径**：统一为 `/0N_<Module_Name>/api/<resource>`（如 `/03_Destination_Discovery_&_Inspiration/api/favourites`）。禁止不带模块前缀的裸路径（如 `/api/collab/...`），模块内资源再按 REST 语义追加子路径。
+- **结果标志**：函数 / API 返回的成功标志统一为 `success: boolean`（成功为 `true`），失败信息使用 `message?: string`。禁止 `ok` 等其他命名。
+- **依赖方向**：依赖项中只写"本模块调用其他模块"的内容；本模块被其他模块调用的能力一律写入 §3 暴露项，避免出现"依赖自己的函数"这类方向颠倒的描述。
+
 -- English
 
 > **Note**: This document is intended solely for unifying the interface design of the entire system. Please keep it concise and clear.
@@ -38,3 +48,13 @@
 
 ## 4. Core TypeScript Types
 - **Data Structure Definitions:** Paste the core `interface` or `type` definitions used for external interaction.
+
+## 5. System-wide Conventions (Mandatory for Every Module)
+> The following conventions eliminate cross-module interface inconsistencies; every new interface must follow them, and existing conflicting interfaces must be aligned during this unification round.
+
+- **Geo-coordinates**: Always use flat fields `lat: number` (latitude) and `lon: number` (longitude). Do not use `lng`, and do not use nested objects such as `{ latitude, longitude }`.
+  - Rationale: Module 03's `lat`/`lon` matches the response field names of third-party map APIs (Nominatim, Geoapify, Wikivoyage, etc.) and is externally constrained, so it is the system-wide coordinate standard; Module 04's `lng` and Module 02's nested form align to it.
+- **Identifier naming**: Place ID is always `placeId`; trip ID is always `tripId`; itinerary item ID is always `itemId`; cross-module route waypoints use Module 04's `Stop` (`id` / `name` / `lat` / `lon`).
+- **Route API paths**: Always `/0N_<Module_Name>/api/<resource>` (e.g. `/03_Destination_Discovery_&_Inspiration/api/favourites`). Bare paths without a module prefix (e.g. `/api/collab/...`) are forbidden.
+- **Result flag**: The success flag of functions/APIs is uniformly `success: boolean` (`true` on success); failure messages use `message?: string`. Do not use `ok` or other names.
+- **Dependency direction**: In §2 Dependencies, list only what this module calls from other modules; capabilities that other modules call from this module must be listed in §3 Exports, avoiding reversed descriptions (e.g. "depends on its own functions").

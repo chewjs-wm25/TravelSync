@@ -15,7 +15,7 @@ export async function POST() {
         });
       }
     }
-    return json({ ok: true, expired: expired.length });
+    return json({ success: true, expired: expired.length });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not expire invites");
   }

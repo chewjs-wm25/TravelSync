@@ -144,7 +144,7 @@ export async function POST(req: Request) {
     const maxAge = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
     return Response.json(
       {
-        ok: true,
+        success: true,
         user: {
           id: userId,
           username,

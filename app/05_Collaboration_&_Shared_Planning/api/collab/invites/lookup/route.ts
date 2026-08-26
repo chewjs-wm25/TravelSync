@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const trip = await TripRepo.findTripById(invite.trip_id);
 
     return json({
-      ok: true,
+      success: true,
       invite: {
         id: invite.invitation_id,
         email: invite.receiver_email,

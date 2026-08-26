@@ -27,7 +27,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { CloudflareKvPlaceImageCacheRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
 import type { PlaceImageCacheEntry } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
-import { requireAdmin, requireUser } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
+import { requireAdmin, requireUser } from "@/app/DEV-ACCOUNT-STATE/api/session";
 
 /** 仅允许 http/https 协议的绝对 URL（防 javascript:、data: 等异常协议） */
 const HTTP_URL_PATTERN = /^https?:\/\/\S+$/i;

@@ -144,7 +144,7 @@ export async function GET() {
   try {
     const { env } = await getCloudflareContext({ async: true });
     const db = env.TEST_DB;
-    if (!db) return new Response(JSON.stringify({ ok: false, message: "TEST_DB binding not found" }), { status: 500 });
+    if (!db) return new Response(JSON.stringify({ success: false, message: "TEST_DB binding not found" }), { status: 500 });
     await ensureAccountSchema(db);
     for (const stmt of SCHEMA_STATEMENTS) {
       try {
@@ -153,8 +153,8 @@ export async function GET() {
         /* ignore */
       }
     }
-    return new Response(JSON.stringify({ ok: true, message: "DB initialized" }));
+    return new Response(JSON.stringify({ success: true, message: "DB initialized" }));
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, message: e instanceof Error ? e.message : String(e) }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, message: e instanceof Error ? e.message : String(e) }), { status: 500 });
   }
 }

@@ -32,7 +32,7 @@ export type SSEEvent =
   | { type: "role_changed"; userId: string; role: string }
   | { type: "invite_created"; invite: { id: string; email: string; role: string; status: string; invitedBy: string } }
   | { type: "invite_cancelled"; inviteId: string }
-  | { type: "item_added"; item: { id: string; day: number; title: string; note?: string } }
+  | { type: "item_added"; item: { itemId: string; day: number; name: string; note?: string } }
   | { type: "item_removed"; itemId: string }
   | { type: "comment_added"; comment: { id: string; authorId: string; authorName: string; avatar: string; time: string; text: string } }
   | { type: "activity"; entry: { id: string; actor: string; action: string; at: number } }
@@ -55,7 +55,7 @@ export const collabApi = {
     email: string,
     role: InviteRole
   ): Promise<InviteResult> {
-    const data = await request<{ ok: boolean; message?: string; invite?: CollabInvite }>(
+    const data = await request<{ success: boolean; message?: string; invite?: CollabInvite }>(
       `${BASE}/invites`,
       {
         method: "POST",
@@ -63,13 +63,13 @@ export const collabApi = {
         body: JSON.stringify({ email, role }),
       }
     );
-    return data.ok
-      ? { ok: true, invite: data.invite }
-      : { ok: false, message: data.message ?? "Could not send invite." };
+    return data.success
+      ? { success: true, invite: data.invite }
+      : { success: false, message: data.message ?? "Could not send invite." };
   },
 
   /** 取消邀请 */
-  cancelInvite(userId: string, inviteId: string): Promise<{ ok: boolean }> {
+  cancelInvite(userId: string, inviteId: string): Promise<{ success: boolean }> {
     return request(`${BASE}/invites/${inviteId}`, {
       method: "DELETE",
       headers: headers(userId),
@@ -87,7 +87,7 @@ export const collabApi = {
   },
 
   /** 模拟 30 天过期 */
-  expireInvites(): Promise<{ ok: boolean; expired: number }> {
+  expireInvites(): Promise<{ success: boolean; expired: number }> {
     return request(`${BASE}/invites/expire`, { method: "POST", headers: headers() });
   },
 
@@ -119,7 +119,7 @@ export const collabApi = {
     day: number,
     title: string,
     note?: string
-  ): Promise<{ ok: boolean; item?: ItineraryItem }> {
+  ): Promise<{ success: boolean; item?: ItineraryItem }> {
     return request(`${BASE}/items`, {
       method: "POST",
       headers: headers(userId),
@@ -145,7 +145,7 @@ export const collabApi = {
   },
 
   /** 拉评论 */
-  getComments(userId: string): Promise<{ ok: boolean; comments: CollabComment[] }> {
+  getComments(userId: string): Promise<{ success: boolean; comments: CollabComment[] }> {
     return request(`${BASE}/messages`, { headers: headers(userId) });
   },
 

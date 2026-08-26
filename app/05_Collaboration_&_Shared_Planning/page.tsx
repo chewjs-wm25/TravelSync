@@ -39,9 +39,19 @@ import MemberManagementPanel from "./components/MemberManagementPanel";
 import ItineraryPermissionDemo from "./components/ItineraryPermissionDemo";
 import ActivityFeed from "./components/ActivityFeed";
 
+function formatTripDates(start?: string | null, end?: string | null): string {
+  if (!start) return "";
+  const s = new Date(start + "T00:00:00");
+  const sStr = s.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (!end) return `${sStr}, ${s.getFullYear()}`;
+  const e = new Date(end + "T00:00:00");
+  const eStr = e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return sStr === eStr ? `${sStr}, ${s.getFullYear()}` : `${sStr}-${eStr}`;
+}
+
 export default function CollaborationPage() {
   const trip = useCollabStore(
-    (s) => s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    (s) => s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const comments = trip?.comments ?? [];
@@ -116,7 +126,7 @@ export default function CollaborationPage() {
   };
 
   const handleShareLink = async () => {
-    const tripId = trip.id;
+    const tripId = trip.tripId;
     const url = `${window.location.origin}/05_Collaboration_&_Shared_Planning?trip=${tripId}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -145,13 +155,13 @@ export default function CollaborationPage() {
   const exportCSV = () => {
     if (!trip) return;
     const csv = generateCSV(trip);
-    downloadFile(csv, `${trip.name.replace(/\s+/g, "_")}_itinerary.csv`, "text/csv");
+    downloadFile(csv, `${trip.tripName.replace(/\s+/g, "_")}_itinerary.csv`, "text/csv");
   };
 
   const exportICS = () => {
     if (!trip) return;
     const ics = generateICS(trip);
-    downloadFile(ics, `${trip.name.replace(/\s+/g, "_")}_itinerary.ics`, "text/calendar");
+    downloadFile(ics, `${trip.tripName.replace(/\s+/g, "_")}_itinerary.ics`, "text/calendar");
   };
 
   const generateExportContent = (t: typeof trip, _format: string) => {
@@ -160,7 +170,7 @@ export default function CollaborationPage() {
 <!DOCTYPE html>
 <html>
 <head>
-  <title>${t.name} - Itinerary</title>
+  <title>${t.tripName} - Itinerary</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; line-height: 1.6; }
     h1 { color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
@@ -177,10 +187,10 @@ export default function CollaborationPage() {
   </style>
 </head>
 <body>
-  <h1>${t.name}</h1>
+  <h1>${t.tripName}</h1>
   <div class="meta">
-    <p><strong>Dates:</strong> ${t.dates}</p>
-    <p><strong>Region:</strong> ${t.region}</p>
+    <p><strong>Dates:</strong> ${formatTripDates(t.startDate, t.endDate)}</p>
+    <p><strong>Region:</strong> ${t.region ?? ""}</p>
     <p><strong>Exported:</strong> ${new Date().toLocaleString()}</p>
   </div>
   <div class="meta">
@@ -200,7 +210,7 @@ export default function CollaborationPage() {
       <div class="day-title">Day ${day}</div>
       ${items.map(item => `
       <div class="item">
-        <div class="item-title">${item.title}</div>
+        <div class="item-title">${item.name}</div>
         ${item.note ? `<div class="item-note">${item.note}</div>` : ""}
       </div>`).join("")}
     </div>`).join("")}
@@ -222,7 +232,7 @@ export default function CollaborationPage() {
     const headers = ["Day", "Title", "Note"];
     const rows = t.items.map(item => [
       `Day ${item.day}`,
-      `"${item.title.replace(/"/g, '""')}"`,
+      `"${item.name.replace(/"/g, '""')}"`,
       `"${(item.note || "").replace(/"/g, '""')}"`
     ]);
     return [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -230,12 +240,7 @@ export default function CollaborationPage() {
 
   const generateICS = (t: typeof trip) => {
     if (!t) return "";
-    const parseDate = (dateStr: string) => {
-      const match = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (match) return new Date(+match[3], +match[1] - 1, +match[2]);
-      return new Date();
-    };
-    const startDate = parseDate(t.dates.split("–")[0].split("-")[0].trim());
+    const startDate = t.startDate ? new Date(t.startDate + "T00:00:00") : new Date();
     const now = new Date();
     const dtstamp = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
     const events = t.items.map((item, idx) => {
@@ -243,10 +248,10 @@ export default function CollaborationPage() {
       eventDate.setDate(startDate.getDate() + item.day - 1);
       const dtstart = eventDate.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
       return `BEGIN:VEVENT
-UID:${t.id}-${item.id}@travelsync
+UID:${t.tripId}-${item.itemId}@travelsync
 DTSTAMP:${dtstamp}
 DTSTART:${dtstart}
-SUMMARY:${item.title}
+SUMMARY:${item.name}
 DESCRIPTION:${item.note || "No notes"}
 END:VEVENT`;
     }).join("\n");
@@ -283,8 +288,8 @@ END:VCALENDAR`;
               <MapPin size={13} />
               {trip.region}
             </div>
-            <h1 className="text-2xl font-semibold text-gray-800">{trip.name}</h1>
-            <p className="mt-1 text-gray-500">{trip.dates}</p>
+            <h1 className="text-2xl font-semibold text-gray-800">{trip.tripName}</h1>
+            <p className="mt-1 text-gray-500">{formatTripDates(trip.startDate, trip.endDate)}</p>
           </div>
           <div className="flex items-center gap-3">
             {/* 同步状态指示器 */}
@@ -508,7 +513,7 @@ END:VCALENDAR`;
 
             <p className="text-sm text-gray-600">
               You have been invited to join{" "}
-              <b className="text-gray-800">{trip.name}</b> as{" "}
+              <b className="text-gray-800">{trip.tripName}</b> as{" "}
               <b className="text-primary-500">{invite.role}</b> by{" "}
               <b className="text-gray-800">{invite.invitedBy}</b>.
             </p>
@@ -591,8 +596,8 @@ function InviteRegistrationFlow({ token }: { token: string }) {
   useEffect(() => {
     fetch(`/05_Collaboration_&_Shared_Planning/api/collab/invites/lookup?token=${encodeURIComponent(token)}`)
       .then(async (res) => {
-        const data = await res.json() as { ok: boolean; invite?: typeof inviteData; error?: string };
-        if (data.ok && data.invite) setInviteData(data.invite);
+        const data = await res.json() as { success: boolean; invite?: typeof inviteData; error?: string };
+        if (data.success && data.invite) setInviteData(data.invite);
         else setFetchError(data.error || "Invalid invitation");
       })
       .catch(() => setFetchError("Failed to load invitation"))
@@ -609,8 +614,8 @@ function InviteRegistrationFlow({ token }: { token: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, username, password, fullName }),
       });
-      const data = await res.json() as { ok: boolean; error?: string };
-      if (data.ok) {
+      const data = await res.json() as { success: boolean; error?: string };
+      if (data.success) {
         window.location.href = "/05_Collaboration_&_Shared_Planning";
       } else {
         setSubmitError(data.error || "Registration failed");

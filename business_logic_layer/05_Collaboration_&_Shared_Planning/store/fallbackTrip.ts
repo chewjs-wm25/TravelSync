@@ -16,9 +16,10 @@ function chatTime(fromNowMs: number): string {
  */
 export function buildFallbackTrip(meUserId: string): CollabTrip {
   return {
-    id: "trip_langkawi",
-    name: "Langkawi Island Escape",
-    dates: "Dec 20-Dec 27, 2026",
+    tripId: "trip_langkawi",
+    tripName: "Langkawi Island Escape",
+    startDate: "2026-12-20",
+    endDate: "2026-12-27",
     region: "Langkawi, Kedah, Malaysia",
     members: [
       {
@@ -67,11 +68,11 @@ export function buildFallbackTrip(meUserId: string): CollabTrip {
       },
     ],
     items: [
-      { id: "it_1", day: 1, title: "Arrive Langkawi, check in at Cenang", note: "SkyCab cable car" },
-      { id: "it_2", day: 1, title: "Sunset dinner at Pantai Cenang" },
-      { id: "it_3", day: 2, title: "Island hopping (Pulau Dayang Bunting)", note: "Bring sunscreen" },
-      { id: "it_4", day: 2, title: "Kilim Karst Geoforest mangrove tour" },
-      { id: "it_5", day: 3, title: "Underwater World Langkawi" },
+      { itemId: "it_1", day: 1, name: "Arrive Langkawi, check in at Cenang", note: "SkyCab cable car" },
+      { itemId: "it_2", day: 1, name: "Sunset dinner at Pantai Cenang" },
+      { itemId: "it_3", day: 2, name: "Island hopping (Pulau Dayang Bunting)", note: "Bring sunscreen" },
+      { itemId: "it_4", day: 2, name: "Kilim Karst Geoforest mangrove tour" },
+      { itemId: "it_5", day: 3, name: "Underwater World Langkawi" },
     ],
     comments: [
       {

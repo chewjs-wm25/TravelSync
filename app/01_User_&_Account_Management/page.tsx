@@ -8,7 +8,7 @@ type AuthUser = DashboardUser;
 type FormState = { username: string; identifier: string; fullName: string; email: string; phone: string; icNumber: string; password: string; rememberMe: boolean; acceptTerms: boolean };
 const emptyForm: FormState = { username: "", identifier: "", fullName: "", email: "", phone: "", icNumber: "", password: "", rememberMe: false, acceptTerms: false };
 
-type Result = { user?: AuthUser; message?: string; error?: string };
+type Result = { success: boolean; user?: AuthUser; message?: string; error?: string };
 async function accountRequest(action: string, data?: Record<string, unknown>): Promise<Result> { const response = await fetch(`/01_User_&_Account_Management/account-actions?action=${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data ?? {}) }); const result = await response.json() as Result; if (!response.ok) throw new Error(result.error ?? "Request failed"); return result; }
 
 export default function AccountSettingsPage() {

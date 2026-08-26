@@ -25,7 +25,7 @@ const ROLE_OPTIONS: Exclude<CollabRole, "Owner">[] = ["Editor", "Viewer"];
 
 export default function MemberManagementPanel() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const changeRole = useCollabStore((s) => s.changeRole);

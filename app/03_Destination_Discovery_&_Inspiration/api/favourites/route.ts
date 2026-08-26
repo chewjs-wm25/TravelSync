@@ -20,7 +20,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { D1FavoritesRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1FavoritesRepository";
 import type { FavoriteItemEntity } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
-import { getAuthSession } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
+import { getAuthSession } from "@/app/DEV-ACCOUNT-STATE/api/session";
 
 /** 以当前环境 D1 binding 构建仓储实例（userId 由会话解析，构造器注入） */
 async function favoritesRepo(userId: string): Promise<D1FavoritesRepository> {

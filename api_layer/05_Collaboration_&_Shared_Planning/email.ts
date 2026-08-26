@@ -21,7 +21,7 @@ export interface InviteEmailPayload {
   expiresInDays: number;
 }
 
-export type EmailResult = { ok: boolean; message: string };
+export type EmailResult = { success: boolean; message: string };
 
 /** True once the EmailJS credentials are configured for real delivery. */
 export function isEmailConfigured(): boolean {
@@ -38,7 +38,7 @@ export async function sendInviteEmail(
 ): Promise<EmailResult> {
   if (!isEmailConfigured()) {
     return {
-      ok: false,
+      success: false,
       message:
         "Email service not configured yet (missing Service / Template ID).",
     };
@@ -70,7 +70,7 @@ export async function sendInviteEmail(
     });
 
     if (res.ok) {
-      return { ok: true, message: `Invitation email sent to ${payload.inviteeEmail}.` };
+      return { success: true, message: `Invitation email sent to ${payload.inviteeEmail}.` };
     }
 
     let detail = "";
@@ -80,12 +80,12 @@ export async function sendInviteEmail(
       detail = "";
     }
     return {
-      ok: false,
+      success: false,
       message:
         `Email service rejected the request (HTTP ${res.status}).` +
         (detail ? ` ${detail.slice(0, 160)}` : ""),
     };
   } catch {
-    return { ok: false, message: "Network error — email not delivered." };
+    return { success: false, message: "Network error — email not delivered." };
   }
 }

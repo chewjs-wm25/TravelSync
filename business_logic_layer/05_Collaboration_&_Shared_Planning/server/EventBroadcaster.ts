@@ -10,7 +10,7 @@ export type SSEEvent =
   | { type: "role_changed"; userId: string; role: string }
   | { type: "invite_created"; invite: { id: string; email: string; role: string; status: string; invitedBy: string } }
   | { type: "invite_cancelled"; inviteId: string }
-  | { type: "item_added"; item: { id: string; day: number; title: string; note?: string } }
+  | { type: "item_added"; item: { itemId: string; day: number; name: string; note?: string } }
   | { type: "item_removed"; itemId: string }
   | { type: "comment_added"; comment: { id: string; authorId: string; authorName: string; avatar: string; time: string; text: string } }
   | { type: "activity"; entry: { id: string; actor: string; action: string; at: number } }

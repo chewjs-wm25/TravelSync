@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   try {
     const demoUser = await resolveDemoUser(extractUserId(req));
     const data = await loadBootstrap(ACTIVE_TRIP_ID, demoUser.id);
-    return json({ ok: true, ...data });
+    return json({ success: true, ...data });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Bootstrap failed");
   }

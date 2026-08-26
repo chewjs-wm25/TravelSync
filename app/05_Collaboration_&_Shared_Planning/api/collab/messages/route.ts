@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return json({ ok: true });
+    return json({ success: true });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not add comment");
   }
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
         me.id
       )
     );
-    return json({ ok: true, comments });
+    return json({ success: true, comments });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not load comments");
   }

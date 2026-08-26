@@ -25,19 +25,19 @@ function mapPublicUser(u: {
   username: string;
   fullName: string;
   profilePicture: string | null;
-  role?: string;
 }): User {
   return {
     id: u.id,
     name: u.fullName || u.username,
     avatarUrl: u.profilePicture ?? undefined,
-    role: u.role ?? "user",
   };
 }
 
 interface AuthState {
   isLoggedIn: boolean;
   user: User | null;
+  /** @deprecated 保留向后兼容（Module 03 sessionAuth 读取），cookie-based 认证不再使用 */
+  token: string | null;
   /** 由 Module 01（或其他模块）在登录/会话恢复时写入 */
   syncUser: (user: User | null) => void;
   /** 从服务端 cookie 会话恢复登录状态（页面挂载时调用一次） */
@@ -53,6 +53,7 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       isLoggedIn: false,
       user: null,
+      token: null,
 
       syncUser: (user) =>
         set({ isLoggedIn: Boolean(user), user }),

@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       action: `added "${title}" to ${dayLabel}`,
     });
 
-    const itemData = { id: item.ItemID, day, title, note: item.ItineraryNote ?? undefined };
+    const itemData = { itemId: item.ItemID, day, name: title, note: item.ItineraryNote ?? undefined };
 
     // 广播行程明细新增事件
     broadcaster.broadcast(ACTIVE_TRIP_ID, {
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return json({ ok: true, item: itemData });
+    return json({ success: true, item: itemData });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not add item");
   }

@@ -49,7 +49,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       },
     });
 
-    return json({ ok: true });
+    return json({ success: true });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not change role");
   }
@@ -91,7 +91,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
       },
     });
 
-    return json({ ok: true });
+    return json({ success: true });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not remove member");
   }

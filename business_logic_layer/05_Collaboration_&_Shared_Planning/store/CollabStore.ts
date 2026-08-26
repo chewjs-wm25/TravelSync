@@ -120,7 +120,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
 
         // 合并行程明细（去重，保留服务端数据为主）
         const itemMap = new Map<string, ItineraryItem>();
-        for (const i of trip.items) itemMap.set(i.id, i);
+        for (const i of trip.items) itemMap.set(i.itemId, i);
         // 只保留服务端存在的项（删除的项会被移除）
         const mergedItems = trip.items;
 
@@ -167,9 +167,9 @@ export const useCollabStore = create<CollabState>()((set, get) => {
       try {
         const data = await collabApi.bootstrap(get().currentUserId);
         const trips = [data.trip];
-        const activeTripId = trips.some((t) => t.id === get().activeTripId)
+        const activeTripId = trips.some((t) => t.tripId === get().activeTripId)
           ? get().activeTripId
-          : (trips[0]?.id ?? "");
+          : (trips[0]?.tripId ?? "");
         set({ trips, activeTripId, loading: false });
         startPolling();
       } catch {
@@ -196,7 +196,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
       try {
         const res = await collabApi.invite(get().currentUserId, email, role);
         // 乐观更新：立即添加邀请到本地
-        if (res.ok && res.invite) {
+        if (res.success && res.invite) {
           const { trips } = get();
           if (trips.length > 0) {
             set({
@@ -343,7 +343,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
       isWriting = true;
       try {
         const res = await collabApi.addItem(get().currentUserId, day, title, note);
-        if (res.ok && res.item) {
+        if (res.success && res.item) {
           const { trips } = get();
           if (trips.length > 0) {
             set({
@@ -372,7 +372,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             trips: [
               {
                 ...trips[0],
-                items: trips[0].items.filter((i) => i.id !== itemId),
+                items: trips[0].items.filter((i) => i.itemId !== itemId),
               },
             ],
           });

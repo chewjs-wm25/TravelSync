@@ -55,9 +55,9 @@ export function mapInvite(row: InviteWithSender): CollabInvite {
 /** DB 明细 → UI ItineraryItem（day 来自所在 Itinerary，itineraryId 作为 day 组键） */
 export function mapItem(row: ItemRow, itineraryDayMap: Record<string, number>): ItineraryItem {
   return {
-    id: row.ItemID,
+    itemId: row.ItemID,
     day: itineraryDayMap[row.ItineraryID] ?? 1,
-    title: row.ItemName,
+    name: row.ItemName,
     note: row.ItineraryNote ?? undefined,
   };
 }

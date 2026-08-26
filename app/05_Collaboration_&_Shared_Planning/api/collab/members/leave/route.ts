@@ -38,7 +38,7 @@ export async function DELETE(req: Request) {
       },
     });
 
-    return json({ ok: true });
+    return json({ success: true });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not leave trip");
   }

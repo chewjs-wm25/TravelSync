@@ -22,9 +22,6 @@ export interface PublicUser {
   profilePicture: string | null;
   createdAt: string;
   isVerified: boolean;
-  isActive: boolean;
-  role: string;
-  lastLogin: string | null;
 }
 
 export interface LoginInput { identifier: string; password: string; rememberMe: boolean; ipAddress?: string | null }
@@ -34,7 +31,7 @@ export interface SettingsInput { notificationsEnabled: boolean; language: string
 function normalizeEmail(email: string): string { return email.trim().toLowerCase(); }
 function validEmail(email: string): boolean { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 function validPassword(password: string): boolean { return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password); }
-function publicUser(user: UserRecord): PublicUser { return { id: user.id, username: user.username, email: user.email?.endsWith("@local.invalid") ? null : user.email, fullName: user.full_name, phone: user.phone, profilePicture: user.profile_picture, createdAt: user.created_at, isVerified: Boolean(user.is_verified), isActive: Boolean(user.is_active), role: user.role ?? "user", lastLogin: user.last_login }; }
+function publicUser(user: UserRecord): PublicUser { return { id: user.id, username: user.username, email: user.email?.endsWith("@local.invalid") ? null : user.email, fullName: user.full_name, phone: user.phone, profilePicture: user.profile_picture, createdAt: user.created_at, isVerified: Boolean(user.is_verified) }; }
 function randomToken(): string { return crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", ""); }
 function base64Url(value: string): string { return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", ""); }
 
@@ -116,5 +113,5 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string): Promise<void> { if (!validPassword(newPassword)) throw new Error("Password does not meet strength requirements"); const reset = await this.resetTokens.consume(token); if (!reset) throw new Error("Reset token is invalid or expired"); await this.users.updatePassword(reset.user_id, await hashPassword(newPassword)); }
   async verifyEmail(token: string): Promise<void> { const userId = consumeVerificationToken(token); if (!userId) throw new Error("Verification token is invalid or expired"); const user = await this.users.findById(userId); if (!user) throw new Error("User not found"); await this.users.verify(userId); }
 
-  private async authorize(token: string): Promise<UserRecord> { const session = await this.sessions.findValid(token); if (!session) throw new Error("Unauthorized"); const user = await this.users.findById(session.user_id); if (!user || !user.is_active) throw new Error("Unauthorized"); return user; }
+  async authorize(token: string): Promise<UserRecord> { const session = await this.sessions.findValid(token); if (!session) throw new Error("Unauthorized"); const user = await this.users.findById(session.user_id); if (!user || !user.is_active) throw new Error("Unauthorized"); return user; }
 }

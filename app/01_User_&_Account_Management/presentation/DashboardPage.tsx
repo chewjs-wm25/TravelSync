@@ -17,7 +17,7 @@ export interface DashboardUser {
   isVerified: boolean;
 }
 
-export type AccountAction = (action: string, data?: Record<string, unknown>) => Promise<{ user?: DashboardUser; message?: string }>;
+export type AccountAction = (action: string, data?: Record<string, unknown>) => Promise<{ success: boolean; user?: DashboardUser; message?: string }>;
 
 type Tab = "profile" | "security" | "settings" | "delete";
 

@@ -40,7 +40,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
       },
     });
 
-    return json({ ok: true });
+    return json({ success: true });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not cancel invite");
   }

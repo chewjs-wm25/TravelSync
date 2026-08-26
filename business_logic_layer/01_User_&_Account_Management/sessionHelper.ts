@@ -41,8 +41,8 @@ export async function getAuthSession(
     if (!db) return null;
     await ensureAccountSchema(db);
     const service = new AuthService(db);
-    const user = await service.currentUser(token);
-    return { userId: user.id, role: user.role };
+    const user = await service.authorize(token);
+    return { userId: user.id, role: user.role ?? "user" };
   } catch {
     return null;
   }

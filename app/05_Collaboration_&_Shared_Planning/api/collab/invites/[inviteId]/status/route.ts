@@ -88,7 +88,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       });
     }
 
-    return json({ ok: true, status });
+    return json({ success: true, status });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not update invite");
   }

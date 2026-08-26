@@ -19,7 +19,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { D1EventRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1EventRepository";
 import type { EventEntity } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/EventRepository";
-import { requireAdmin } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
+import { requireAdmin } from "@/app/DEV-ACCOUNT-STATE/api/session";
 
 /** 以当前环境 D1 binding 构建仓储实例 */
 async function eventRepo(): Promise<D1EventRepository> {

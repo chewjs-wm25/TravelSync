@@ -14,7 +14,7 @@ const ROLE_OPTIONS: InviteRole[] = ["Editor", "Viewer"];
 
 export default function InviteCollaboratorsPanel() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const inviteCollaborator = useCollabStore((s) => s.inviteCollaborator);
@@ -31,7 +31,7 @@ export default function InviteCollaboratorsPanel() {
 
   const handleSend = async () => {
     const res = await inviteCollaborator(email, role);
-    if (!res.ok || !res.invite) {
+    if (!res.success || !res.invite) {
       setNotice({ ok: false, text: res.message ?? "Could not send invite." });
       setTimeout(() => setNotice(null), 4000);
       return;
@@ -44,7 +44,7 @@ export default function InviteCollaboratorsPanel() {
     const mailRes = await sendInviteEmail({
       inviteeEmail: res.invite.email,
       role,
-      tripName: trip.name,
+      tripName: trip.tripName,
       inviteLink,
       invitedBy: me.name,
       expiresInDays: daysRemaining(res.invite.expiresAt),
@@ -52,12 +52,12 @@ export default function InviteCollaboratorsPanel() {
     setSending(false);
 
     setNotice({
-      ok: mailRes.ok,
-      text: mailRes.ok
+      ok: mailRes.success,
+      text: mailRes.success
         ? `Invitation email sent to ${res.invite.email}.`
         : `${mailRes.message} Copy the link to share manually.`,
     });
-    if (mailRes.ok) setEmail("");
+    if (mailRes.success) setEmail("");
     setTimeout(() => setNotice(null), 6000);
   };
 
