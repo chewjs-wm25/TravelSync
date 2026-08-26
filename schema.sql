@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS itineraries (
     trip_id TEXT NOT NULL,                    -- FK to trips.trip_id
     title TEXT NOT NULL,                      -- VARCHAR
     date TEXT NOT NULL,                       -- DATE (ISO8601 YYYY-MM-DD)
+    itinerary_note TEXT,                      -- TEXT
     FOREIGN KEY (trip_id) REFERENCES trips(trip_id) ON DELETE CASCADE
 );
 
@@ -28,7 +29,7 @@ CREATE TABLE IF NOT EXISTS itinerary_items (
     itinerary_id TEXT NOT NULL,               -- FK to itineraries.itinerary_id
     item_name TEXT NOT NULL,                  -- VARCHAR
     image_url TEXT,                           -- VARCHAR / optional image reference
-    itinerary_note TEXT,                      -- TEXT
+    itinerary_item_note TEXT,                      -- TEXT
     position INTEGER DEFAULT 0,                -- item sequence in day
     type TEXT CHECK(type IN ('activity', 'food', 'lodging', 'transit', 'other')), -- ENUM
     reference_id TEXT,                        -- VARCHAR (External API / POI ID)
@@ -36,6 +37,8 @@ CREATE TABLE IF NOT EXISTS itinerary_items (
     start_time TEXT,                          -- DATETIME (ISO8601 YYYY-MM-DD HH:MM)
     end_time TEXT,                            -- DATETIME (ISO8601 YYYY-MM-DD HH:MM)
     FOREIGN KEY (itinerary_id) REFERENCES itineraries(itinerary_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   content TEXT NOT NULL,

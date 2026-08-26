@@ -26,7 +26,7 @@ export async function createTripAction(input: TripServiceInput): Promise<TripRec
   const db = await getDb();
   const result = await createTrip(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;
@@ -41,7 +41,7 @@ export async function updateTripAction(
   const db = await getDb();
   const result = await updateTrip(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;
@@ -59,7 +59,7 @@ export async function deleteTripAction(input: DeleteTripInput): Promise<void> {
   const db = await getDb();
   const result = await deleteTrip(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;

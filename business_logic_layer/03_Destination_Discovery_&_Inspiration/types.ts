@@ -32,6 +32,8 @@ export type {
   OfficialQualityRatingRepository,
 } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/OfficialQualityRatingRepository";
 
+export type { PushToRoutePlannerResult } from "./RoutePlannerBridge";
+
 // ---------------------------------------------------------------------------
 // 领域类型
 // ---------------------------------------------------------------------------
@@ -233,4 +235,21 @@ export interface PlaceImageResult {
   url: string;
   /** 作者/许可署名信息（开源协议展示合规） */
   attribution?: PlaceImageAttribution;
+}
+
+/**
+ * 州/省信息（供模块 02 创建旅行时选择州/省；字段遵循 guideline §5 坐标标准，
+ * 数据源见 api_layer DiscoveryExternalApi.fetchStateInfo，当前为静态候选占位）。
+ */
+export interface StateInfo {
+  /** 州/联邦直辖区标识（小写 slug，如 "penang"、"kuala-lumpur"） */
+  stateId: string;
+  /** 州/联邦直辖区显示名（如 "Penang"） */
+  name: string;
+  /** 州首府/主要城市纬度 */
+  lat: number;
+  /** 州首府/主要城市经度 */
+  lon: number;
+  /** 州封面图 URL（暂无数据源，空串由前端渐变占位） */
+  imageUrl: string;
 }

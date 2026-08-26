@@ -28,7 +28,7 @@ export async function createItineraryAction(
   const db = await getDb();
   const result = await createItinerary(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;
@@ -50,7 +50,7 @@ export async function deleteItineraryAction(
   const db = await getDb();
   const result = await deleteItinerary(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;
@@ -63,7 +63,7 @@ export async function updateItineraryAction(
   const db = await getDb();
   const result = await updateItinerary(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;

@@ -7,7 +7,7 @@
 
 ## 责任
 
-模块 03 领域模型（Domain Model）的唯一总出口。本文件定义了模块 03 全部业务领域类型（如 `SearchFilters`、`PoiItem`、`PlaceDetail`、`Collection`、`EventItem` 等），并 re-export 下层（Data Access Layer / API Layer）的类型（如 `FavoriteItemEntity`、`FavoritesRepository`、`OfficialQualityRatingEntity`、`PlaceImageAttribution`、`GeoapifyPlaceDto`）。
+模块 03 领域模型（Domain Model）的唯一总出口。本文件定义了模块 03 全部业务领域类型（如 `SearchFilters`、`PoiItem`、`PlaceDetail`、`Collection`、`EventItem`、`StateInfo` 等），并 re-export 下层（Data Access Layer / API Layer）的类型（如 `FavoriteItemEntity`、`FavoritesRepository`、`OfficialQualityRatingEntity`、`PlaceImageAttribution`、`GeoapifyPlaceDto`）与同层桥接类型（`PushToRoutePlannerResult`）。
 
 分层意义：**Presentation 层只允许从这里导入类型**，保证依赖方向严格为 Presentation → Business Logic → Data Access / API，上层不直接依赖下层、下层不反向依赖上层。本文件本身不包含任何运行逻辑，只有类型声明。
 
@@ -19,6 +19,7 @@
 | `data_access_layer/.../FavoritesRepository` | re-export `FavoriteItemEntity`、`FavoritesRepository` |
 | `data_access_layer/.../PlaceImageCacheRepository` | re-export `PlaceImageAttribution`（图片署名） |
 | `data_access_layer/.../OfficialQualityRatingRepository` | re-export `OfficialQualityRatingEntity`、`OfficialQualityRatingRepository` |
+| `./RoutePlannerBridge` | re-export `PushToRoutePlannerResult`（加入行程结果，"唯一类型来源"承诺的落地） |
 
 ## 导出与函数明细
 
@@ -101,3 +102,13 @@
 - 类型：接口
 - 字段：`url: string`（upload.wikimedia.org / Mapillary 签名 URL，可直接热链；空串表示确定无图）、`attribution?: PlaceImageAttribution`（作者/许可署名信息）
 - 用处：地点图片查询结果（BL 统一图片链路 `getPlaceImage` 的返回形态），前端展示时必须保留署名。
+
+### 接口 `StateInfo`
+- 类型：接口
+- 字段：`stateId: string`（州/联邦直辖区标识，小写 slug，如 `"penang"`、`"kuala-lumpur"`）、`name: string`（显示名，与 `FilterOptions.states` 一致）、`lat: number`（州首府/主要城市纬度）、`lon: number`（州首府/主要城市经度）、`imageUrl: string`（州封面图 URL，暂无数据源空串前端占位）
+- 用处：州/省信息（坐标遵循 guideline §5 扁平 `lat`/`lon` 标准），供模块 02 创建旅行时选择州/省；数据源见 `api_layer/.../DiscoveryExternalApi.fetchStateInfo`（当前为静态候选占位），BL 层经 `discoveryService.getStateInfo()` 对外提供。
+
+### 类型 `PushToRoutePlannerResult`（re-export）
+- 类型：类型别名（re-export 自 `./RoutePlannerBridge`）
+- 字段：`success: boolean`（是否成功）、`pushedCount: number`（本次加入条目数量）、`target: "02_Trip_Planning_&_Itinerary_Management"`（目标模块标识）
+- 用处："加入行程"（模块 02 桥接）的结果类型，定义于 `RoutePlannerBridge.ts`，此处 re-export 使 Presentation 层可经唯一类型来源获取（与统一接口文档 §4 的核心类型清单一致）。

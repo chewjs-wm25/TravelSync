@@ -2,8 +2,8 @@
  * MapillaryApi — 模块 03 Mapillary 外部 API 客户端（API Layer）
  *
  * 职责（单一）：
- *   - 仅负责与本地代理端点 /api/discovery/mapillary 交流（按经纬度搜索图片 id、
- *     按 id 获取图片 URL）；
+ *   - 仅负责与本地代理端点 /03_Destination_Discovery_&_Inspiration/api/mapillary 交流
+ *     （按经纬度搜索图片 id、按 id 获取图片 URL）；
  *   - 不包含业务规则、不触碰本地持久化、不编排跨模块流程。
  *
  * 官方文档：https://www.mapillary.com/developer/api-documentation/
@@ -14,13 +14,13 @@
  *   - API 必须免费、无需信用卡 → Mapillary 免费注册获取 access token；
  *   - 安全：token 不暴露前端——本客户端只与本地代理端点通信，
  *     由服务端持有 MAPILLARY_ACCESS_TOKEN（非 NEXT_PUBLIC）并转发到
- *     graph.mapillary.com（见 app/api/discovery/mapillary/route.ts）。
+ *     graph.mapillary.com（见 app/03_Destination_Discovery_&_Inspiration/api/mapillary/route.ts）。
  *
  * 过滤器（范围限制在马来西亚，双层）：
  *   - 客户端（本文件）：findImageId 入口校验坐标必须位于马来西亚 bbox 内
  *     （见 MalaysiaBounds），不在 → 直接返回 null，不发起请求；
- *   - 服务端（app/api/discovery/mapillary/route.ts）：代理端点强校验 bbox
- *     完全落在马来西亚 bbox 内，否则 400 拒绝——前端无法绕过。
+ *   - 服务端（app/03_Destination_Discovery_&_Inspiration/api/mapillary/route.ts）：
+ *     代理端点强校验 bbox 完全落在马来西亚 bbox 内，否则 400 拒绝——前端无法绕过。
  *   注：Mapillary v4 免费 API 的图片搜索仅返回 id（无内容分类字段），
  *   无法按"地点/景点"语义过滤；以地点周边 ±0.002° 紧范围 bbox 保证
  *   返回图片属于该地点（街景图作为兜底来源）。
@@ -62,8 +62,9 @@ interface MapillaryImageDetailResponse {
 // ---------------------------------------------------------------------------
 
 export class MapillaryApi {
-  /** 本地代理端点（服务端持有 MAPILLARY_ACCESS_TOKEN 并转发到 Mapillary） */
-  private readonly proxyEndpoint = "/api/discovery/mapillary";
+  /** 本地代理端点（服务端持有 MAPILLARY_ACCESS_TOKEN 并转发到 Mapillary；统一路径见 guideline §5） */
+  private readonly proxyEndpoint =
+    "/03_Destination_Discovery_&_Inspiration/api/mapillary";
 
   /**
    * 按经纬度搜索地点附近图片，返回图片 id（不含 URL）；确定无图返回 null。
