@@ -10,6 +10,7 @@ type TripInfoCardProps = {
   endDate: string | null;
   ownerAvatar?: string;
   ownerName?: string;
+  onSaveTripName?: (nextName: string) => Promise<boolean> | boolean;
 };
 
 export function TripInfoCard({
@@ -18,11 +19,33 @@ export function TripInfoCard({
   endDate,
   ownerAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
   ownerName = "Sarah Tan",
+  onSaveTripName,
 }: TripInfoCardProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState(tripName);
 
   const hasDates = Boolean(startDate && endDate);
+
+  const handleSaveTitle = async (nextValue: string) => {
+    const normalized = nextValue.trim();
+    if (!normalized) {
+      setTitle(tripName);
+      setIsEditingTitle(false);
+      return;
+    }
+
+    setTitle(normalized);
+    setIsEditingTitle(false);
+
+    if (!onSaveTripName) {
+      return;
+    }
+
+    const wasSaved = await onSaveTripName(normalized);
+    if (!wasSaved) {
+      setTitle(tripName);
+    }
+  };
 
   return (
     <>
@@ -56,21 +79,27 @@ export function TripInfoCard({
               value={title}
               autoFocus
               onChange={(event) => setTitle(event.target.value)}
-              onBlur={() => setIsEditingTitle(false)}
+              onBlur={() => {
+                void handleSaveTitle(title);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  setIsEditingTitle(false);
+                  event.preventDefault();
+                  void handleSaveTitle(title);
                 }
               }}
               className="border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border px-3 py-1.5 text-2xl font-bold text-gray-900 outline-none focus:ring-2"
             />
           ) : (
             <h1
-              onClick={() => setIsEditingTitle(true)}
+              onClick={() => {
+                setTitle(tripName);
+                setIsEditingTitle(true);
+              }}
               title="Click to edit title"
               className="group hover:text-primary-500 cursor-pointer text-2xl font-bold tracking-tight text-gray-900"
             >
-              {title}
+              {tripName}
               <span className="ml-2 inline-block text-xs font-normal text-gray-400 opacity-0 transition-opacity group-hover:opacity-100">
                 (click to edit)
               </span>
