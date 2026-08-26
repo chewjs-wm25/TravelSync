@@ -12,17 +12,8 @@ import {
   normalizeText,
 } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
 
-export interface ImportPlaceInput {
-  placeId?: string | null;
-  name: string;
-  lat?: number | null;
-  lon?: number | null;
-}
+import type { ImportPlaceInput, ImportPlacesResult } from "./types";
 
-export interface ImportPlacesResult {
-  success: boolean;
-  importedCount: number;
-}
 
 export type ItineraryItemServiceInput = {
   itineraryId?: string | null;
