@@ -21,6 +21,7 @@ export interface PublicTransportRoute {
   routeName: string;
   routeType: 'bus' | 'train' | 'tram' | 'subway' | 'light_rail' | 'unknown';
   points: Array<{ lat: number; lng: number }>;
+  availableModes: Array<Exclude<PublicTransportLeg['mode'], 'walking'>>;
 }
 
 type Coordinates = { lat: number; lng: number };
@@ -31,6 +32,7 @@ type GtfsRoute = {
   route_short_name: string;
   route_long_name: string;
   category: string;
+  feedCategory: string;
   stopIds: Set<string>;
 };
 type GtfsTrip = {
@@ -41,6 +43,8 @@ type GtfsTrip = {
 const GTFS_BASE_URL = 'https://api.data.gov.my/gtfs-static/prasarana';
 const RAPID_CATEGORIES = ['rapid-rail-kl', 'rapid-bus-kl', 'rapid-bus-mrtfeeder'];
 const WALKING_SPEED_KM_PER_HOUR = 4.32;
+const MAX_TRANSIT_ACCESS_DISTANCE_KM = 3;
+const feedCache = new Map<string, ReturnType<typeof loadFeed>>();
 
 const isInMalaysia = ({ lat, lng }: Coordinates) =>
   Number.isFinite(lat) && Number.isFinite(lng) && lat >= 0.8 && lat <= 7.8 && lng >= 99.5 && lng <= 119.5;
@@ -118,7 +122,7 @@ const loadFeed = async (category: string) => {
   const stops = parseCsv(files.get('stops.txt') ?? '').filter((stop) => stop.stop_id && stop.stop_lat && stop.stop_lon);
   const routes: GtfsRoute[] = parseCsv(files.get('routes.txt') ?? '').map((route) => ({
     route_id: route.route_id ?? '', route_type: route.route_type ?? '',
-    route_short_name: route.route_short_name ?? '', route_long_name: route.route_long_name ?? '', category: route.category ?? '', stopIds: new Set<string>(),
+    route_short_name: route.route_short_name ?? '', route_long_name: route.route_long_name ?? '', category: route.category ?? '', feedCategory: category, stopIds: new Set<string>(),
   }));
   const routeById = new Map(routes.map((route) => [route.route_id, route]));
   const trips = new Map<string, GtfsTrip>(parseCsv(files.get('trips.txt') ?? '').map((trip) => [trip.trip_id, { routeId: trip.route_id, stopTimes: [] }]));
@@ -136,13 +140,24 @@ const loadFeed = async (category: string) => {
   return { stops, routes, trips: [...trips.values()].filter((trip) => trip.stopTimes.length > 1) };
 };
 
+const loadCachedFeed = (category: string) => {
+  const cachedFeed = feedCache.get(category);
+  if (cachedFeed) return cachedFeed;
+
+  const feedPromise = loadFeed(category);
+  feedCache.set(category, feedPromise);
+  return feedPromise;
+};
+
 const classifyMode = (route: GtfsRoute): PublicTransportLeg['mode'] => {
   const text = `${route.route_short_name} ${route.route_long_name}`.toLowerCase();
-  const category = route.category.toLowerCase();
+  const category = `${route.category} ${route.feedCategory}`.toLowerCase();
   if (category.includes('monorail') || text.includes('monorail')) return 'monorail';
   if (category.includes('brt') || text.includes('brt')) return 'brt';
   if (category.includes('lrt') || text.includes('lrt')) return 'lrt';
   if (category.includes('mrt') || text.includes('mrt')) return 'mrt';
+  if (route.route_type === '1') return 'mrt';
+  if (route.route_type === '0') return 'lrt';
   if (route.route_type === '2' || text.includes('rail')) return 'train';
   return 'bus';
 };
@@ -150,18 +165,41 @@ const classifyMode = (route: GtfsRoute): PublicTransportLeg['mode'] => {
 const getRouteType = (route: GtfsRoute): PublicTransportRoute['routeType'] =>
   route.route_type === '1' ? 'subway' : route.route_type === '0' ? 'tram' : route.route_type === '2' ? 'train' : route.route_type === '3' ? 'bus' : 'unknown';
 
-export async function fetchPublicTransportRoute(origin: Coordinates, destination: Coordinates): Promise<PublicTransportRoute> {
+export async function fetchPublicTransportRoute(
+  origin: Coordinates,
+  destination: Coordinates,
+  preferredMode?: PublicTransportLeg['mode'] | null
+): Promise<PublicTransportRoute> {
   if (!isInMalaysia(origin) || !isInMalaysia(destination)) throw new Error('Rapid GTFS is only available in Malaysia');
-  for (const category of RAPID_CATEGORIES) {
+  type TransitCandidate = {
+    route: GtfsRoute;
+    boarding: GtfsRow;
+    alighting: GtfsRow;
+    boardingTime?: string;
+    alightingTime?: string;
+    score: number;
+    orderedStops: GtfsTrip['stopTimes'];
+    boardingIndex: number;
+    alightingIndex: number;
+    stopById: Map<string, GtfsRow>;
+  };
+  const candidates: TransitCandidate[] = [];
+  const feeds = await Promise.all(RAPID_CATEGORIES.map(async (category) => {
     try {
-      const feed = await loadFeed(category);
-      const stopById = new Map(feed.stops.map((stop) => [stop.stop_id, stop]));
-      const routeById = new Map(feed.routes.map((route) => [route.route_id, route]));
-      const candidate = feed.trips.map((trip) => {
+      return await loadCachedFeed(category);
+    } catch {
+      return null;
+    }
+  }));
+  for (const feed of feeds) {
+    if (!feed) continue;
+    const stopById = new Map(feed.stops.map((stop) => [stop.stop_id, stop]));
+    const routeById = new Map(feed.routes.map((route) => [route.route_id, route]));
+    const feedCandidates = feed.trips.map((trip) => {
         const route = routeById.get(trip.routeId);
         if (!route) return null;
         const orderedStops = [...trip.stopTimes].sort((a, b) => a.stopSequence - b.stopSequence);
-        let best: { boarding: GtfsRow; alighting: GtfsRow; boardingTime?: string; alightingTime?: string; score: number } | null = null;
+        let best: Omit<TransitCandidate, 'route' | 'stopById'> | null = null;
         for (let boardingIndex = 0; boardingIndex < orderedStops.length; boardingIndex += 1) {
           const boardingTime = orderedStops[boardingIndex];
           const boarding = stopById.get(boardingTime.stopId);
@@ -171,28 +209,60 @@ export async function fetchPublicTransportRoute(origin: Coordinates, destination
             const alighting = stopById.get(alightingTime.stopId);
             if (!alighting) continue;
             const score = distanceBetween({ lat: Number(boarding.stop_lat), lng: Number(boarding.stop_lon) }, origin) + distanceBetween({ lat: Number(alighting.stop_lat), lng: Number(alighting.stop_lon) }, destination);
-            if (!best || score < best.score) best = { boarding, alighting, boardingTime: boardingTime.departureTime || boardingTime.arrivalTime, alightingTime: alightingTime.arrivalTime || alightingTime.departureTime, score };
+            if (!best || score < best.score) best = {
+              boarding,
+              alighting,
+              boardingTime: boardingTime.departureTime || boardingTime.arrivalTime,
+              alightingTime: alightingTime.arrivalTime || alightingTime.departureTime,
+              score,
+              orderedStops,
+              boardingIndex,
+              alightingIndex,
+            };
           }
         }
-        return best ? { route, ...best } : null;
-      }).filter((item): item is NonNullable<typeof item> => Boolean(item)).sort((a, b) => a.score - b.score)[0];
-      if (!candidate || candidate.score > 0.08) continue;
-      const { route, boarding, alighting, boardingTime, alightingTime } = candidate;
-      const toStop = { id: `gtfs-${boarding.stop_id}`, name: boarding.stop_name || 'Rapid stop', lat: Number(boarding.stop_lat), lng: Number(boarding.stop_lon), departureTime: boardingTime };
-      const fromStop = { id: `gtfs-${alighting.stop_id}`, name: alighting.stop_name || 'Rapid stop', lat: Number(alighting.stop_lat), lng: Number(alighting.stop_lon), arrivalTime: alightingTime };
-      const name = route.route_long_name || route.route_short_name || `${category} service`;
-      const stops = [{ id: 'origin', name: 'Origin', lat: origin.lat, lng: origin.lng }, toStop, fromStop, { id: 'destination', name: 'Destination', lat: destination.lat, lng: destination.lng }];
-      const legs: PublicTransportLeg[] = [
-        { mode: 'walking', name: 'Walk to transit', points: await routeLegOnRoads(origin, toStop) },
-        { mode: classifyMode(route), name, points: [toStop, fromStop] },
-        { mode: 'walking', name: 'Walk to destination', points: await routeLegOnRoads(fromStop, destination) },
-      ];
-      return { stops, legs, routeName: name, routeType: getRouteType(route), points: stops.map(({ lat, lng }) => ({ lat, lng })) };
-    } catch {
-      // Try the next official Rapid feed category.
-    }
+        return best ? { route, stopById, ...best } : null;
+      }).filter((item): item is TransitCandidate => Boolean(item));
+    candidates.push(...feedCandidates.filter((candidate) => candidate.score <= MAX_TRANSIT_ACCESS_DISTANCE_KM));
   }
-  throw new Error('No Rapid KL GTFS route found');
+  const modePriority: Record<PublicTransportLeg['mode'], number> = { train: 0, mrt: 0, lrt: 0, monorail: 0, brt: 1, bus: 2, walking: 3 };
+  const candidatesForPreferredMode = preferredMode
+    ? candidates.filter((item) => classifyMode(item.route) === preferredMode)
+    : candidates;
+  const candidate = (candidatesForPreferredMode.length ? candidatesForPreferredMode : candidates).sort((first, second) => {
+    const scoreDifference = first.score - second.score;
+    if (Math.abs(scoreDifference) > 0.5) return scoreDifference;
+    return modePriority[classifyMode(first.route)] - modePriority[classifyMode(second.route)];
+  })[0];
+  if (!candidate) throw new Error('No Rapid KL GTFS route found');
+  const availableModes = [...new Set(candidates.map((item) => classifyMode(item.route)).filter((mode): mode is Exclude<PublicTransportLeg['mode'], 'walking'> => mode !== 'walking'))];
+
+  const { route, boarding, alighting, boardingTime, alightingTime, orderedStops, boardingIndex, alightingIndex, stopById } = candidate;
+  const toStop = { id: `gtfs-${boarding.stop_id}`, name: boarding.stop_name || 'Rapid stop', lat: Number(boarding.stop_lat), lng: Number(boarding.stop_lon), departureTime: boardingTime };
+  const fromStop = { id: `gtfs-${alighting.stop_id}`, name: alighting.stop_name || 'Rapid stop', lat: Number(alighting.stop_lat), lng: Number(alighting.stop_lon), arrivalTime: alightingTime };
+  const transitStops = orderedStops.slice(boardingIndex, alightingIndex + 1).map((stopTime, index): PublicTransportStop | null => {
+    const stop = stopById.get(stopTime.stopId);
+    return stop ? {
+      id: `gtfs-${stop.stop_id}-${index}`,
+      name: stop.stop_name || 'Rapid stop',
+      lat: Number(stop.stop_lat),
+      lng: Number(stop.stop_lon),
+      arrivalTime: stopTime.arrivalTime,
+      departureTime: stopTime.departureTime,
+    } : null;
+  }).filter((stop): stop is PublicTransportStop => Boolean(stop));
+  const name = route.route_long_name || route.route_short_name || `${route.feedCategory} service`;
+  const stops: PublicTransportStop[] = [{ id: 'origin', name: 'Origin', lat: origin.lat, lng: origin.lng }, ...transitStops, { id: 'destination', name: 'Destination', lat: destination.lat, lng: destination.lng }];
+  const [accessRoute, egressRoute] = await Promise.all([
+    routeLegOnRoads(origin, toStop),
+    routeLegOnRoads(fromStop, destination),
+  ]);
+  const legs: PublicTransportLeg[] = [
+    { mode: 'walking', name: 'Walk to transit', points: accessRoute },
+    { mode: classifyMode(route), name, points: transitStops.length > 1 ? transitStops : [toStop, fromStop] },
+    { mode: 'walking', name: 'Walk to destination', points: egressRoute },
+  ];
+  return { stops, legs, routeName: name, routeType: getRouteType(route), points: stops.map(({ lat, lng }) => ({ lat, lng })), availableModes };
 }
 
 export const getPublicTransportSpeed = (mode: PublicTransportLeg['mode']) =>

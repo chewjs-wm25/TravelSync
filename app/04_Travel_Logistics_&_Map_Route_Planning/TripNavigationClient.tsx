@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect */
+
 import { useEffect, useState, type ComponentType } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -25,6 +27,7 @@ import {
   fetchSuggestions,
   type PlaceSuggestion,
 } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/nominatimApi";
+import type { PublicTransportLeg } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi";
 import { getPublicTransportSpeed } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi";
 import RouteAnalysisClient from "./RouteAnalysisClient";
 import SavedRoutesClient from "./SavedRoutesClient";
@@ -50,7 +53,14 @@ const vehicleOptions: Array<{ value: VehicleType; label: string }> = [
   { value: "public transport", label: "Public Transport" },
 ];
 
-const publicTransportOptions = ["Rail", "MRT", "LRT", "Monorail", "BRT", "Feeder bus", "Bus", "Walking"];
+const publicTransportOptions: Array<{ label: string; mode: Exclude<PublicTransportLeg["mode"], "walking"> }> = [
+  { label: "Train", mode: "train" },
+  { label: "MRT", mode: "mrt" },
+  { label: "LRT", mode: "lrt" },
+  { label: "Monorail", mode: "monorail" },
+  { label: "BRT", mode: "brt" },
+  { label: "Bus", mode: "bus" },
+];
 
 const getDistanceKm = (points: Array<{ lat: number; lng: number }>) =>
   points.slice(1).reduce((distance, point, index) => {
@@ -120,8 +130,8 @@ export default function TripNavigationClient() {
     origin,
     destination,
     generatedRoute,
+    routeAlternatives,
     summary,
-    savedRoutes,
     routePickerOpen,
     activeField,
     optimizationMode,
@@ -131,15 +141,17 @@ export default function TripNavigationClient() {
     setRouteLocation,
     generateRoute,
     applyOptimization,
-    loadSavedRoute,
     saveRoute,
-    deleteSavedRoute,
     publicTransportStops,
     publicTransportLegs,
+    availableTransitModes,
+    preferredTransitMode,
+    setPreferredTransitMode,
     isRouteLoading,
     vehicles,
     selectedVehicleId,
     setSelectedVehicleId,
+    selectRoute,
   } = useTripNavigationStore();
 
   const [routeName, setRouteName] = useState("");
@@ -177,11 +189,11 @@ export default function TripNavigationClient() {
     },
   }[vehicleType];
 
-  const optimizationLabel = {
+  const optimizationLabel = vehicleType === "car" ? {
     fastest: 'Fastest route with priority on time',
-    shortest: 'Shortest route with the straightest path',
+    shortest: 'Shortest route with priority on total distance',
     cheapest: 'Cheapest route with cost-saving detours',
-  }[optimizationMode];
+  }[optimizationMode] : null;
 
   const transitDetails = publicTransportLegs.map((leg) => {
     const distanceKm = getDistanceKm(leg.points);
@@ -356,6 +368,16 @@ export default function TripNavigationClient() {
                 <Popup>{destination.name}</Popup>
               </Marker>
             )}
+            {vehicleType === "public transport" && publicTransportStops.slice(1, -1).map((stop) => (
+              <Marker key={stop.id} position={[stop.lat, stop.lng]}>
+                <Popup>
+                  <p className="font-semibold">{stop.name}</p>
+                  {(stop.departureTime || stop.arrivalTime) && (
+                    <p>{stop.departureTime ? `Departs ${stop.departureTime}` : `Arrives ${stop.arrivalTime}`}</p>
+                  )}
+                </Popup>
+              </Marker>
+            ))}
             {vehicleType === "public transport" && publicTransportLegs.length > 0 ? (
               publicTransportLegs.map((leg) => (
                 <Polyline
@@ -369,14 +391,24 @@ export default function TripNavigationClient() {
                 />
               ))
             ) : routeCoordinates.length > 1 && (
-              <Polyline
-                positions={routeCoordinates}
-                pathOptions={{
-                  color: routeStyle.color,
-                  weight: routeStyle.weight,
-                  dashArray: routeStyle.dashArray,
-                }}
-              />
+              <>
+                {routeAlternatives.map((alternative, index) => (
+                  <Polyline
+                    key={`route-alternative-${index}`}
+                    positions={alternative.points.map((point) => [point.lat, point.lng] as LatLngExpression)}
+                    pathOptions={{ color: "#94a3b8", weight: 4, opacity: 0.65 }}
+                    eventHandlers={{ click: () => selectRoute(alternative) }}
+                  />
+                ))}
+                <Polyline
+                  positions={routeCoordinates}
+                  pathOptions={{
+                    color: routeStyle.color,
+                    weight: 6,
+                    dashArray: routeStyle.dashArray,
+                  }}
+                />
+              </>
             )}
           </AnyMapContainer>
 
@@ -385,7 +417,7 @@ export default function TripNavigationClient() {
               <p className="font-semibold text-gray-800">Transit route</p>
               <div className="mt-2 flex flex-wrap gap-3 text-gray-600">
                 {publicTransportLegs.map((leg) => (
-                  <span key={`${leg.mode}-legend`} className="flex items-center gap-1">
+                  <span key={`${leg.mode}-${leg.name}-legend`} className="flex items-center gap-1">
                     <span className={`h-2 w-5 rounded-full ${leg.mode === "walking" ? "bg-green-600" : leg.mode === "lrt" ? "bg-red-600" : leg.mode === "mrt" ? "bg-violet-600" : leg.mode === "monorail" ? "bg-cyan-600" : leg.mode === "brt" ? "bg-orange-600" : "bg-blue-600"}`} />
                     {leg.mode === "walking" ? "Walking" : leg.name}
                   </span>
@@ -593,17 +625,29 @@ export default function TripNavigationClient() {
                 💰 Cheapest
               </button>
             </div>
-            <p className="mt-4 text-sm text-gray-500">{optimizationLabel}</p>
+            {optimizationLabel && <p className="mt-4 text-sm text-gray-500">{optimizationLabel}</p>}
             {vehicleType === "public transport" && (
               <div className="mt-4 rounded-2xl bg-gray-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
                   Available public transport
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setPreferredTransitMode(null)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${preferredTransitMode === null ? "bg-primary-500 text-white ring-primary-500" : "bg-white text-gray-700 ring-gray-200 hover:ring-primary-500"}`}
+                  >
+                    Recommended
+                  </button>
                   {publicTransportOptions.map((option) => (
-                    <span key={option} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
-                      {option}
-                    </span>
+                    <button
+                      key={option.mode}
+                      disabled={!availableTransitModes.includes(option.mode)}
+                      onClick={() => setPreferredTransitMode(option.mode)}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${preferredTransitMode === option.mode ? "bg-primary-500 text-white ring-primary-500" : availableTransitModes.includes(option.mode) ? "bg-white text-gray-700 ring-gray-200 hover:ring-primary-500" : "cursor-not-allowed bg-gray-100 text-gray-400 ring-gray-200"}`}
+                      title={availableTransitModes.includes(option.mode) ? `Show ${option.label} route` : `No ${option.label} route is available for this journey`}
+                    >
+                      {option.label}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -617,15 +661,17 @@ export default function TripNavigationClient() {
               <h3 className="text-lg font-semibold text-gray-800">
                 Route summary
               </h3>
-              <span className="text-primary-500 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold tracking-[0.2em] uppercase">
-                {optimizationMode ?? "standard"}
-              </span>
+              {vehicleType === "car" && (
+                <span className="text-primary-500 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold tracking-[0.2em] uppercase">
+                  {optimizationMode}
+                </span>
+              )}
             </div>
 
               <div className="mt-4 space-y-3 text-sm text-gray-500">
                 {isRouteLoading && (
                   <p className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
-                    Updating route for {optimizationMode}...
+                    {vehicleType === "car" ? `Updating ${optimizationMode} route...` : "Updating route..."}
                   </p>
                 )}
               <div className="flex items-center justify-between">

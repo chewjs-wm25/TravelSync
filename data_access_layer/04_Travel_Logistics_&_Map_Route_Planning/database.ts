@@ -11,11 +11,6 @@
 
 import type { SavedRoute, Vehicle } from '@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
 
-/**
- * API endpoint base - update this when backend is ready
- */
-const API_BASE = '/api/04-travel-logistics';
-
 // ============================================
 // SAVED ROUTES DATABASE OPERATIONS
 // ============================================
@@ -209,7 +204,7 @@ export async function updateRouteDB(route: SavedRoute): Promise<boolean> {
 export async function saveVehicleDB(vehicle: Vehicle, userId: string): Promise<boolean> {
   try {
     // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Saving vehicle to localStorage:', vehicle.name);
+    console.log('📍 [Sprint 2] Saving vehicle to localStorage for user:', userId, vehicle.name);
     return true;
 
     // Sprint 3: Uncomment for database integration
@@ -273,7 +268,7 @@ export async function deleteVehicleDB(vehicleId: string): Promise<boolean> {
 export async function updateVehicleDB(vehicle: Vehicle, userId: string): Promise<boolean> {
   try {
     // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Updating vehicle in localStorage:', vehicle.name);
+    console.log('📍 [Sprint 2] Updating vehicle in localStorage for user:', userId, vehicle.name);
     return true;
 
     // Sprint 3: Uncomment for database integration
@@ -300,7 +295,7 @@ export async function updateVehicleDB(vehicle: Vehicle, userId: string): Promise
  * Convert database route to SavedRoute type
  * Helper for Sprint 3 database integration
  */
-function convertDBToRoute(dbRoute: SavedRouteDB): SavedRoute {
+export function convertDBToRoute(dbRoute: SavedRouteDB): SavedRoute {
   return {
     id: dbRoute.id,
     name: dbRoute.name,
@@ -326,8 +321,8 @@ function convertDBToRoute(dbRoute: SavedRouteDB): SavedRoute {
       energyCost: 0,
       carbonKg: 0,
     },
-    vehicleType: dbRoute.vehicle_type as any,
-    optimizationMode: dbRoute.optimization_mode as any,
+    vehicleType: dbRoute.vehicle_type as SavedRoute['vehicleType'],
+    optimizationMode: dbRoute.optimization_mode as SavedRoute['optimizationMode'],
     routePoints: JSON.parse(dbRoute.route_points),
     vehicleId: dbRoute.vehicle_id,
     createdAt: dbRoute.created_at,
