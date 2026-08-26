@@ -9,7 +9,7 @@
 
 `favouriteList.tsx` 是模块 03 主页的「愿望清单与收藏夹」区域：右下角悬浮的「Favourite List (n)」按钮（未开抽屉时显示）+ 右侧滑出的抽屉面板。数据经 `useFavorites`（Presentation hooks）从 BL 层获取。
 
-抽屉内容：①类型过滤按钮组——「All」+ `typeOptions`（自动从收藏条目体验类型去重生成，`activeType` 由父级受控传入）；②已收藏地点列表——缩略图（经 `usePlaceImages` 统一图片链路获取真实图片，与 Recommended Places / Search Places 一致；无图用 `ImageOff` 占位，旧数据 `thumbnailUrl` 作兜底）、名称（`line-clamp-1`）、体验类型标签；③每条的操作——移除收藏（星星按钮，`removeItem`）与「+ Add to Trip」（经 stub 桥接模块 02，`addToTrip`，成功后 3 秒 toast 反馈）；④空列表提示文案。
+抽屉内容：①类型过滤按钮组——「All」+ `typeOptions`（自动从收藏条目体验类型去重生成，`activeType` 由父级受控传入）；②已收藏地点列表——缩略图（经 `usePlaceImages` 统一图片链路获取真实图片，与 Recommended Places / Search Places 一致；无图用 `ImageOff` 占位，旧数据 `thumbnailUrl` 作兜底）、名称（`line-clamp-1`）、体验类型标签；③每条的操作——移除收藏（星星按钮，`removeItem`）与「+ Add to Trip」（经 RoutePlannerBridge 调用模块 02 真实导入接口，`addToTrip`，成功后 3 秒 toast 反馈）；④空列表提示文案。
 
 关键交互细节：
 - 条目整体可点击 → `router.push(placeDetailPath(item.placeId, item.name))` 跳地点详情页（以收藏名称作为搜索词重查）；
@@ -24,7 +24,7 @@
 FavouriteList（本组件）
   ├─ useFavorites()  → favoritesService.getSavedItems / removeSavedItem / addToTrip / togglePoiFavourite
   │                    → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → Cloudflare D1
-  │                    → addToTrip 经 RoutePlannerBridge stub 桥接模块 02
+  │                    → addToTrip 经 RoutePlannerBridge 调用模块 02 导入接口
   ├─ usePlaceImages(visibleItems) → discoveryService.getPlaceImage（与 Recommended Places / Search
   │                    Places 同一查询链 + 同一缓存：Wikivoyage → Wikipedia 条目配图 → Commons
   │                    Geosearch → Mapillary 兜底，马来西亚限定；收藏条目无坐标，Geosearch/Mapillary

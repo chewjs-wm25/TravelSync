@@ -51,7 +51,7 @@ export default function TravelInspirationPage() {
   } | null>(null);
 
   /**
-   * 将地点加入行程（模块 02，当前经 RoutePlannerBridge stub 桥接）：
+   * 将地点加入行程（模块 02，经 RoutePlannerBridge 调用真实导入接口）：
    * PoiItem → SavedItem（行程条目不归属收藏夹）。
    */
   const handleAddToTrip = async (poi: PoiItem) => {

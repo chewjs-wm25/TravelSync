@@ -455,7 +455,7 @@ export function useFavorites() {
     [refresh]
   );
 
-  /** 将单个地点加入行程（经 RoutePlannerBridge stub，返回结果供 UI 反馈） */
+  /** 将单个地点加入行程（经 RoutePlannerBridge 调用模块 02 导入接口，返回结果供 UI 反馈） */
   const addToTrip = useCallback(
     async (item: SavedItem) => {
       return favoritesService.addToTrip(item);

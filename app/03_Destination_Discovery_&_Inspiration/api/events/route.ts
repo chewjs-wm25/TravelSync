@@ -7,10 +7,10 @@
  *   - 实例化 D1EventRepository 并委托其方法；
  *   - 序列化响应。
  *
- * 授权（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）：
+ * 授权：
  *   - GET（公开读）保持匿名可访问；
- *   - POST（批量 upsert）/ DELETE（清空）为危险写操作，
- *     必须管理员会话（401 未登录 / 403 非 admin），禁止匿名调用。
+ *   - POST（批量 upsert）/ DELETE（清空）为 DEV 工具同步/清空入口，
+ *     不再要求管理员会话（原 requireAdmin 限制已移除），仅保留 items 非空校验。
  *
  * 本文件不含任何 SQL / 数据库逻辑（数据库操作全部位于 Data Access 层
  * D1EventRepository 内）。
@@ -19,7 +19,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { D1EventRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1EventRepository";
 import type { EventEntity } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/EventRepository";
-import { requireAdmin } from "@/app/DEV-ACCOUNT-STATE/api/session";
 
 /** 以当前环境 D1 binding 构建仓储实例 */
 async function eventRepo(): Promise<D1EventRepository> {
@@ -34,11 +33,8 @@ export async function GET() {
   return Response.json(items);
 }
 
-/** POST /03_Destination_Discovery_&_Inspiration/api/events  body: { items } → 批量 upsert（管理员） */
+/** POST /03_Destination_Discovery_&_Inspiration/api/events  body: { items } → 批量 upsert（DEV 同步入口，无会话授权） */
 export async function POST(request: Request) {
-  const auth = await requireAdmin(request);
-  if (!auth.ok) return auth.response;
-
   const body = (await request.json().catch(() => null)) as {
     items?: EventEntity[];
   } | null;
@@ -54,11 +50,8 @@ export async function POST(request: Request) {
   return Response.json({ synced }, { status: 201 });
 }
 
-/** DELETE /03_Destination_Discovery_&_Inspiration/api/events → 清空全部活动数据，返回 { cleared }（管理员） */
-export async function DELETE(request: Request) {
-  const auth = await requireAdmin(request);
-  if (!auth.ok) return auth.response;
-
+/** DELETE /03_Destination_Discovery_&_Inspiration/api/events → 清空全部活动数据，返回 { cleared }（DEV 清空入口，无会话授权） */
+export async function DELETE() {
   const repo = await eventRepo();
   const cleared = await repo.clearAll();
   return Response.json({ cleared });

@@ -96,7 +96,7 @@
   - `typeOptions`：`useMemo` 从收藏条目体验类型去重生成（过滤空值），驱动类型过滤按钮。
   - `removeItem(id)`：调 `favoritesService.removeSavedItem(id)` 后 `refresh()`。
   - `toggleItem(poi)`：调 `favoritesService.togglePoiFavourite(poi)`（收藏/取消收藏）后 `refresh()`。
-  - `addToTrip(item)`：委托 `favoritesService.addToTrip(item)`（经 RoutePlannerBridge stub 桥接模块 02），返回结果供 UI 反馈。
+  - `addToTrip(item)`：委托 `favoritesService.addToTrip(item)`（经 RoutePlannerBridge 调用模块 02 真实导入接口），返回结果供 UI 反馈。
   - `visibleItems`：`activeType === "All"` 时返回全部，否则按 `experienceType` 过滤。
 
 ### `IMAGE_FETCH_CONCURRENCY`（文件内常量）

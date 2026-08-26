@@ -138,7 +138,7 @@ graph TD
 | `FavoritesService.ts` | 业务服务 | 收藏夹查询/增删/切换 + 跨模块"加入行程"编排 |
 | `EventSyncService.ts` | 业务服务 | 节日活动同步：parsed_events.json → D1（DEV 工具） |
 | `QualityRatingSyncService.ts` | 业务服务 | 官方评级同步：JSON → Nominatim 地理编码 → D1（DEV 工具） |
-| `RoutePlannerBridge.ts` | 桥接类 | 模块 03 → 02 跨模块桥接（stub&driver） |
+| `RoutePlannerBridge.ts` | 桥接类 | 模块 03 → 02 跨模块桥接（真实调用模块 02 导入接口） |
 | `types.ts` | 类型出口 | 领域模型总出口：全部领域类型 + 下层类型 re-export |
 
 ### 文件介绍
@@ -147,13 +147,13 @@ graph TD
 
 - **`InspirationsService.ts`** — 灵感合辑业务服务：从 Wikivoyage 马来西亚分类树动态遍历发现合辑主题（`Category:Malaysia` 根分类 → 区域 → 叶子州分类，叠加行程分类 `South_East_Asia_itineraries` 经 bbox 坐标过滤与专题文章），主题清单全部来自 API 响应、无人工策展；负责合辑内容聚合（分类成员/专题/行程 → `Collection`/`CollectionDetail`，含封面、成员数、Star 徽章统计）、附近灵感推荐（geosearch 10000m 半径按距离排序）、"Generate more"批次游标（sessionStorage 持久化，不重复展示）与主题池缓存（TTL 24h，失败不缓存自动重试），请求间隔 250ms 抗 Wikivoyage 匿名限流。
 
-- **`FavoritesService.ts`** — 收藏夹业务服务：提供当前用户（`currentUserId()`，从账号状态会话读取，未登录返回 `null`）收藏条目的查询（`getSavedItems`）、删除（`removeSavedItem`）、收藏状态判定（`isPoiFavourite`）与切换（`togglePoiFavourite`，收藏时保存 placeId 与体验类型）；未登录时读操作返回空收藏集、写操作抛"请先登录"；并承担跨模块数据交流——`addToTrip` 将地点加入行程（模块 02），经 `RoutePlannerBridge` stub 完成（跨模块编排属于 BL 而非 API Layer）。模块内所有服务共享 `sharedFavoritesRepository` 单例（浏览器端经 Route API → D1 持久化，携带会话凭证，服务端以会话为准解析用户 ID），保证数据一致。
+- **`FavoritesService.ts`** — 收藏夹业务服务：提供当前用户（`currentUserId()`，从账号状态会话读取，未登录返回 `null`）收藏条目的查询（`getSavedItems`）、删除（`removeSavedItem`）、收藏状态判定（`isPoiFavourite`）与切换（`togglePoiFavourite`，收藏时保存 placeId 与体验类型）；未登录时读操作返回空收藏集、写操作抛"请先登录"；并承担跨模块数据交流——`addToTrip` 将地点加入行程（模块 02），经 `RoutePlannerBridge` 调用模块 02 真实导入接口（跨模块编排属于 BL 而非 API Layer）。模块内所有服务共享 `sharedFavoritesRepository` 单例（浏览器端经 Route API → D1 持久化，携带会话凭证，服务端以会话为准解析用户 ID），保证数据一致。
 
 - **`EventSyncService.ts`** — 节日/活动同步业务服务（DEV 工具链路）：编排"parsed_events.json 硬编码数据 → 写入 Cloudflare D1"全流程，按 id（title 生成 slug）幂等 upsert，重复执行仅覆盖更新；`clearEvents` 清空全部 D1 events 记录。无外部 API 依赖（活动数据为官方爬取结果）。供 DEV-ACCOUNT-STATE 页面按钮调用，活动展示走 `DiscoveryService.getEventFeed`。
 
 - **`QualityRatingSyncService.ts`** — 官方品质评级同步业务服务（DEV 工具链路）：编排"officalQualityRating_hardcode.json → Nominatim 地理编码 → 写入 Cloudflare D1"全流程。逐条以公司地址调 Nominatim 查经纬度（限定马来西亚、免费无 key、内置"逗号递减"降级与 1s 限速），单条失败不阻塞录入（lat/lon 保持 null 照常入库），失败明细经 `failures` 返回并在终端逐条打印；模块级 `running` 标志拒绝并发；可选 `onProgress` 进度回调；D1 表以 json_id 为主键天然幂等。
 
-- **`RoutePlannerBridge.ts`** — 模块 03 → 模块 02 的跨模块桥接器（stub&driver）：`pushItem` 将收藏条目"加入行程"，当前为 mock 实现（150ms 模拟网络延迟 + 内存记录 + 返回成功），`getPushedItems` 可读取 stub 记录验证链路；未来替换为模块 02 真实导入端点后签名与返回结构保持不变，上层（FavoritesService）无需改动。
+- **`RoutePlannerBridge.ts`** — 模块 03 → 模块 02 的跨模块桥接器（真实接入，原 stub&driver 已移除）：`pushItem` 将收藏条目"加入行程"，调用模块 02 真实导入接口（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；目标行程日期经 `setTargetItinerary` 注入（单例状态），未注入时返回失败结果；签名与返回结构保持不变，上层（FavoritesService）无需改动。
 
 - **`types.ts`** — 模块 03 领域模型唯一总出口：定义全部业务领域类型（`SearchFilters`、`PoiItem`、`PlaceDetail`、`Collection`、`EventItem`、`SuggestionItem`、`PlaceImageResult`、`StateInfo` 等），并 re-export 下层类型（`FavoriteItemEntity`、`FavoritesRepository`、`OfficialQualityRatingEntity`、`PlaceImageAttribution`、`GeoapifyPlaceDto`）与同层桥接类型（`PushToRoutePlannerResult`），保证 Presentation 只依赖本文件、依赖方向严格单向。
 

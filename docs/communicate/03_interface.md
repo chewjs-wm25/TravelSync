@@ -10,7 +10,7 @@
 ## 2. 依赖项 (需要其他模块/环境支持)
 - **依赖接口/组件：**
   - **模块 01 会话**：`useAuthStore`（`app/DEV-ACCOUNT-STATE/authUser.ts`，zustand persist）——`currentUserId()` 动态读取登录用户；服务端授权 `getAuthSession` / `requireUser` / `requireAdmin`（`app/DEV-ACCOUNT-STATE/api/session.ts`）——收藏写、图片缓存写、事件/评级同步等受限操作依赖会话凭证（`Authorization: Bearer <token>`）。
-  - **模块 02 行程导入**：`RoutePlannerBridge.pushItem(item)`——收藏地点"加入行程"的跨模块调用（BL 层编排）。当前为 stub（mock 实现，签名与返回结构固定），未来替换为调用模块 02 的 `importPlaces`（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）后上层无需改动。
+  - **模块 02 行程导入**：`RoutePlannerBridge.pushItem(item)`——收藏地点"加入行程"的跨模块调用（BL 层编排）。已接入真实接口：调用模块 02 的 `importPlaces` 的 HTTP 通道（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；目标行程日期（itineraryId）经 `routePlannerBridge.setTargetItinerary()` 注入（未注入时返回 `success: false`），上层签名与返回结构保持不变。
   - **模块 04 交通物流与地图路线规划**：将选中地点（`PoiItem`/`PlaceDetail`）转换为模块 04 的 `Stop`（`id`/`name`/`lat`/`lon`）后传入路线接口（`generateRoute` / `importCoordinates`），供路线生成与地图轨迹绘制。
   - **模块 01 侧 DEV 页面**（`app/DEV-ACCOUNT-STATE/`）会反向调用本模块的同步服务与清缓存接口（见 §3 暴露项）。
 - **环境与 Context 依赖：**
@@ -28,8 +28,8 @@
     - `discoveryService.clearImageCaches(): Promise<number>`
   - **Route API**（HTTP 传输通道，浏览器端仓储经此读写 D1/KV；路径遵循 guideline §5）：
     - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/favourites` —— 收藏 CRUD（POST 需登录、DELETE 需登录；userId 一律由服务端会话解析）
-    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/events` —— 活动（GET 公开；POST 批量 upsert / DELETE 清空需管理员）
-    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 官方评级（GET 公开；写需管理员）
+    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/events` —— 活动（GET 公开；POST 批量 upsert / DELETE 清空为 DEV 同步/清空入口，无会话授权）
+    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 官方评级（GET 公开；POST 批量 upsert / DELETE 清空为 DEV 同步/清空入口，无会话授权）
     - `GET/PUT/DELETE /03_Destination_Discovery_&_Inspiration/api/place-image` —— 地点图片 KV 缓存（GET 公开；PUT 需登录；DELETE 清空需管理员）
     - `GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete|search&text&limit` —— Geoapify 代理，服务端注入密钥并强制 `filter=countrycode:my`
     - `GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=search|image&bbox|imageId` —— Mapillary 代理，服务端注入 token 并强制 bbox 落在马来西亚边界框内
@@ -38,7 +38,7 @@
 - **回调与触发事件：**
   - `onProgress?: (done: number, total: number) => void` —— `syncQualityRatings` 每处理一条调用一次（进度/超时提示）。
   - `favoritesService.togglePoiFavourite(poi: PoiItem): Promise<boolean>` —— 切换收藏，返回切换后的收藏状态；未登录抛 `Error("Please log in first")`。
-  - `favoritesService.addToTrip(item: SavedItem): Promise<PushToRoutePlannerResult>` —— 触发"加入行程"（模块 02），返回 `{ success, pushedCount, target }`。
+  - `favoritesService.addToTrip(item: SavedItem): Promise<PushToRoutePlannerResult>` —— 触发"加入行程"（模块 02 真实导入接口），返回 `{ success, pushedCount, target }`；目标行程经 `routePlannerBridge.setTargetItinerary(itineraryId)` 预先注入。
   - `discoveryService.getPlaceImage(placeId, placeName, lat?, lon?): Promise<PlaceImageResult | null>` —— 统一图片链路结果；`null`/空 url 表示无图，有图时必须展示 `attribution` 署名。
 
 ## 4. 核心 TypeScript 类型

@@ -74,7 +74,7 @@ export default function FavouriteList({
     message: string;
   } | null>(null);
 
-  /** 收藏条目加入行程（经 stub 桥接；成功后本地 toast 反馈） */
+  /** 收藏条目加入行程（经 RoutePlannerBridge 调用模块 02 导入接口；成功后本地 toast 反馈） */
   const handleAddToTrip = async (
     e: React.MouseEvent,
     item: SavedItem

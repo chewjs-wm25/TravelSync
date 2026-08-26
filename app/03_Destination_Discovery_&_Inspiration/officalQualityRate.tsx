@@ -22,7 +22,7 @@ const PAGE_SIZE = 8;
 interface OfficalQualityRateProps {
   pois: PoiItem[];
   isLoading?: boolean;
-  /** 将地点加入行程（模块 02，经 stub 桥接）；传入后卡片显示 Add to Trip 按钮 */
+  /** 将地点加入行程（模块 02，经 RoutePlannerBridge 真实导入接口）；传入后卡片显示 Add to Trip 按钮 */
   onAddToTrip?: (poi: PoiItem) => void;
   /** 正在加入行程的地点 id（按钮 loading 态） */
   addingToTripId?: string | null;
@@ -176,7 +176,7 @@ export default function officalQualityRate({
                 )}
               </div>
 
-              {/* 加入行程（跨模块：模块 02，当前经 stub 桥接） */}
+              {/* 加入行程（跨模块：模块 02，经 RoutePlannerBridge 真实导入接口） */}
               {onAddToTrip && (
                 <button
                   onClick={(e) => {

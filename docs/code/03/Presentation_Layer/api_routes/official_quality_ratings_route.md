@@ -46,7 +46,7 @@ DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings
 - **binding 获取**：`getCloudflareContext({ async: true })` 在 Cloudflare Workers 环境异步解析 `TEST_DB` binding；
 - **批量 upsert 语义**：`POST` 一次写入整批（`officalQualityRating_hardcode.json` 同步入口），空数组拒绝；
 - **只读消费**：`GET` 是主页 Recommended Places（`getQualityRatedPois`）的唯一数据入口；BL 层不接收筛选条件，始终全量返回（与搜索栏筛选解绑的设计基础）。
-- **管理员写保护**：POST（批量 upsert）/ DELETE（清空）为危险写操作，必须携带管理员会话凭证（Authorization 头，未登录 401 / 非 admin 403），`GET` 保持匿名公开读。
+- **DEV 写入口无会话授权**：POST（批量 upsert）/ DELETE（清空）为 DEV 工具同步/清空入口，不再要求管理员会话（原 requireAdmin 限制已移除）；`GET` 保持匿名公开读。仅保留 `items` 非空校验。
 
 ## 依赖
 

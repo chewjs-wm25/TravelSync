@@ -11,7 +11,7 @@
 
 本文件不直接调用任何 BL 层服务，所有数据（筛选候选项、POI 列表、收藏夹）均通过 Presentation hooks（`useSearchAndFilter`、`useFavorites`）获取，UI 组件保持纯展示——严格遵循「Presentation 只通过 Presentation hooks 消费 BL 层」的分层约束。页面自身的交互状态只有三类：抽屉开关 `isDrawerOpen`、加入行程的进行中地点 id `addingToTripId`、以及 3 秒自动消失的 toast 反馈 `tripToast`。
 
-跨模块的「加入行程」操作（目标为模块 02，当前经 RoutePlannerBridge stub 桥接）在本文件完成数据形状转换：把 `PoiItem` 转换为 `SavedItem`——`id` 透传；`placeId` 剥离 `geo-` 前缀（`poi.id.startsWith("geo-")` 时 `slice(4)`）；`thumbnailUrl` 取 `poi.imageUrl`；`experienceType` 透传。转换后经 `useFavorites().addToTrip(item)` 发起，按返回的 `result.success` 决定 toast 文案，异常被 catch 捕获转为错误 toast。
+跨模块的「加入行程」操作（目标为模块 02，经 RoutePlannerBridge 调用模块 02 真实导入接口）在本文件完成数据形状转换：把 `PoiItem` 转换为 `SavedItem`——`id` 透传；`placeId` 剥离 `geo-` 前缀（`poi.id.startsWith("geo-")` 时 `slice(4)`）；`thumbnailUrl` 取 `poi.imageUrl`；`experienceType` 透传。转换后经 `useFavorites().addToTrip(item)` 发起，按返回的 `result.success` 决定 toast 文案，异常被 catch 捕获转为错误 toast。
 
 ## 分层数据流
 
@@ -20,7 +20,7 @@ TravelInspirationPage（本页面，纯组装）
   ├─ useSearchAndFilter() ──→ discoveryService.getFilterOptions / getQualityRatedPois / getSuggestions
   │                             （BL 层 → Route API → Cloudflare D1 / Geoapify）
   ├─ useFavorites() ────────→ favoritesService.getSavedItems / togglePoiFavourite / addToTrip
-  │                             （BL 层 → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → D1；addToTrip 经 stub 桥接模块 02）
+  │                             （BL 层 → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → D1；addToTrip 经 RoutePlannerBridge 调用模块 02 导入接口）
   │                             （savedItems 派生 favouriteIds 供 Recommended Places 星标；toggleItem 驱动收藏切换）
   └─ 子组件（受控 props 注入）
        ├─ SearchAndFilter      ← 筛选/搜索状态

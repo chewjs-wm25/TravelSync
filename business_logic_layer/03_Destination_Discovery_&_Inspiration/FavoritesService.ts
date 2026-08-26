@@ -4,7 +4,8 @@
  * 职责：
  *   - 收藏夹（Favourite List）的查询、增删、收藏状态切换（toggle）；
  *   - "将地点加入行程（模块 02）"的跨模块业务编排
- *     （经 RoutePlannerBridge stub，发生在 Business Logic 而非 API Layer）。
+ *     （经 RoutePlannerBridge 调用模块 02 真实导入接口，发生在 Business Logic
+ *     而非 API Layer）。
  *
  * 依赖方向：Business Logic → Data Access Layer（FavoritesRepository）
  *
@@ -19,6 +20,7 @@ import { RemoteFavoritesRepository } from "../../data_access_layer/03_Destinatio
 import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
 import {
   RoutePlannerBridge,
+  routePlannerBridge,
   type PushToRoutePlannerResult,
 } from "./RoutePlannerBridge";
 import type { PoiItem, SavedItem } from "./types";
@@ -40,7 +42,9 @@ export const sharedFavoritesRepository: FavoritesRepository =
 export class FavoritesService {
   constructor(
     private readonly repo: FavoritesRepository = sharedFavoritesRepository,
-    private readonly routePlanner: RoutePlannerBridge = new RoutePlannerBridge(),
+    // 默认使用模块级单例，保证外部 routePlannerBridge.setTargetItinerary()
+    // 注入的目标行程对本服务实例生效（同一实例共享状态）
+    private readonly routePlanner: RoutePlannerBridge = routePlannerBridge,
   ) {}
 
   /** 写操作前置：要求已登录（未登录抛出提示，由上层 UI 捕获展示） */
@@ -96,8 +100,10 @@ export class FavoritesService {
   /**
    * 跨模块数据交流（Business Logic 编排，非 API Layer 职责）：
    * 将单个地点加入行程（模块 02）。
-   * 当前经 RoutePlannerBridge（本模块暂时替代品 stub）mock 完成，
-   * 未来替换为模块 02 的真实客户端后签名保持不变。
+   * 经 RoutePlannerBridge 调用模块 02 真实导入接口
+   * （POST /02_.../api/itineraries/{itineraryId}/items/import）；
+   * 目标行程由 routePlannerBridge.setTargetItinerary() 预先注入，
+   * 未注入时返回 success: false（UI 按失败分支反馈）。
    */
   async addToTrip(item: SavedItem): Promise<PushToRoutePlannerResult> {
     return this.routePlanner.pushItem(item);

@@ -46,7 +46,7 @@ DELETE /03_Destination_Discovery_&_Inspiration/api/events
 - **binding 获取**：`getCloudflareContext({ async: true })` 在 Cloudflare Workers 环境异步解析 `TEST_DB` binding；
 - **批量 upsert 语义**：`POST` 一次写入整批（DEV 页面同步 `parsed_events.json` 数据的入口），空数组拒绝（避免清空误操作）；
 - **只读消费**：`GET` 是主页活动流（`useEventFeed`）的唯一数据入口，无分页参数（轻量级网站，全量返回）。
-- **管理员写保护**：POST（批量 upsert）/ DELETE（清空）为危险写操作，必须携带管理员会话凭证（Authorization 头，未登录 401 / 非 admin 403），`GET` 保持匿名公开读。
+- **DEV 写入口无会话授权**：POST（批量 upsert）/ DELETE（清空）为 DEV 工具同步/清空入口，不再要求管理员会话（原 requireAdmin 限制已移除）；`GET` 保持匿名公开读。仅保留 `items` 非空校验。
 
 ## 依赖
 
