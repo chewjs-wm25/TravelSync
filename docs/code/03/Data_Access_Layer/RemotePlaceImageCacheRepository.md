@@ -7,7 +7,7 @@
 
 ## 责任
 
-本文件是模块 03 地点图片缓存仓储的「远程」实现，运行于**浏览器端**，通过 HTTP 调用 Route API（`app/api/discovery/place-image`）实现 `PlaceImageCacheRepository` 接口。职责单一：仅做参数序列化与响应解析，**不含任何 KV 读写逻辑**（KV 操作由服务端 `CloudflareKvPlaceImageCacheRepository` 承担）。
+本文件是模块 03 地点图片缓存仓储的「远程」实现，运行于**浏览器端**，通过 HTTP 调用 Route API（`app/03_Destination_Discovery_&_Inspiration/api/place-image`）实现 `PlaceImageCacheRepository` 接口。职责单一：仅做参数序列化与响应解析，**不含任何 KV 读写逻辑**（KV 操作由服务端 `CloudflareKvPlaceImageCacheRepository` 承担）。
 
 依赖方向为：浏览器端 BL → 本类 → Route API → `CloudflareKvPlaceImageCacheRepository` → Cloudflare KV。
 
@@ -22,9 +22,9 @@
 请求/响应示例（示意，非代码内固定值）：
 
 ```jsonc
-// GET /api/discovery/place-image?placeId=geo-123
+// GET /03_Destination_Discovery_&_Inspiration/api/place-image?placeId=geo-123
 { "entry": { "source": "wikimedia", "url": "https://...", "attribution": { "artist": "Chainwit.", "licenseName": "CC BY-SA 4.0" } } }
-// PUT /api/discovery/place-image
+// PUT /03_Destination_Discovery_&_Inspiration/api/place-image
 { "placeId": "geo-123", "entry": { "source": "none" } }
 ```
 
@@ -51,7 +51,7 @@
 
 - 类型：常量（未导出）
 - 传入：无
-- 传出：字符串 `"/api/discovery/place-image"`。
+- 传出：字符串 `"/03_Destination_Discovery_&_Inspiration/api/place-image"`。
 - 用处：Route API 端点（模块 03 地点图片缓存），三个方法共用；为相对路径，由浏览器端按当前站点 origin 解析。
 
 ### `RemotePlaceImageCacheRepository`

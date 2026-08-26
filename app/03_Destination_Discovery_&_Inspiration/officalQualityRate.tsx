@@ -11,6 +11,7 @@ import React, { useEffect, useState } from "react";
 import type { PoiItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { googleMapsUrl } from "./routes";
 import { usePlaceImages } from "./hooks";
+import { StarIcon } from "./favouriteList";
 import PlaceImageAttribution from "./placeImageAttribution";
 import { safeHttpUrl } from "./safeUrl";
 import { ImageOff } from "lucide-react";
@@ -25,6 +26,10 @@ interface OfficalQualityRateProps {
   onAddToTrip?: (poi: PoiItem) => void;
   /** 正在加入行程的地点 id（按钮 loading 态） */
   addingToTripId?: string | null;
+  /** 已收藏地点 id 集合（驱动星标实心/空心；未传入则收藏按钮不渲染） */
+  favouriteIds?: Set<string>;
+  /** 切换地点收藏状态（收藏/取消收藏）；与 favouriteIds 一同传入后卡片显示星标收藏按钮 */
+  onToggleFavourite?: (poi: PoiItem) => void;
 }
 
 /** 品质徽章等级 → 展示文案（纯 UI 展示映射） */
@@ -39,6 +44,8 @@ export default function officalQualityRate({
   isLoading,
   onAddToTrip,
   addingToTripId,
+  favouriteIds,
+  onToggleFavourite,
 }: OfficalQualityRateProps) {
   /** 当前页码（分页为纯前端 UI 行为，状态内聚于组件） */
   const [page, setPage] = useState(1);
@@ -119,6 +126,31 @@ export default function officalQualityRate({
                   </svg>
                   {BADGE_LABEL[poi.qualityBadge]}
                 </div>
+              )}
+              {/* 收藏按钮（星标）：阻止冒泡避免触发卡片外链跳转；状态由 favouriteIds 驱动 */}
+              {favouriteIds && onToggleFavourite && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onToggleFavourite(poi);
+                  }}
+                  aria-label={
+                    favouriteIds.has(poi.id)
+                      ? `Remove ${poi.name} from favourites`
+                      : `Add ${poi.name} to favourites`
+                  }
+                  className={`absolute top-3 right-3 cursor-pointer rounded-full p-2 shadow-sm backdrop-blur-sm transition-all duration-150 active:scale-90 ${
+                    favouriteIds.has(poi.id)
+                      ? "bg-primary-500 text-white hover:bg-primary-500/90"
+                      : "bg-white/90 text-gray-500 hover:bg-white hover:text-primary-500"
+                  }`}
+                >
+                  <StarIcon
+                    filled={favouriteIds.has(poi.id)}
+                    className="h-5 w-5"
+                  />
+                </button>
               )}
             </div>
 

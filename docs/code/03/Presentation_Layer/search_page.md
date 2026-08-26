@@ -21,9 +21,9 @@
 ```
 SearchResults（本页核心组件）
   ├─ useSearchAndFilter()        → discoveryService.getFilterOptions / getSuggestions（筛选候选项 + 联想）
-  ├─ discoveryService.searchPlaceDetails(q)   → Route API /api/discovery/geocode?type=search → Geoapify
+  ├─ discoveryService.searchPlaceDetails(q)   → Route API /03_Destination_Discovery_&_Inspiration/api/geocode?type=search → Geoapify
   ├─ discoveryService.filterPlaceDetails(allPlaces, filters) → BL 层纯计算（不重复请求）
-  ├─ useFavorites()              → favoritesService.getSavedItems / togglePoiFavourite → Route API /favorites → D1
+  ├─ useFavorites()              → favoritesService.getSavedItems / togglePoiFavourite → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → D1
   └─ usePlaceImages(places)      → discoveryService.getPlaceImage（图片查询链 + 缓存）
 ```
 URL 状态流：`URL → 本地状态`（挂载/前进后退/从详情页返回恢复）与 `本地状态 → URL`（`router.replace`，筛选即时可分享）。

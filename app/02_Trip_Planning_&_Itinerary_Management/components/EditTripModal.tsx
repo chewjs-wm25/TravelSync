@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { updateTripAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 
 type TripRecord = {
   trip_id: string;
@@ -25,7 +26,6 @@ export default function EditTripModal({
   onSuccess,
 }: EditTripModalProps) {
   const [tripName, setTripName] = useState("");
-  const [tripNote, setTripNote] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,7 +39,6 @@ export default function EditTripModal({
 
     const timerId = window.setTimeout(() => {
       setTripName(trip.trip_name);
-      setTripNote(trip.trip_note ?? "");
       setStartDate(trip.start_date ?? "");
       setEndDate(trip.end_date ?? "");
       setErrorMessage("");
@@ -73,32 +72,16 @@ export default function EditTripModal({
     setErrorMessage("");
 
     try {
-      const response = await fetch(
-        "/02_Trip_Planning_&_Itinerary_Management/api/trip",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tripId: trip.trip_id,
-            userId: trip.user_id,
-            tripName,
-            tripNote,
-            startDate,
-            endDate,
-          }),
-        }
-      );
+      await updateTripAction({
+        tripId: trip.trip_id,
+        userId: trip.user_id,
+        tripName,
+        tripNote: trip.trip_note ?? undefined,
+        startDate: startDate || null,
+        endDate: endDate || null,
+      });
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to update trip");
-      }
-
+      // reflect changes via callback
       onSuccess();
       onClose();
     } catch (error) {
@@ -176,19 +159,6 @@ export default function EditTripModal({
                 placeholder="e.g. Langkawi Island Escape"
                 className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
                 required
-              />
-            </label>
-
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-semibold text-gray-700">
-                Destination / Note
-              </span>
-              <textarea
-                value={tripNote}
-                onChange={(event) => setTripNote(event.target.value)}
-                rows={4}
-                placeholder="Short summary, destination ideas, or Malaysia travel context"
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
               />
             </label>
 

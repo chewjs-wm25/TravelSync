@@ -1,5 +1,5 @@
 /**
- * app/03_Destination_Discovery_&_Inspiration/api/discovery/official-quality-ratings/route.ts — 模块 03 官方品质评级 Route API（薄传输桥）
+ * app/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings/route.ts — 模块 03 官方品质评级 Route API（薄传输桥）
  *
  * 职责（单一）：HTTP 传输层。
  *   - 解析 / 校验请求参数；
@@ -27,14 +27,14 @@ async function qualityRatingRepo(): Promise<D1QualityRatingRepository> {
   return new D1QualityRatingRepository(env.TEST_DB);
 }
 
-/** GET /api/discovery/official-quality-ratings → 全部官方评级条目（公开读） */
+/** GET /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings → 全部官方评级条目（公开读） */
 export async function GET() {
   const repo = await qualityRatingRepo();
   const items = await repo.listAll();
   return Response.json(items);
 }
 
-/** POST /api/discovery/official-quality-ratings  body: { items } → 批量 upsert（管理员） */
+/** POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings  body: { items } → 批量 upsert（管理员） */
 export async function POST(request: Request) {
   const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   const items = body?.items;
   if (!Array.isArray(items) || items.length === 0) {
     return Response.json(
-      { error: "items (non-empty array) is required" },
+      { message: "items (non-empty array) is required" },
       { status: 400 }
     );
   }
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   return Response.json({ synced }, { status: 201 });
 }
 
-/** DELETE /api/discovery/official-quality-ratings → 清空全部官方评级数据，返回 { cleared }（管理员） */
+/** DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings → 清空全部官方评级数据，返回 { cleared }（管理员） */
 export async function DELETE(request: Request) {
   const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;

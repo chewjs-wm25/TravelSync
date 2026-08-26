@@ -1,5 +1,5 @@
 /**
- * app/03_Destination_Discovery_&_Inspiration/api/discovery/geocode_route.ts — 模块 03 Geoapify Geocoding 代理 Route API
+ * app/03_Destination_Discovery_&_Inspiration/api/geocode/route.ts — 模块 03 Geoapify Geocoding 代理 Route API
  *
  * 职责（单一）：服务端代理传输层。
  *   - 白名单校验请求参数（type / text / limit），拒绝非法输入；
@@ -37,7 +37,7 @@ function geoapifyApiKey(): string {
   return key;
 }
 
-/** GET /api/discovery/geocode?type=autocomplete|search&text=...&limit=... → 透传 GeoJSON */
+/** GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete|search&text=...&limit=... → 透传 GeoJSON */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
 
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   const type = params.get("type")?.trim() ?? "";
   if (!ALLOWED_TYPES.has(type)) {
     return Response.json(
-      { error: "type must be 'autocomplete' or 'search'" },
+      { message: "type must be 'autocomplete' or 'search'" },
       { status: 400 }
     );
   }
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   const text = params.get("text")?.trim() ?? "";
   if (!text || text.length > TEXT_MAX_LENGTH) {
     return Response.json(
-      { error: `text is required and must be <= ${TEXT_MAX_LENGTH} chars` },
+      { message: `text is required and must be <= ${TEXT_MAX_LENGTH} chars` },
       { status: 400 }
     );
   }
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     if (!Number.isInteger(limit) || limit < LIMIT_MIN || limit > LIMIT_MAX) {
       return Response.json(
         {
-          error: `limit must be an integer between ${LIMIT_MIN} and ${LIMIT_MAX}`,
+          message: `limit must be an integer between ${LIMIT_MIN} and ${LIMIT_MAX}`,
         },
         { status: 400 }
       );
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
   try {
     apiKey = geoapifyApiKey();
   } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 500 });
+    return Response.json({ message: (err as Error).message }, { status: 500 });
   }
 
   // ---- 服务端拼装外部请求（强制马来西亚限制，前端不可绕过） ----
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
   } catch (err) {
     return Response.json(
       {
-        error: `Geoapify ${type} request failed (network error): ${(err as Error).message}`,
+        message: `Geoapify ${type} request failed (network error): ${(err as Error).message}`,
       },
       { status: 502 }
     );

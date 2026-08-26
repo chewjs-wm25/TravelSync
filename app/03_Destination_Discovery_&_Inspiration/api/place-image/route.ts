@@ -1,5 +1,5 @@
 /**
- * app/03_Destination_Discovery_&_Inspiration/api/discovery/place-image/route.ts — 模块 03 地点图片缓存 Route API（薄传输桥）
+ * app/03_Destination_Discovery_&_Inspiration/api/place-image/route.ts — 模块 03 地点图片缓存 Route API（薄传输桥）
  *
  * 职责（单一）：HTTP 传输层。
  *   - 解析 / 校验请求参数；
@@ -56,18 +56,18 @@ function isValidEntry(entry: unknown): entry is PlaceImageCacheEntry {
   return false;
 }
 
-/** GET /api/discovery/place-image?placeId=xxx → { entry: PlaceImageCacheEntry | null }（公开读） */
+/** GET /03_Destination_Discovery_&_Inspiration/api/place-image?placeId=xxx → { entry: PlaceImageCacheEntry | null }（公开读） */
 export async function GET(request: Request) {
   const placeId = new URL(request.url).searchParams.get("placeId")?.trim();
   if (!placeId) {
-    return Response.json({ error: "placeId is required" }, { status: 400 });
+    return Response.json({ message: "placeId is required" }, { status: 400 });
   }
   const repo = await placeImageCacheRepo();
   const entry = await repo.get(placeId);
   return Response.json({ entry });
 }
 
-/** PUT /api/discovery/place-image  body: { placeId, entry } → 写入缓存（登录用户） */
+/** PUT /03_Destination_Discovery_&_Inspiration/api/place-image  body: { placeId, entry } → 写入缓存（登录用户） */
 export async function PUT(request: Request) {
   const auth = await requireUser(request);
   if (!auth.ok) return auth.response;
@@ -78,12 +78,12 @@ export async function PUT(request: Request) {
   } | null;
   const placeId = typeof body?.placeId === "string" ? body.placeId.trim() : "";
   if (!placeId) {
-    return Response.json({ error: "placeId is required" }, { status: 400 });
+    return Response.json({ message: "placeId is required" }, { status: 400 });
   }
   if (!isValidEntry(body?.entry)) {
     return Response.json(
       {
-        error:
+        message:
           "entry must be {source:'none'} | {source:'wikimedia',url(http/https)} | {source:'mapillary',imageId}",
       },
       { status: 400 }
@@ -91,10 +91,10 @@ export async function PUT(request: Request) {
   }
   const repo = await placeImageCacheRepo();
   await repo.put(placeId, body.entry);
-  return Response.json({ ok: true });
+  return Response.json({ success: true });
 }
 
-/** DELETE /api/discovery/place-image → 清空全部地点图片缓存，返回 { cleared }（管理员） */
+/** DELETE /03_Destination_Discovery_&_Inspiration/api/place-image → 清空全部地点图片缓存，返回 { cleared }（管理员） */
 export async function DELETE(request: Request) {
   const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;

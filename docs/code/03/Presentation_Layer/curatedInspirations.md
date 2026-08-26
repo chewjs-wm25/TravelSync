@@ -25,7 +25,7 @@ CuratedInspirations（本组件）
   │                      → BL 层 → Wikivoyage 主题自动发现（数据源）
   │                      → sessionStorage 展示状态缓存（hooks 内部）
   └─ useEventFeed()    → discoveryService.getEventFeed
-                       → BL 层 → Route API /api/discovery/events → Cloudflare D1
+                       → BL 层 → Route API /03_Destination_Discovery_&_Inspiration/api/events → Cloudflare D1
 ```
 本组件不直接调用任何 BL 服务，数据全部经 Presentation hooks 注入，保持纯展示。
 

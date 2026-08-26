@@ -20,7 +20,7 @@
 | --- | --- | --- | --- |
 | `HardcodedQualityRatingRepository` | 浏览器端 | 直接读取 `officalQualityRating_hardcode.json` | 同步链路的 JSON 快照源 |
 | `D1QualityRatingRepository` | 服务端（Route API） | 操作 Cloudflare D1，SQL 内聚于该类 | 评级数据持久化 |
-| `RemoteQualityRatingRepository` | 浏览器端 | 经 Route API（`app/api/discovery/official-quality-ratings`）转发到服务端实现 | 页面查询 / DEV 同步入口 |
+| `RemoteQualityRatingRepository` | 浏览器端 | 经 Route API（`app/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`）转发到服务端实现 | 页面查询 / DEV 同步入口 |
 
 ### 数据流
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { createTripAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 
@@ -16,7 +16,6 @@ export default function CreateTripModal({
   onSuccess,
 }: CreateTripModalProps) {
   const [tripName, setTripName] = useState("");
-  const [tripNote, setTripNote] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,7 +29,6 @@ export default function CreateTripModal({
 
     const timerId = window.setTimeout(() => {
       setTripName("");
-      setTripNote("");
       setStartDate("");
       setEndDate("");
       setErrorMessage("");
@@ -39,6 +37,40 @@ export default function CreateTripModal({
 
     return () => window.clearTimeout(timerId);
   }, [isOpen]);
+
+  const stateSuggestions = useMemo(() => {
+    if (!tripName.trim()) {
+      return [];
+    }
+
+    const allStates = [
+      "Kuala Lumpur",
+      "Selangor",
+      "Penang",
+      "Johor",
+      "Kedah",
+      "Perak",
+      "Negeri Sembilan",
+      "Melaka",
+      "Terengganu",
+      "Pahang",
+    ];
+
+    const query = tripName.trim().toLowerCase();
+    const matches = allStates.filter((state) =>
+      state.toLowerCase().includes(query)
+    );
+
+    if (matches.length > 0) {
+      return matches.slice(0, 5);
+    }
+
+    const firstLetterMatches = allStates.filter(
+      (state) => state[0]?.toLowerCase() === query[0]
+    );
+
+    return firstLetterMatches.length > 0 ? firstLetterMatches.slice(0, 5) : allStates.slice(0, 5);
+  }, [tripName]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -62,7 +94,6 @@ export default function CreateTripModal({
       await createTripAction({
         userId: "usr_demo",
         tripName,
-        tripNote,
         startDate,
         endDate,
       });
@@ -136,6 +167,7 @@ export default function CreateTripModal({
               <span className="text-sm font-semibold text-gray-700">
                 Trip Name <span className="text-[#ff6b6b]">*</span>
               </span>
+              <div className="space-y-2">
               <input
                 ref={tripNameRef}
                 value={tripName}
@@ -145,19 +177,25 @@ export default function CreateTripModal({
                 className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
                 required
               />
-            </label>
 
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-semibold text-gray-700">
-                Destination / Note
-              </span>
-              <textarea
-                value={tripNote}
-                onChange={(event) => setTripNote(event.target.value)}
-                rows={4}
-                placeholder="Short summary, destination ideas, or Malaysia travel context"
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
-              />
+              {stateSuggestions.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {stateSuggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        setTripName(s);
+                      }}
+                      className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700 shadow-sm hover:bg-gray-50"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+               </div>
             </label>
 
             <label className="space-y-2">

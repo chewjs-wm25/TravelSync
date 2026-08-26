@@ -10,8 +10,9 @@
  * 暂时替代品（stub&driver）：
  *   - stub：模块 02 尚未接入，此处以模拟实现占位（异步提交 + 内存记录 + 返回成功）；
  *   - driver：上层可经 getPushedItems() 读取 stub 记录，验证"加入行程"链路真实生效。
- * 未来无缝衔接：将内部实现替换为调用模块 02 提供的导入端点/客户端
- *   （如 app/api/trip/import 的 Route Handler，或 src/lib/api/trip.ts 的导入行程方法），
+ * 未来无缝衔接：将内部实现替换为调用模块 02 提供的导入能力
+ *   —— BL 层 `importPlaces`（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`，
+ *   见 docs/communicate/02_interface.md §3），
  *   保持 pushItem 签名与返回结构不变，上层（FavoritesService）无需改动。
  */
 

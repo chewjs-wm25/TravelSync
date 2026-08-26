@@ -22,7 +22,7 @@
 SearchAndFilter（本组件，受控纯展示）
   状态注入（父级）：筛选/搜索状态 ← useSearchAndFilter hooks ← discoveryService（BL 层）
   联想数据：suggestions / isSuggesting ← hooks ← discoveryService.getSuggestions
-            → Route API /api/discovery/geocode?type=autocomplete → Geoapify
+            → Route API /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete → Geoapify
   跳转副作用：goToSearchPage → routes.searchPagePath(q, filters) → router.push（搜索结果页）
 ```
 本组件自身不发起任何数据请求，所有数据经 props 由父级注入。
