@@ -21,6 +21,27 @@ type StopCoordinates = {
 };
 
 const urbanDrivingTimeFactor = 1.2;
+const walkingSpeedKmPerHour = 4.32;
+const referenceDrivingSpeedKmPerHour = 50;
+const congestionFuelPenalty = 0.4;
+
+const getViaPointUrls = (origin: StopCoordinates, destination: StopCoordinates) => {
+  const midpoint = {
+    lat: (origin.lat + destination.lat) / 2,
+    lng: (origin.lng + destination.lng) / 2,
+  };
+  const latitudeDelta = Math.max(Math.abs(origin.lat - destination.lat) * 0.25, 0.006);
+  const longitudeDelta = Math.max(Math.abs(origin.lng - destination.lng) * 0.25, 0.006);
+  const viaPoints = [
+    { lat: midpoint.lat + latitudeDelta, lng: midpoint.lng },
+    { lat: midpoint.lat - latitudeDelta, lng: midpoint.lng },
+    { lat: midpoint.lat, lng: midpoint.lng + longitudeDelta },
+    { lat: midpoint.lat, lng: midpoint.lng - longitudeDelta },
+  ];
+  return viaPoints.map((point) =>
+    `${point.lng},${point.lat}`
+  );
+};
 
 export async function fetchRouteShape(
   origin: StopCoordinates,
@@ -30,30 +51,35 @@ export async function fetchRouteShape(
   estimatedCostPerKm = 2.15 / 15
 ): Promise<RouteShape> {
   const profile = vehicleType === 'walk' ? 'foot' : 'driving';
-  const url = `https://router.project-osrm.org/route/v1/${profile}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Routing service failed');
-  }
-
-  const data = (await response.json()) as {
-    routes?: Array<OsrmRoute & {
-      legs?: Array<{
-        steps?: Array<{
-          name?: string;
-          distance: number;
-          duration: number;
-          geometry?: { coordinates?: Array<[number, number]> };
-        }>;
-      }>;
-    }>;
-  };
-  const routes = data.routes ?? [];
+  const baseUrl = `https://router.project-osrm.org/route/v1/${profile}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+  const viaUrls = vehicleType === 'car'
+    ? getViaPointUrls(origin, destination).map((viaPoint) =>
+      `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${viaPoint};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=true`
+    )
+    : [];
+  const routeUrls = [baseUrl, ...viaUrls];
+  const routeResults = await Promise.all(routeUrls.map(async (routeUrl) => {
+    try {
+      const response = await fetch(routeUrl);
+      if (!response.ok) return [];
+      const data = (await response.json()) as { routes?: OsrmRoute[] };
+      return data.routes ?? [];
+    } catch {
+      return [];
+    }
+  }));
+  const routes = routeResults.flat();
   const validRoutes = routes
     .filter((candidate) => candidate.geometry?.coordinates?.length)
     .map((route, index) => ({ route, index }));
-  const fuelCostForRoute = (candidate: OsrmRoute) =>
-    (candidate.distance / 1000) * estimatedCostPerKm;
+  const fuelCostForRoute = (candidate: OsrmRoute) => {
+    const distanceKm = candidate.distance / 1000;
+    const idealDurationMinutes = (distanceKm / referenceDrivingSpeedKmPerHour) * 60;
+    const congestionRatio = idealDurationMinutes > 0
+      ? Math.max(0, candidate.duration / 60 / idealDurationMinutes - 1)
+      : 0;
+    return distanceKm * estimatedCostPerKm * (1 + congestionRatio * congestionFuelPenalty);
+  };
   const compareRoutes = (a: OsrmRoute, b: OsrmRoute) => {
     if (optimizationMode === 'shortest') return a.distance - b.distance;
     if (optimizationMode === 'cheapest') {
@@ -61,35 +87,18 @@ export async function fetchRouteShape(
     }
     return a.duration - b.duration;
   };
-  let route = validRoutes.sort((a, b) => compareRoutes(a.route, b.route) || a.index - b.index)[0]?.route;
-  if (!route || !route.geometry?.coordinates?.length) {
+  const route = validRoutes.sort((a, b) => compareRoutes(a.route, b.route) || a.index - b.index)[0]?.route;
+  if (!route?.geometry?.coordinates?.length) {
     throw new Error('No route returned');
   }
 
-  const hasAlternatives = validRoutes.length > 1;
-  if (!hasAlternatives && vehicleType === 'car' && optimizationMode !== 'fastest') {
-    const midpoint = {
-      lat: (origin.lat + destination.lat) / 2,
-      lng: (origin.lng + destination.lng) / 2,
-    };
-    const latitudeOffset = optimizationMode === 'shortest' ? 0.003 : -0.004;
-    const waypoint = `${midpoint.lng},${midpoint.lat + latitudeOffset}`;
-    const detourUrl = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${waypoint};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=true`;
-    try {
-      const detourResponse = await fetch(detourUrl);
-      if (detourResponse.ok) {
-        const detourData = (await detourResponse.json()) as { routes?: OsrmRoute[] };
-        const detourRoute = detourData.routes?.find((candidate) => candidate.geometry?.coordinates?.length);
-        if (detourRoute) route = detourRoute;
-      }
-    } catch {
-      // Keep the original road route if the demonstration detour cannot be fetched.
-    }
-  }
-
+  const coordinates = route.geometry?.coordinates ?? [];
   return {
-    points: route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
+    points: coordinates.map(([lng, lat]) => ({ lat, lng })),
     distanceKm: route.distance / 1000,
-    durationMinutes: (route.duration / 60) * (vehicleType === 'car' ? urbanDrivingTimeFactor : 1),
+    durationMinutes:
+      vehicleType === 'walk'
+        ? (route.distance / 1000 / walkingSpeedKmPerHour) * 60
+        : (route.duration / 60) * urbanDrivingTimeFactor,
   };
 }

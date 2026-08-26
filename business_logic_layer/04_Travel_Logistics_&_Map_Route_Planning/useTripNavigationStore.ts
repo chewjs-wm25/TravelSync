@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { fetchRouteShape } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi';
 import { fetchPublicTransportRoute } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi';
+import { getPublicTransportSpeed } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi';
 import type { PublicTransportLeg, PublicTransportStop } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi';
 
 export type VehicleType = 'car' | 'walk' | 'public transport';
@@ -163,7 +164,7 @@ const calculateSummary = (
 
   const baseDistance = actualDistanceKm ?? getDistanceKm(origin, destination);
   const distance = baseDistance;
-  // Walking speed set to 1.2 m/s (4.32 km/h) to make walking slower than driving
+  // 1.2 m/s is the product requirement for walking estimates.
   const speeds: Record<VehicleType, number> = {
     car: 50,
     walk: 4.32,
@@ -209,9 +210,13 @@ const calculateSummary = (
 const generatePublicTransportRoute = async (
   origin: Stop,
   destination: Stop
-): Promise<{ points: RoutePoint[]; stops: PublicTransportStop[]; legs: PublicTransportLeg[] }> => {
+): Promise<{ points: RoutePoint[]; stops: PublicTransportStop[]; legs: PublicTransportLeg[]; durationMinutes: number }> => {
   try {
     const route = await fetchPublicTransportRoute(origin, destination);
+    const durationMinutes = route.legs.reduce((total, leg) => {
+      const distanceKm = leg.points.slice(1).reduce((distance, point, index) => distance + getDistanceKm(leg.points[index] as Stop, point as Stop), 0);
+      return total + (distanceKm / getPublicTransportSpeed(leg.mode)) * 60;
+    }, 0);
     return {
       points: route.points.map((point, index) => ({
         id: route.stops[index]?.id ?? `transit-${index}`,
@@ -221,20 +226,22 @@ const generatePublicTransportRoute = async (
       })),
       stops: route.stops,
       legs: route.legs,
+      durationMinutes,
     };
   } catch {
     const transitStop = {
-      id: 'estimated-lrt-stop',
-      name: 'Estimated LRT interchange',
+      id: 'estimated-transit-stop',
+      name: 'Estimated transit interchange',
       lat: (origin.lat + destination.lat) / 2,
       lng: (origin.lng + destination.lng) / 2,
     };
     return {
       points: [origin, transitStop, destination],
       stops: [origin, transitStop, destination],
+      durationMinutes: ((getDistanceKm(origin, transitStop) + getDistanceKm(transitStop, destination)) / 30) * 60,
       legs: [
-        { mode: 'walking', name: 'Walk to LRT', points: [origin, transitStop] },
-        { mode: 'lrt', name: 'LRT (estimated)', points: [transitStop, destination] },
+        { mode: 'walking', name: 'Walk to transit', points: [origin, transitStop] },
+        { mode: 'bus', name: 'Public transport (estimated)', points: [transitStop, destination] },
       ],
     };
   }
@@ -246,10 +253,10 @@ const buildRoutePoints = async (
   vehicleType: VehicleType,
   optimizationMode: OptimizationMode,
   vehicle?: Vehicle
-): Promise<{ points: RoutePoint[]; stops: PublicTransportStop[]; legs: PublicTransportLeg[]; distanceKm?: number; durationMinutes?: number }> => {
+  ): Promise<{ points: RoutePoint[]; stops: PublicTransportStop[]; legs: PublicTransportLeg[]; distanceKm?: number; durationMinutes?: number }> => {
   if (vehicleType === 'public transport') {
     const route = await generatePublicTransportRoute(origin, destination);
-    return { ...route, distanceKm: undefined, durationMinutes: undefined };
+    return { ...route, distanceKm: undefined };
   }
 
   // For walking, get actual walking path

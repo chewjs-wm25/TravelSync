@@ -10,7 +10,7 @@ export interface PublicTransportStop {
 }
 
 export interface PublicTransportLeg {
-  mode: 'walking' | 'bus' | 'lrt' | 'mrt';
+  mode: 'walking' | 'bus' | 'lrt' | 'mrt' | 'monorail' | 'train' | 'brt';
   name: string;
   points: Array<{ lat: number; lng: number }>;
 }
@@ -23,122 +23,177 @@ export interface PublicTransportRoute {
   points: Array<{ lat: number; lng: number }>;
 }
 
-type OverpassElement = {
-  id: number;
-  lat?: number;
-  lon?: number;
-  tags?: Record<string, string>;
+type Coordinates = { lat: number; lng: number };
+type GtfsRow = Record<string, string>;
+type GtfsRoute = {
+  route_id: string;
+  route_type: string;
+  route_short_name: string;
+  route_long_name: string;
+  category: string;
+  stopIds: Set<string>;
+};
+type GtfsTrip = {
+  routeId: string;
+  stopTimes: Array<{ stopId: string; stopSequence: number; arrivalTime?: string; departureTime?: string }>;
 };
 
-const distanceBetween = (
-  first: { lat: number; lng: number },
-  second: { lat: number; lng: number }
-) => Math.hypot(first.lat - second.lat, first.lng - second.lng);
+const GTFS_BASE_URL = 'https://api.data.gov.my/gtfs-static/prasarana';
+const RAPID_CATEGORIES = ['rapid-rail-kl', 'rapid-bus-kl', 'rapid-bus-mrtfeeder'];
+const WALKING_SPEED_KM_PER_HOUR = 4.32;
 
-const routeLegOnRoads = async (
-  first: { lat: number; lng: number },
-  second: { lat: number; lng: number },
-  vehicleType: 'walk' | 'car'
-) => {
+const isInMalaysia = ({ lat, lng }: Coordinates) =>
+  Number.isFinite(lat) && Number.isFinite(lng) && lat >= 0.8 && lat <= 7.8 && lng >= 99.5 && lng <= 119.5;
+
+const distanceBetween = (first: Coordinates, second: Coordinates) => {
+  const latitude = (first.lat - second.lat) * 111;
+  const longitude = (first.lng - second.lng) * 111 * Math.cos((first.lat * Math.PI) / 180);
+  return Math.hypot(latitude, longitude);
+};
+
+const routeLegOnRoads = async (first: Coordinates, second: Coordinates) => {
   try {
-    const route = await fetchRouteShape(first, second, vehicleType, 'fastest');
-    return route.points;
+    return (await fetchRouteShape(first, second, 'walk', 'fastest')).points;
   } catch {
     return [first, second];
   }
 };
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
-
-const getBoundingBox = (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) => {
-  const padding = 0.02;
-  return [
-    Math.min(origin.lat, destination.lat) - padding,
-    Math.min(origin.lng, destination.lng) - padding,
-    Math.max(origin.lat, destination.lat) + padding,
-    Math.max(origin.lng, destination.lng) + padding,
-  ].join(',');
+const parseCsv = (text: string): GtfsRow[] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let value = '';
+  let quoted = false;
+  for (const character of text.replace(/^\uFEFF/, '')) {
+    if (character === '"') quoted = !quoted;
+    else if (character === ',' && !quoted) { row.push(value); value = ''; }
+    else if ((character === '\n' || character === '\r') && !quoted) {
+      if (value || row.length) { row.push(value); rows.push(row); }
+      row = []; value = '';
+    } else value += character;
+  }
+  if (value || row.length) { row.push(value); rows.push(row); }
+  const headers = rows.shift() ?? [];
+  return rows.map((fields) => Object.fromEntries(headers.map((header, index) => [header, fields[index] ?? ''])));
 };
 
-export async function fetchPublicTransportRoute(
-  origin: { lat: number; lng: number },
-  destination: { lat: number; lng: number }
-): Promise<PublicTransportRoute> {
-  const aroundStops = `(node["public_transport"="platform"](around:1800,${origin.lat},${origin.lng});node["public_transport"="station"](around:1800,${origin.lat},${origin.lng});node["highway"="bus_stop"](around:1800,${origin.lat},${origin.lng});node["public_transport"="platform"](around:1800,${destination.lat},${destination.lng});node["public_transport"="station"](around:1800,${destination.lat},${destination.lng});node["highway"="bus_stop"](around:1800,${destination.lat},${destination.lng});)`;
-  const bbox = getBoundingBox(origin, destination);
-  const query = `[out:json][timeout:20];(${aroundStops};relation["route"~"bus|train|tram|subway|light_rail"](${bbox}););out tags center;`;
-  const response = await fetch(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`);
-  if (!response.ok) throw new Error('Public transport service failed');
-
-  const data = (await response.json()) as { elements?: OverpassElement[] };
-  const elements = data.elements ?? [];
-  const routeRelations = elements.filter((element) => element.tags?.route);
-  let routeRelation = routeRelations[0];
-  if (routeRelations.length > 0) {
-    const preferredOrder = ['light_rail', 'train', 'tram', 'subway', 'bus'];
-    const found = preferredOrder
-      .map((type) => routeRelations.find((r) => r.tags?.route === type))
-      .find((r) => r !== undefined);
-    routeRelation = found ?? routeRelations[0];
+const readZipFiles = async (buffer: ArrayBuffer): Promise<Map<string, string>> => {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  let end = bytes.length - 22;
+  while (end >= 0 && view.getUint32(end, true) !== 0x06054b50) end -= 1;
+  if (end < 0) throw new Error('Invalid GTFS ZIP');
+  const count = view.getUint16(end + 10, true);
+  const centralOffset = view.getUint32(end + 16, true);
+  const decoder = new TextDecoder();
+  const files = new Map<string, string>();
+  let cursor = centralOffset;
+  for (let index = 0; index < count; index += 1) {
+    if (view.getUint32(cursor, true) !== 0x02014b50) throw new Error('Invalid GTFS directory');
+    const method = view.getUint16(cursor + 10, true);
+    const compressedSize = view.getUint32(cursor + 20, true);
+    const nameLength = view.getUint16(cursor + 28, true);
+    const extraLength = view.getUint16(cursor + 30, true);
+    const commentLength = view.getUint16(cursor + 32, true);
+    const localOffset = view.getUint32(cursor + 42, true);
+    const name = decoder.decode(bytes.slice(cursor + 46, cursor + 46 + nameLength));
+    const localNameLength = view.getUint16(localOffset + 26, true);
+    const localExtraLength = view.getUint16(localOffset + 28, true);
+    const start = localOffset + 30 + localNameLength + localExtraLength;
+    const compressed = bytes.slice(start, start + compressedSize);
+    let content: ArrayBuffer;
+    if (method === 0) content = compressed.buffer.slice(compressed.byteOffset, compressed.byteOffset + compressed.byteLength);
+    else if (method === 8) content = await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+    else { cursor += 46 + nameLength + extraLength + commentLength; continue; }
+    files.set(name, decoder.decode(content));
+    cursor += 46 + nameLength + extraLength + commentLength;
   }
-  const stops = elements
-    .filter((element) => element.lat !== undefined && element.lon !== undefined)
-    .map((element) => ({
-      id: `osm-${element.id}`,
-      name: element.tags?.name ?? element.tags?.local_ref ?? 'Unnamed stop',
-      lat: element.lat as number,
-      lng: element.lon as number,
-      arrivalTime: element.tags?.arrival_time,
-      departureTime: element.tags?.departure_time,
-    }))
-    .filter((stop, index, all) => all.findIndex((candidate) => candidate.id === stop.id) === index)
-    .filter((stop) => distanceBetween(stop, origin) <= 0.03 || distanceBetween(stop, destination) <= 0.03);
+  return files;
+};
 
-  if (stops.length < 2) throw new Error('No public transport stops found');
+const loadFeed = async (category: string) => {
+  const response = await fetch(`${GTFS_BASE_URL}?category=${category}`);
+  if (!response.ok) throw new Error(`GTFS feed unavailable: ${category}`);
+  const files = await readZipFiles(await response.arrayBuffer());
+  const stops = parseCsv(files.get('stops.txt') ?? '').filter((stop) => stop.stop_id && stop.stop_lat && stop.stop_lon);
+  const routes: GtfsRoute[] = parseCsv(files.get('routes.txt') ?? '').map((route) => ({
+    route_id: route.route_id ?? '', route_type: route.route_type ?? '',
+    route_short_name: route.route_short_name ?? '', route_long_name: route.route_long_name ?? '', category: route.category ?? '', stopIds: new Set<string>(),
+  }));
+  const routeById = new Map(routes.map((route) => [route.route_id, route]));
+  const trips = new Map<string, GtfsTrip>(parseCsv(files.get('trips.txt') ?? '').map((trip) => [trip.trip_id, { routeId: trip.route_id, stopTimes: [] }]));
+  for (const stopTime of parseCsv(files.get('stop_times.txt') ?? '')) {
+    const trip = trips.get(stopTime.trip_id);
+    if (!trip || !stopTime.stop_id) continue;
+    trip.stopTimes.push({
+      stopId: stopTime.stop_id,
+      stopSequence: Number(stopTime.stop_sequence),
+      arrivalTime: stopTime.arrival_time || undefined,
+      departureTime: stopTime.departure_time || undefined,
+    });
+    routeById.get(trip.routeId)?.stopIds.add(stopTime.stop_id);
+  }
+  return { stops, routes, trips: [...trips.values()].filter((trip) => trip.stopTimes.length > 1) };
+};
 
-  const originStops = stops
-    .filter((stop) => distanceBetween(stop, origin) <= 0.03)
-    .sort((a, b) => distanceBetween(a, origin) - distanceBetween(b, origin));
-  const destinationStops = stops
-    .filter((stop) => distanceBetween(stop, destination) <= 0.03)
-    .sort((a, b) => distanceBetween(a, destination) - distanceBetween(b, destination));
-  const boardingStop = originStops[0] ?? stops[0];
-  const alightingStop = destinationStops[0] ?? stops[stops.length - 1];
-  const routeStops = [
-    { id: 'origin', name: 'Origin', lat: origin.lat, lng: origin.lng },
-    boardingStop,
-    ...(boardingStop.id === alightingStop.id ? [] : [alightingStop]),
-    { id: 'destination', name: 'Destination', lat: destination.lat, lng: destination.lng },
-  ];
-  const routeType = routeRelation?.tags?.route;
-  const transitMode: PublicTransportLeg['mode'] =
-    routeType === 'subway'
-      ? 'mrt'
-      : routeType === 'train' || routeType === 'light_rail'
-        ? 'lrt'
-      : 'bus';
-  const walkingToTransit = await routeLegOnRoads(origin, boardingStop, 'walk');
-  const transitPath = await routeLegOnRoads(boardingStop, alightingStop, 'car');
-  const walkingToDestination = await routeLegOnRoads(alightingStop, destination, 'walk');
-  const legs: PublicTransportLeg[] = [
-    { mode: 'walking', name: 'Walk to transit', points: walkingToTransit },
-    {
-      mode: transitMode,
-      name: routeRelation?.tags?.name ?? (transitMode === 'mrt' ? 'MRT' : transitMode === 'lrt' ? 'LRT' : 'Bus'),
-      points: transitPath,
-    },
-    {
-      mode: 'walking',
-      name: 'Walk to destination',
-      points: walkingToDestination,
-    },
-  ].filter((leg) => leg.points.length > 1) as PublicTransportLeg[];
+const classifyMode = (route: GtfsRoute): PublicTransportLeg['mode'] => {
+  const text = `${route.route_short_name} ${route.route_long_name}`.toLowerCase();
+  const category = route.category.toLowerCase();
+  if (category.includes('monorail') || text.includes('monorail')) return 'monorail';
+  if (category.includes('brt') || text.includes('brt')) return 'brt';
+  if (category.includes('lrt') || text.includes('lrt')) return 'lrt';
+  if (category.includes('mrt') || text.includes('mrt')) return 'mrt';
+  if (route.route_type === '2' || text.includes('rail')) return 'train';
+  return 'bus';
+};
 
-  return {
-    stops: routeStops,
-    legs,
-    routeName: routeRelation?.tags?.name ?? 'OpenStreetMap public transport route',
-    routeType: (routeRelation?.tags?.route as PublicTransportRoute['routeType']) ?? 'unknown',
-    points: routeStops.map(({ lat, lng }) => ({ lat, lng })),
-  };
+const getRouteType = (route: GtfsRoute): PublicTransportRoute['routeType'] =>
+  route.route_type === '1' ? 'subway' : route.route_type === '0' ? 'tram' : route.route_type === '2' ? 'train' : route.route_type === '3' ? 'bus' : 'unknown';
+
+export async function fetchPublicTransportRoute(origin: Coordinates, destination: Coordinates): Promise<PublicTransportRoute> {
+  if (!isInMalaysia(origin) || !isInMalaysia(destination)) throw new Error('Rapid GTFS is only available in Malaysia');
+  for (const category of RAPID_CATEGORIES) {
+    try {
+      const feed = await loadFeed(category);
+      const stopById = new Map(feed.stops.map((stop) => [stop.stop_id, stop]));
+      const routeById = new Map(feed.routes.map((route) => [route.route_id, route]));
+      const candidate = feed.trips.map((trip) => {
+        const route = routeById.get(trip.routeId);
+        if (!route) return null;
+        const orderedStops = [...trip.stopTimes].sort((a, b) => a.stopSequence - b.stopSequence);
+        let best: { boarding: GtfsRow; alighting: GtfsRow; boardingTime?: string; alightingTime?: string; score: number } | null = null;
+        for (let boardingIndex = 0; boardingIndex < orderedStops.length; boardingIndex += 1) {
+          const boardingTime = orderedStops[boardingIndex];
+          const boarding = stopById.get(boardingTime.stopId);
+          if (!boarding) continue;
+          for (let alightingIndex = boardingIndex + 1; alightingIndex < orderedStops.length; alightingIndex += 1) {
+            const alightingTime = orderedStops[alightingIndex];
+            const alighting = stopById.get(alightingTime.stopId);
+            if (!alighting) continue;
+            const score = distanceBetween({ lat: Number(boarding.stop_lat), lng: Number(boarding.stop_lon) }, origin) + distanceBetween({ lat: Number(alighting.stop_lat), lng: Number(alighting.stop_lon) }, destination);
+            if (!best || score < best.score) best = { boarding, alighting, boardingTime: boardingTime.departureTime || boardingTime.arrivalTime, alightingTime: alightingTime.arrivalTime || alightingTime.departureTime, score };
+          }
+        }
+        return best ? { route, ...best } : null;
+      }).filter((item): item is NonNullable<typeof item> => Boolean(item)).sort((a, b) => a.score - b.score)[0];
+      if (!candidate || candidate.score > 0.08) continue;
+      const { route, boarding, alighting, boardingTime, alightingTime } = candidate;
+      const toStop = { id: `gtfs-${boarding.stop_id}`, name: boarding.stop_name || 'Rapid stop', lat: Number(boarding.stop_lat), lng: Number(boarding.stop_lon), departureTime: boardingTime };
+      const fromStop = { id: `gtfs-${alighting.stop_id}`, name: alighting.stop_name || 'Rapid stop', lat: Number(alighting.stop_lat), lng: Number(alighting.stop_lon), arrivalTime: alightingTime };
+      const name = route.route_long_name || route.route_short_name || `${category} service`;
+      const stops = [{ id: 'origin', name: 'Origin', lat: origin.lat, lng: origin.lng }, toStop, fromStop, { id: 'destination', name: 'Destination', lat: destination.lat, lng: destination.lng }];
+      const legs: PublicTransportLeg[] = [
+        { mode: 'walking', name: 'Walk to transit', points: await routeLegOnRoads(origin, toStop) },
+        { mode: classifyMode(route), name, points: [toStop, fromStop] },
+        { mode: 'walking', name: 'Walk to destination', points: await routeLegOnRoads(fromStop, destination) },
+      ];
+      return { stops, legs, routeName: name, routeType: getRouteType(route), points: stops.map(({ lat, lng }) => ({ lat, lng })) };
+    } catch {
+      // Try the next official Rapid feed category.
+    }
+  }
+  throw new Error('No Rapid KL GTFS route found');
 }
+
+export const getPublicTransportSpeed = (mode: PublicTransportLeg['mode']) =>
+  mode === 'walking' ? WALKING_SPEED_KM_PER_HOUR : mode === 'train' ? 45 : mode === 'mrt' ? 35 : mode === 'lrt' ? 32 : mode === 'monorail' ? 28 : mode === 'brt' ? 25 : 20;

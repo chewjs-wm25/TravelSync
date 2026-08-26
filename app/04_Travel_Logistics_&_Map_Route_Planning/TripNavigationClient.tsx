@@ -25,6 +25,7 @@ import {
   fetchSuggestions,
   type PlaceSuggestion,
 } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/nominatimApi";
+import { getPublicTransportSpeed } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi";
 import RouteAnalysisClient from "./RouteAnalysisClient";
 import SavedRoutesClient from "./SavedRoutesClient";
 import ExportRouteClient from "./ExportRouteClient";
@@ -49,15 +50,7 @@ const vehicleOptions: Array<{ value: VehicleType; label: string }> = [
   { value: "public transport", label: "Public Transport" },
 ];
 
-const publicTransportOptions = ["LRT", "MRT", "Bus", "Walking"];
-
-const transitSpeedsKmPerHour = {
-  lrt: 32,
-  mrt: 35,
-  bus: 20,
-  // align walking speed with store: 1.2 m/s = 4.32 km/h
-  walking: 4.32,
-} as const;
+const publicTransportOptions = ["Rail", "MRT", "LRT", "Monorail", "BRT", "Feeder bus", "Bus", "Walking"];
 
 const getDistanceKm = (points: Array<{ lat: number; lng: number }>) =>
   points.slice(1).reduce((distance, point, index) => {
@@ -67,6 +60,14 @@ const getDistanceKm = (points: Array<{ lat: number; lng: number }>) =>
       (point.lng - previous.lng) * 111 * Math.cos((point.lat * Math.PI) / 180);
     return distance + Math.hypot(latitudeDistance, longitudeDistance);
   }, 0);
+
+const formatDuration = (minutes: number) => {
+  const totalMinutes = Math.max(0, Math.round(minutes));
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  return `${totalMinutes} min / ${hours} hr${remainingMinutes ? ` ${remainingMinutes} min` : ''}`;
+};
 
 function AutoZoomToRoute({
   routeCoordinates,
@@ -186,7 +187,7 @@ export default function TripNavigationClient() {
     const distanceKm = getDistanceKm(leg.points);
     const minutes = Math.max(
       1,
-      Number(((distanceKm / transitSpeedsKmPerHour[leg.mode]) * 60).toFixed(1))
+      Number(((distanceKm / getPublicTransportSpeed(leg.mode)) * 60).toFixed(1))
     );
     const stopCount = publicTransportStops.filter((stop) =>
       leg.points.some((point) => point.lat === stop.lat && point.lng === stop.lng)
@@ -361,7 +362,7 @@ export default function TripNavigationClient() {
                   key={`${leg.mode}-${leg.name}`}
                   positions={leg.points.map((point) => [point.lat, point.lng] as LatLngExpression)}
                   pathOptions={{
-                    color: leg.mode === "walking" ? "#16a34a" : leg.mode === "lrt" ? "#dc2626" : leg.mode === "mrt" ? "#7c3aed" : "#2563eb",
+                    color: leg.mode === "walking" ? "#16a34a" : leg.mode === "lrt" ? "#dc2626" : leg.mode === "mrt" ? "#7c3aed" : leg.mode === "monorail" ? "#0891b2" : leg.mode === "brt" ? "#ea580c" : "#2563eb",
                     weight: 5,
                     dashArray: leg.mode === "walking" ? "5, 8" : undefined,
                   }}
@@ -385,8 +386,8 @@ export default function TripNavigationClient() {
               <div className="mt-2 flex flex-wrap gap-3 text-gray-600">
                 {publicTransportLegs.map((leg) => (
                   <span key={`${leg.mode}-legend`} className="flex items-center gap-1">
-                    <span className={`h-2 w-5 rounded-full ${leg.mode === "walking" ? "bg-green-600" : leg.mode === "lrt" ? "bg-red-600" : leg.mode === "mrt" ? "bg-violet-600" : "bg-blue-600"}`} />
-                    {leg.mode === "walking" ? "Walking" : leg.mode === "lrt" ? "LRT" : leg.mode === "mrt" ? "MRT" : "Bus"}
+                    <span className={`h-2 w-5 rounded-full ${leg.mode === "walking" ? "bg-green-600" : leg.mode === "lrt" ? "bg-red-600" : leg.mode === "mrt" ? "bg-violet-600" : leg.mode === "monorail" ? "bg-cyan-600" : leg.mode === "brt" ? "bg-orange-600" : "bg-blue-600"}`} />
+                    {leg.mode === "walking" ? "Walking" : leg.name}
                   </span>
                 ))}
               </div>
@@ -636,7 +637,7 @@ export default function TripNavigationClient() {
               <div className="flex items-center justify-between">
                 <span>Total time</span>
                 <span className="font-semibold text-gray-800">
-                  {summary.timeMinutes.toFixed(1)} min
+                  {formatDuration(summary.timeMinutes)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -678,7 +679,14 @@ export default function TripNavigationClient() {
                 </p>
                 <ol className="mt-2 space-y-1 text-sm text-gray-600">
                   {publicTransportStops.map((stop, index) => (
-                    <li key={stop.id}>{index + 1}. {stop.name}</li>
+                    <li key={stop.id}>
+                      {index + 1}. {stop.name}
+                      {(stop.departureTime || stop.arrivalTime) && (
+                        <span className="ml-2 text-xs text-gray-500">
+                          {stop.departureTime ? `Departs ${stop.departureTime}` : `Arrives ${stop.arrivalTime}`}
+                        </span>
+                      )}
+                    </li>
                   ))}
                 </ol>
               </div>
