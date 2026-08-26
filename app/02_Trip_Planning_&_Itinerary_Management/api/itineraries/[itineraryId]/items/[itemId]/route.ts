@@ -76,7 +76,7 @@ async function handleUpdate(
           endTime: typeof body.endTime === "string" ? body.endTime : null,
     });
 
-    return NextResponse.json({ item: mapItemResponse(item) }, { status: 200 });
+    return NextResponse.json({ success: true, item: mapItemResponse(item) }, { status: 200 });
   } catch (error) {
     const typedError = error as Error & { status?: number };
     const status = typedError.status ?? 500;
@@ -85,7 +85,7 @@ async function handleUpdate(
         ? error.message
         : "Failed to update itinerary item";
 
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ success: false, message }, { status });
   }
 }
 
@@ -111,7 +111,7 @@ export async function DELETE(
     const { itineraryId, itemId } = await params;
     await deleteItineraryItemAction({ itineraryId, itemId });
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     const typedError = error as Error & { status?: number };
     const status = typedError.status ?? 500;
@@ -120,6 +120,6 @@ export async function DELETE(
         ? error.message
         : "Failed to delete itinerary item";
 
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ success: false, message }, { status });
   }
 }

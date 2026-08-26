@@ -19,6 +19,81 @@ import { discoveryService } from "@/business_logic_layer/03_Destination_Discover
 export const DEFAULT_USER_ID = "usr_demo";
 const MAX_TRIP_NAME_LENGTH = 100;
 
+/** 提供给模块 04 用于计算交通时间的旅行信息 */
+export interface TripRouteData {
+  tripId: string;
+  tripName: string;
+  itineraries: ItineraryRouteData[];
+}
+
+export interface ItineraryRouteData {
+  itineraryId: string;
+  date: string;
+  places: RoutePlace[];
+}
+
+/**
+ * 行程停靠点 —— 与模块 04 的 Stop 同构（单一坐标标准 lat/lon，见 guideline §5）。
+ * id 为行程明细 ID（itemId），供模块 04 的 TravelTime.fromId/toId 回映射。
+ */
+export interface RoutePlace {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+/** 提供给模块 05 用于协作的旅行信息 */
+export interface CollaborationTripData {
+  tripId: string;
+  userId: string;
+  tripName: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  itineraries: CollaborationItinerary[];
+}
+
+export interface CollaborationItinerary {
+  itineraryId: string;
+  date: string;
+  title: string;
+  items: CollaborationItem[];
+}
+
+/** 行程明细（数据所有者为本模块；模块 05 的 ItineraryItem 与本结构字段对齐） */
+export interface CollaborationItem {
+  itemId: string;
+  placeId?: string | null;
+  name: string;
+  day?: number;             // 第几天（可选；可由所属 CollaborationItinerary.date 派生）
+  note?: string;            // 备注（模块 05 协作编辑）
+  lat?: number | null;      // 扁平坐标标准（guideline §5）
+  lon?: number | null;
+}
+
+/** 从模块 01 请求的用户信息（经 useAuthStore.user.id 获取） */
+export interface UserInfo {
+  userId: string;
+}
+
+/** 从模块 03 请求的州/省信息（字段与模块 03 输出对齐） */
+export interface StateInfo {
+  stateId: string;
+  name: string;
+  lat: number;
+  lon: number;
+  imageUrl: string;
+}
+
+/** 从模块 03 请求的地点信息（字段与模块 03 的 PoiItem/PlaceDetail 核心字段对齐） */
+export interface PlaceInfo {
+  placeId: string;
+  name: string;
+  lat: number;
+  lon: number;
+  imageUrl: string;
+}
+
 export type TripServiceInput = {
   userId?: string | null;
   tripName?: string | null;
@@ -41,12 +116,12 @@ export type DeleteTripInput = {
 };
 
 type TripServiceSuccess = {
-  ok: true;
+  success: true;
   trip: TripRecord;
 };
 
 type TripServiceFailure = {
-  ok: false;
+  success: false;
   status: number;
   message: string;
 };
@@ -54,7 +129,7 @@ type TripServiceFailure = {
 export type TripServiceResult = TripServiceSuccess | TripServiceFailure;
 
 type DeleteTripSuccess = {
-  ok: true;
+  success: true;
 };
 
 export type DeleteTripResult = DeleteTripSuccess | TripServiceFailure;
@@ -64,7 +139,7 @@ function isValidIsoDate(value: string) {
 }
 
 export function validateTripPayload(input: TripServiceInput):
-  | { ok: true; normalized: CreateTripInput }
+  | { success: true; normalized: CreateTripInput }
   | TripServiceFailure {
   const tripName = normalizeText(input.tripName);
   const tripNote = normalizeText(input.tripNote);
@@ -74,7 +149,7 @@ export function validateTripPayload(input: TripServiceInput):
 
   if (!tripName) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Trip name is required",
     };
@@ -82,7 +157,7 @@ export function validateTripPayload(input: TripServiceInput):
 
   if (tripName.length > MAX_TRIP_NAME_LENGTH) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Trip name must be 100 characters or fewer",
     };
@@ -90,7 +165,7 @@ export function validateTripPayload(input: TripServiceInput):
 
   if (startDate && !isValidIsoDate(startDate)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid Trip date",
     };
@@ -98,7 +173,7 @@ export function validateTripPayload(input: TripServiceInput):
 
   if (endDate && !isValidIsoDate(endDate)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid Trip date",
     };
@@ -106,7 +181,7 @@ export function validateTripPayload(input: TripServiceInput):
 
   if (startDate && endDate && startDate > endDate) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid Trip date",
     };
@@ -115,14 +190,14 @@ export function validateTripPayload(input: TripServiceInput):
   const malaysiaScopeText = [tripName, tripNote].filter(Boolean).join(" ");
   if (malaysiaScopeText && hasMalaysiaBlocklistMatch(malaysiaScopeText)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Trip must stay within Malaysia",
     };
   }
 
   return {
-    ok: true,
+    success: true,
     normalized: {
       userId,
       tripName,
@@ -136,25 +211,25 @@ export function validateTripPayload(input: TripServiceInput):
 function validateUpdateTripPayload(
   input: UpdateTripServiceInput
 ):
-  | { ok: true; tripId: string; normalized: TripRepositoryUpdateInput }
+  | { success: true; tripId: string; normalized: TripRepositoryUpdateInput }
   | TripServiceFailure {
   const tripId = normalizeText(input.tripId);
 
   if (!tripId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Trip ID is required",
     };
   }
 
   const validation = validateTripPayload(input);
-  if (!validation.ok) {
+  if (!validation.success) {
     return validation;
   }
 
   return {
-    ok: true,
+    success: true,
     tripId,
     normalized: {
       tripName: validation.normalized.tripName,
@@ -171,7 +246,7 @@ export async function createTrip(
 ): Promise<TripServiceResult> {
   const validation = validateTripPayload(input);
 
-  if (!validation.ok) {
+  if (!validation.success) {
     return validation;
   }
 
@@ -207,7 +282,7 @@ export async function createTrip(
     }
   }
 
-  return { ok: true, trip };
+  return { success: true, trip };
 }
 
 export async function updateTrip(
@@ -216,7 +291,7 @@ export async function updateTrip(
 ): Promise<TripServiceResult> {
   const validation = validateUpdateTripPayload(input);
 
-  if (!validation.ok) {
+  if (!validation.success) {
     return validation;
   }
 
@@ -228,14 +303,14 @@ export async function updateTrip(
 
   if (!trip) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Trip not found",
     };
   }
 
   return {
-    ok: true,
+    success: true,
     trip,
   };
 }
@@ -247,7 +322,10 @@ export async function getTripsForUser(db: D1Database, userId?: string | null) {
 /**
  * Assemble TripRouteData for module 04 consumption.
  */
-export async function getTripRouteData(db: D1Database, tripId?: string | null) {
+export async function getTripRouteData(
+  db: D1Database,
+  tripId?: string | null
+): Promise<TripRouteData> {
   const resolvedTripId = normalizeText(tripId);
   if (!resolvedTripId) {
     throw new Error("Trip ID is required");
@@ -259,15 +337,11 @@ export async function getTripRouteData(db: D1Database, tripId?: string | null) {
   }
 
   const itineraries = await getItinerariesByTripId(db, resolvedTripId);
-  const itineraryRouteData = [] as {
-    itineraryId: string;
-    date: string;
-    places: { id: string; name: string; lat: number; lon: number }[];
-  }[];
+  const itineraryRouteData: ItineraryRouteData[] = [];
 
   for (const it of itineraries) {
     const items = await getItineraryItemsByItineraryId(db, it.itinerary_id);
-    const places = [] as { id: string; name: string; lat: number; lon: number }[];
+    const places: RoutePlace[] = [];
 
     for (const item of items) {
       let lat = 0;
@@ -308,7 +382,10 @@ export async function getTripRouteData(db: D1Database, tripId?: string | null) {
 /**
  * Assemble CollaborationTripData for module 05 consumption.
  */
-export async function getCollaborationTripData(db: D1Database, tripId?: string | null) {
+export async function getCollaborationTripData(
+  db: D1Database,
+  tripId?: string | null
+): Promise<CollaborationTripData> {
   const resolvedTripId = normalizeText(tripId);
   if (!resolvedTripId) {
     throw new Error("Trip ID is required");
@@ -320,12 +397,12 @@ export async function getCollaborationTripData(db: D1Database, tripId?: string |
   }
 
   const itineraries = await getItinerariesByTripId(db, resolvedTripId);
-  const collabItineraries = [] as any[];
+  const collabItineraries: CollaborationItinerary[] = [];
 
   for (const it of itineraries) {
     const items = await getItineraryItemsByItineraryId(db, it.itinerary_id);
 
-    const collabItems = items.map((item) => ({
+    const collabItems: CollaborationItem[] = items.map((item) => ({
       itemId: item.item_id,
       placeId: item.reference_id ?? null,
       name: item.item_name,
@@ -378,12 +455,12 @@ export async function deleteTrip(
 
   if (!tripId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Trip ID is required",
     };
   }
 
   await deleteTripById(db, tripId);
-  return { ok: true };
+  return { success: true };
 }

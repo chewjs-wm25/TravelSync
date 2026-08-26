@@ -26,11 +26,11 @@ export async function POST(
 
     const result = await importPlacesAction(itineraryId, items as any);
 
-    return NextResponse.json({ result }, { status: 201 });
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     const typedError = error as Error & { status?: number };
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to import places" },
+      { success: false, message: error instanceof Error ? error.message : "Failed to import places" },
       { status: typedError.status ?? 500 }
     );
   }

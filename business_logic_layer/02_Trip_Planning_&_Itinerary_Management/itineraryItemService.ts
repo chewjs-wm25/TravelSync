@@ -12,6 +12,18 @@ import {
   normalizeText,
 } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
 
+export interface ImportPlaceInput {
+  placeId?: string | null;
+  name: string;
+  lat?: number | null;
+  lon?: number | null;
+}
+
+export interface ImportPlacesResult {
+  success: boolean;
+  importedCount: number;
+}
+
 export type ItineraryItemServiceInput = {
   itineraryId?: string | null;
   place?: string | null;
@@ -46,16 +58,16 @@ export type DeleteItineraryItemInput = {
 };
 
 type ItineraryItemServiceSuccess = {
-  ok: true;
+  success: true;
   item: ItineraryItemRecord;
 };
 
 type DeleteItineraryItemSuccess = {
-  ok: true;
+  success: true;
 };
 
 type ItineraryItemServiceFailure = {
-  ok: false;
+  success: false;
   status: number;
   message: string;
 };
@@ -98,7 +110,7 @@ export function validateItineraryItemPayload(
   input: ItineraryItemServiceInput
 ):
   | {
-      ok: true;
+      success: true;
       itineraryId: string;
       normalized: {
         place: string;
@@ -115,7 +127,7 @@ export function validateItineraryItemPayload(
 
   if (note && hasMalaysiaBlocklistMatch(note)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary item note must stay within Malaysia",
     };
@@ -123,7 +135,7 @@ export function validateItineraryItemPayload(
 
   if (!resolvedItineraryId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary ID is required",
     };
@@ -131,14 +143,14 @@ export function validateItineraryItemPayload(
 
   if (!place) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Place Not Found!",
     };
   }
 
   return {
-    ok: true,
+    success: true,
     itineraryId: resolvedItineraryId,
     normalized: {
       place,
@@ -156,14 +168,14 @@ export async function createItineraryItem(
   const itineraryId = normalizeText(input.itineraryId);
   const validation = validateItineraryItemPayload(itineraryId, input);
 
-  if (!validation.ok) {
+  if (!validation.success) {
     return validation;
   }
 
   const existingItinerary = await getItineraryById(db, validation.itineraryId);
   if (!existingItinerary) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary not found",
     };
@@ -189,7 +201,7 @@ export async function createItineraryItem(
 
   if (!wasInserted) {
     return {
-      ok: false,
+      success: false,
       status: 500,
       message: "Failed to add itinerary item",
     };
@@ -205,7 +217,7 @@ export async function createItineraryItem(
   }
 
   return {
-    ok: true,
+    success: true,
     item: {
       item_id: itemId,
       itinerary_id: validation.itineraryId,
@@ -232,7 +244,7 @@ export async function updateItineraryItemById(
 
   if (!itemId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Item ID is required",
     };
@@ -241,7 +253,7 @@ export async function updateItineraryItemById(
   const existingItem = await getItineraryItemById(db, itemId);
   if (!existingItem) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary item not found",
     };
@@ -249,7 +261,7 @@ export async function updateItineraryItemById(
 
   if (itineraryId && existingItem.itinerary_id !== itineraryId) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary item not found",
     };
@@ -281,7 +293,7 @@ export async function updateItineraryItemById(
     !hasEndTimeUpdate
   ) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "No itinerary item updates provided",
     };
@@ -292,7 +304,7 @@ export async function updateItineraryItemById(
 
   if (hasNoteUpdate && normalizedNote && hasMalaysiaBlocklistMatch(normalizedNote)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary item note must stay within Malaysia",
     };
@@ -300,7 +312,7 @@ export async function updateItineraryItemById(
 
   if (hasNameUpdate && !normalizedName) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary item name is required",
     };
@@ -318,7 +330,7 @@ export async function updateItineraryItemById(
     Number.isNaN(normalizedPosition)
   ) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Position must be a positive integer",
     };
@@ -379,7 +391,7 @@ export async function updateItineraryItemById(
 
   if (!wasUpdated) {
     return {
-      ok: false,
+      success: false,
       status: 500,
       message: "Failed to update itinerary item",
     };
@@ -388,7 +400,7 @@ export async function updateItineraryItemById(
   const updatedItem = await getItineraryItemById(db, itemId);
   if (!updatedItem) {
     return {
-      ok: false,
+      success: false,
       status: 500,
       message: "Failed to update itinerary item",
     };
@@ -403,7 +415,7 @@ export async function updateItineraryItemById(
   }
 
   return {
-    ok: true,
+    success: true,
     item: updatedItem,
   };
 }
@@ -417,7 +429,7 @@ export async function deleteItineraryItemById(
 
   if (!itemId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Item ID is required",
     };
@@ -426,7 +438,7 @@ export async function deleteItineraryItemById(
   const existingItem = await getItineraryItemById(db, itemId);
   if (!existingItem) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary item not found",
     };
@@ -434,7 +446,7 @@ export async function deleteItineraryItemById(
 
   if (itineraryId && existingItem.itinerary_id !== itineraryId) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary item not found",
     };
@@ -443,7 +455,7 @@ export async function deleteItineraryItemById(
   const wasDeleted = await deleteItineraryItem(db, itemId);
   if (!wasDeleted) {
     return {
-      ok: false,
+      success: false,
       status: 500,
       message: "Failed to delete itinerary item",
     };
@@ -457,7 +469,7 @@ export async function deleteItineraryItemById(
     // ignore
   }
 
-  return { ok: true };
+  return { success: true };
 }
 
 export async function getItineraryItemsForItinerary(
@@ -486,8 +498,8 @@ export async function getItineraryItemsForDay(
 export async function importPlaces(
   db: D1Database,
   itineraryId: string,
-  items: { placeId?: string | null; name: string; lat?: number | null; lon?: number | null }[]
-): Promise<{ success: boolean; importedCount: number }> {
+  items: ImportPlaceInput[]
+): Promise<ImportPlacesResult> {
   const resolvedItineraryId = normalizeText(itineraryId);
   if (!resolvedItineraryId) {
     return { success: false, importedCount: 0 };

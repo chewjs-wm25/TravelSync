@@ -12,11 +12,11 @@ export async function GET(
   try {
     const { itineraryId } = await params;
     const items = await listItineraryItemsAction(itineraryId);
-    return NextResponse.json({ items }, { status: 200 });
+    return NextResponse.json({ success: true, items }, { status: 200 });
   } catch (error) {
     const typedError = error as Error & { status?: number };
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to list itinerary items" },
+      { success: false, message: error instanceof Error ? error.message : "Failed to list itinerary items" },
       { status: typedError.status ?? 500 }
     );
   }
@@ -47,6 +47,7 @@ export async function POST(
 
     return NextResponse.json(
       {
+        success: true,
         item: {
           id: item.item_id,
           item_id: item.item_id,
@@ -78,6 +79,6 @@ export async function POST(
         ? error.message
         : "Failed to create itinerary item";
 
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ success: false, message }, { status });
   }
 }

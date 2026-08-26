@@ -562,12 +562,14 @@ export default function TripItineraryPage() {
       );
 
       const payload = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        message?: string;
         error?: string;
         item?: ItemApiPayload;
       };
 
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to add item");
+      if (!response.ok || payload.success === false) {
+        throw new Error(payload.message ?? payload.error ?? "Failed to add item");
       }
 
       const item = payload.item;
@@ -843,12 +845,14 @@ export default function TripItineraryPage() {
       );
 
       const responsePayload = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        message?: string;
         error?: string;
         item?: ItemApiPayload;
       };
 
-      if (!response.ok) {
-        throw new Error(responsePayload.error ?? "Failed to update item");
+      if (!response.ok || responsePayload.success === false) {
+        throw new Error(responsePayload.message ?? responsePayload.error ?? "Failed to update item");
       }
 
       const updatedItem = responsePayload.item ?? {};
