@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { discoveryService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
 import {
   deleteItineraryAction,
   listItinerariesAction,
@@ -145,7 +146,9 @@ export default function TripItineraryPage() {
   const [dayCards, setDayCards] = useState<DayItinerary[]>([]);
   const [searchInputs, setSearchInputs] = useState<Record<string, string>>({});
   // selected suggestions per day (from module 03 DiscoveryService)
-  const [selectedSuggestions, setSelectedSuggestions] = useState<Record<string, { placeId: string; formatted: string } | undefined>>({});
+  const [selectedSuggestions, setSelectedSuggestions] = useState<
+    Record<string, { placeId: string; formatted: string } | undefined>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
@@ -513,6 +516,22 @@ export default function TripItineraryPage() {
       return;
     }
 
+    const selectedSuggestion = selectedSuggestions[dayId];
+    let resolvedPlaceDetail = null as Awaited<
+      ReturnType<typeof discoveryService.getPlaceDetail>
+    >;
+
+    if (selectedSuggestion) {
+      try {
+        resolvedPlaceDetail = await discoveryService.getPlaceDetail(
+          selectedSuggestion.placeId,
+          selectedSuggestion.formatted || query
+        );
+      } catch {
+        resolvedPlaceDetail = null;
+      }
+    }
+
     if (dayId.startsWith("local-")) {
       setDayCards((previous) =>
         previous.map((day) => {
@@ -522,8 +541,8 @@ export default function TripItineraryPage() {
 
           const newItem = {
             id: `${day.id}-${Date.now()}`,
-            name: query,
-            image: defaultItemImage,
+            name: resolvedPlaceDetail?.name ?? query,
+            image: resolvedPlaceDetail?.imageUrl || defaultItemImage,
             note: undefined,
             position: day.items.length + 1,
             order_index: day.items.length + 1,
@@ -552,11 +571,12 @@ export default function TripItineraryPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            place: query,
-            image: defaultItemImage,
+            place: resolvedPlaceDetail?.name ?? query,
+            image: resolvedPlaceDetail?.imageUrl || defaultItemImage,
             note: "",
-            // include referenceId when user selected a module-03 suggestion
-            referenceId: selectedSuggestions[dayId]?.placeId ?? null,
+            referenceId: selectedSuggestion?.placeId ?? null,
+            lat: resolvedPlaceDetail?.lat ?? null,
+            lon: resolvedPlaceDetail?.lon ?? null,
           }),
         }
       );

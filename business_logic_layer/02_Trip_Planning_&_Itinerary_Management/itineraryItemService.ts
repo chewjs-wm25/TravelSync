@@ -191,7 +191,9 @@ export async function createItineraryItem(
     normalizeText(input.type) ?? "other",
     normalizeText(input.referenceId) ?? undefined,
     normalizeText(input.startTime) ?? undefined,
-    normalizeText(input.endTime) ?? undefined
+    normalizeText(input.endTime) ?? undefined,
+    typeof input.lat === "number" ? input.lat : null,
+    typeof input.lon === "number" ? input.lon : null
   );
 
   if (!wasInserted) {
@@ -274,6 +276,8 @@ export async function updateItineraryItemById(
     input.order_index !== undefined && input.order_index !== null;
   const hasDestinationUpdate = input.destination !== undefined;
   const hasReferenceIdUpdate = input.referenceId !== undefined;
+  const hasLatUpdate = input.lat !== undefined && input.lat !== null;
+  const hasLonUpdate = input.lon !== undefined && input.lon !== null;
   const hasTypeUpdate = input.type !== undefined;
   const hasStartTimeUpdate = input.startTime !== undefined;
   const hasEndTimeUpdate = input.endTime !== undefined;
@@ -286,6 +290,8 @@ export async function updateItineraryItemById(
     !hasOrderIndexUpdate &&
     !hasDestinationUpdate &&
     !hasReferenceIdUpdate &&
+    !hasLatUpdate &&
+    !hasLonUpdate &&
     !hasTypeUpdate &&
     !hasStartTimeUpdate &&
     !hasEndTimeUpdate
@@ -350,6 +356,12 @@ export async function updateItineraryItemById(
   if (input.referenceId !== undefined) {
     normalizedUpdates.reference_id = normalizeText(input.referenceId);
   }
+  if (hasLatUpdate) {
+    normalizedUpdates.lat = input.lat;
+  }
+  if (hasLonUpdate) {
+    normalizedUpdates.lon = input.lon;
+  }
   if (input.type !== undefined) {
     normalizedUpdates.type = normalizeText(input.type);
   }
@@ -378,11 +390,13 @@ export async function updateItineraryItemById(
       typeof normalizedUpdates.image_url === "string"
         ? normalizedUpdates.image_url
         : undefined,
-      destination: normalizedUpdates.destination ?? undefined,
-      reference_id: normalizedUpdates.reference_id ?? undefined,
-      type: normalizedUpdates.type ?? undefined,
-      start_time: normalizedUpdates.start_time ?? undefined,
-      end_time: normalizedUpdates.end_time ?? undefined,
+    destination: normalizedUpdates.destination ?? undefined,
+    reference_id: normalizedUpdates.reference_id ?? undefined,
+    lat: normalizedUpdates.lat ?? undefined,
+    lon: normalizedUpdates.lon ?? undefined,
+    type: normalizedUpdates.type ?? undefined,
+    start_time: normalizedUpdates.start_time ?? undefined,
+    end_time: normalizedUpdates.end_time ?? undefined,
     position: normalizedUpdates.position ?? undefined,
     order_index: normalizedUpdates.order_index ?? undefined,
   });

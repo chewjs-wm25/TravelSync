@@ -18,6 +18,8 @@ function mapItemResponse(item: {
   start_time?: string | null;
   end_time?: string | null;
   reference_id?: string | null;
+  lat?: number | null;
+  lon?: number | null;
 }) {
   return {
     id: item.item_id,
@@ -37,6 +39,8 @@ function mapItemResponse(item: {
     start_time: item.start_time ?? undefined,
     end_time: item.end_time ?? undefined,
     reference_id: item.reference_id ?? undefined,
+    lat: typeof item.lat === "number" ? item.lat : undefined,
+    lon: typeof item.lon === "number" ? item.lon : undefined,
   };
 }
 
@@ -69,11 +73,13 @@ async function handleUpdate(
           : typeof body.order_index === "string"
             ? body.order_index
             : null,
-          destination: typeof body.destination === "string" ? body.destination : null,
-          referenceId: typeof body.referenceId === "string" ? body.referenceId : null,
-          type: typeof body.type === "string" ? body.type : null,
-          startTime: typeof body.startTime === "string" ? body.startTime : null,
-          endTime: typeof body.endTime === "string" ? body.endTime : null,
+         destination: typeof body.destination === "string" ? body.destination : null,
+         referenceId: typeof body.referenceId === "string" ? body.referenceId : null,
+         lat: typeof body.lat === "number" ? body.lat : null,
+         lon: typeof body.lon === "number" ? body.lon : null,
+         type: typeof body.type === "string" ? body.type : null,
+         startTime: typeof body.startTime === "string" ? body.startTime : null,
+         endTime: typeof body.endTime === "string" ? body.endTime : null,
     });
 
     return NextResponse.json({ success: true, item: mapItemResponse(item) }, { status: 200 });

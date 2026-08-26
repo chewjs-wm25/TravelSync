@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
+import { discoveryService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
 import type { SuggestionItem } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
+
+import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
 
 export type DayItinerary = {
   id: string;
@@ -111,26 +113,36 @@ export function DayItineraryCard({
     setIsEditingNote(true);
   };
 
-  // Suggestions are provided by module 03 in production. The previous module-02
-  // in-memory stub generator was removed to avoid local-only drivers/stubs.
-  // Keep suggestions empty here; the parent may supply real suggestions via
-  // onSelectSuggestion or other props when integrated with module 03.
   useEffect(() => {
-    if (!searchValue || !searchValue.trim()) {
+    const trimmedValue = searchValue.trim();
+    if (!trimmedValue) {
       setSuggestions([]);
       setIsSuggestionsOpen(false);
       onSelectSuggestion?.(undefined);
       return;
     }
 
-    // No local stubs — await real suggestions from module 03 integration in the parent.
-    setSuggestions([]);
-    setIsSuggestionsOpen(false);
-    // Clean up any timers if present
     if (suggestionsTimer.current) {
       window.clearTimeout(suggestionsTimer.current);
-      suggestionsTimer.current = null;
     }
+
+    suggestionsTimer.current = window.setTimeout(async () => {
+      try {
+        const nextSuggestions = await discoveryService.getSuggestions(trimmedValue);
+        setSuggestions(nextSuggestions);
+        setIsSuggestionsOpen(nextSuggestions.length > 0);
+      } catch {
+        setSuggestions([]);
+        setIsSuggestionsOpen(false);
+      }
+    }, 200);
+
+    return () => {
+      if (suggestionsTimer.current) {
+        window.clearTimeout(suggestionsTimer.current);
+        suggestionsTimer.current = null;
+      }
+    };
   }, [searchValue, onSelectSuggestion]);
 
   const handleSaveNote = async (nextNote: string) => {
