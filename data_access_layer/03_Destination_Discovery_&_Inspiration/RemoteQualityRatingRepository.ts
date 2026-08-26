@@ -19,9 +19,9 @@ import type {
 } from "./OfficialQualityRatingRepository";
 import { sessionAuthHeaders } from "./sessionAuth";
 
-/** Route API 端点（模块 03 官方品质评级） */
+/** Route API 端点（模块 03 官方品质评级；统一路径见 guideline §5，前导 / 保证任意子路由下解析正确） */
 const QUALITY_RATINGS_API =
-  "03_Destination_Discovery_&_Inspiration/api/official-quality-ratings";
+  "/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings";
 
 export class RemoteQualityRatingRepository implements OfficialQualityRatingRepository {
   async listAll(): Promise<OfficialQualityRatingEntity[]> {

@@ -42,7 +42,7 @@ export default function SavedRoutesClient({
                       {route.name}
                     </h2>
                     <p className="text-sm text-gray-500">
-                      {route.summary.distanceKm.toFixed(1)} km • {route.summary.timeMinutes} min • {route.optimizationMode}
+                      {route.summary.distanceKm.toFixed(1)} km • {route.optimizationMode}
                     </p>
                   </div>
                   <span className="bg-secondary-500 rounded-full px-3 py-1 text-xs font-semibold tracking-[0.2em] text-white uppercase">

@@ -11,6 +11,7 @@ import type {
   Vehicle,
   SavedRoute,
   VehicleType,
+  VehicleCategory,
   OptimizationMode,
 } from './useTripNavigationStore';
 import {
@@ -227,8 +228,8 @@ export function exportToGoogleMaps(origin: Stop, destination: Stop): string {
  * Export route to Waze
  * Called by: Module 2 (Trip Planning) - to navigate with Waze
  */
-export function exportToWaze(destination: Stop): string {
-  return getWazeUrl(destination);
+export function exportToWaze(destination: Stop, origin?: Stop): string {
+  return getWazeUrl(destination, origin);
 }
 
 // ============================================
@@ -242,5 +243,6 @@ export type {
   Vehicle,
   SavedRoute,
   VehicleType,
+  VehicleCategory,
   OptimizationMode,
 };

@@ -154,45 +154,35 @@ export default function CreateItineraryModal({
     setErrorMessage("");
 
     try {
-      const response = await fetch(
-        "/02_Trip_Planning_&_Itinerary_Management/api/itinerary",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tripId: trip.trip_id,
-            title,
-            date,
-            note,
-          }),
-        }
+      // Use server action for creating an itinerary (consistent with other create actions)
+      // import createItineraryAction at top of file
+      // The server action will throw on failure with a meaningful message
+      // (e.g., "Invalid date!") which we surface to the user.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore Server action import from a 'use server' module
+      const { createItineraryAction } = await import(
+        "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryApi"
       );
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-
-      if (!response.ok) {
-        if (payload?.error === "Invalid date!") {
-          setErrorMessage("Date must fall within trip duration");
-          onInvalidDate?.();
-        }
-
-        throw new Error(payload?.error ?? "Failed to create itinerary");
-      }
+      await createItineraryAction({
+        tripId: trip.trip_id,
+        title,
+        date,
+        note,
+      });
 
       onSuccess();
       onClose();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create itinerary";
-      setErrorMessage(
-        message === "Invalid date!"
-          ? "Date must fall within trip duration"
-          : message
-      );
+
+      if (message === "Invalid date!") {
+        setErrorMessage("Date must fall within trip duration");
+        onInvalidDate?.();
+      } else {
+        setErrorMessage(message);
+      }
     } finally {
       setIsSubmitting(false);
     }

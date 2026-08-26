@@ -7,6 +7,7 @@ import { useTripNavigationStore } from "@/business_logic_layer/04_Travel_Logisti
 interface Vehicle {
   id: string;
   name: string;
+  category: "car" | "motorcycle";
   fuelConsumption: number;
   fuelType: string;
   isDefault: boolean;
@@ -25,6 +26,7 @@ export default function VehicleGarageClient() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
+    category: "car" as Vehicle["category"],
     fuelConsumption: "",
     fuelType: "Petrol",
   });
@@ -36,6 +38,7 @@ export default function VehicleGarageClient() {
     if (editingId) {
       editVehicle(editingId, {
         name: formData.name,
+        category: formData.category,
         fuelConsumption: parseFloat(formData.fuelConsumption),
         fuelType: formData.fuelType,
       });
@@ -43,11 +46,12 @@ export default function VehicleGarageClient() {
     } else {
       addVehicle({
         name: formData.name,
+        category: formData.category,
         fuelConsumption: parseFloat(formData.fuelConsumption),
         fuelType: formData.fuelType,
       });
     }
-    setFormData({ name: "", fuelConsumption: "", fuelType: "Petrol" });
+    setFormData({ name: "", category: "car", fuelConsumption: "", fuelType: "Petrol" });
     setShowForm(false);
   };
 
@@ -55,6 +59,7 @@ export default function VehicleGarageClient() {
     setEditingId(vehicle.id);
     setFormData({
       name: vehicle.name,
+      category: vehicle.category,
       fuelConsumption: vehicle.fuelConsumption.toString(),
       fuelType: vehicle.fuelType,
     });
@@ -64,7 +69,7 @@ export default function VehicleGarageClient() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingId(null);
-    setFormData({ name: "", fuelConsumption: "", fuelType: "Petrol" });
+    setFormData({ name: "", category: "car", fuelConsumption: "", fuelType: "Petrol" });
   };
 
   return (
@@ -97,6 +102,24 @@ export default function VehicleGarageClient() {
           >
             <div>
               <label className="mb-1 block text-sm font-semibold text-gray-800">
+                Vehicle Type
+              </label>
+              <select
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    category: e.target.value as Vehicle["category"],
+                  })
+                }
+                className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
+              >
+                <option value="car">Car</option>
+                <option value="motorcycle">Motorcycle</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-gray-800">
                 Vehicle Name
               </label>
               <input
@@ -111,14 +134,14 @@ export default function VehicleGarageClient() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold text-gray-800">
-                Fuel Consumption (km/L)
+                {formData.fuelType === "Electric" ? "Energy use (kWh/100 km)" : "Fuel Consumption (km/L)"}
               </label>
               <input
                 value={formData.fuelConsumption}
                 onChange={(e) =>
                   setFormData({ ...formData, fuelConsumption: e.target.value })
                 }
-                placeholder="e.g., 18"
+                placeholder={formData.fuelType === "Electric" ? "e.g., 16" : "e.g., 18"}
                 type="number"
                 step="0.1"
                 className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
@@ -189,7 +212,9 @@ export default function VehicleGarageClient() {
                       )}
                     </div>
                     <p className="text-sm text-gray-500">
-                      ⛽ {vehicle.fuelConsumption} km/L • {vehicle.fuelType}
+                      {vehicle.fuelType === "Electric"
+                        ? `Energy: ${vehicle.fuelConsumption} kWh/100 km • Electricity`
+                        : `${vehicle.category === "motorcycle" ? "Motorcycle" : "Fuel"}: ${vehicle.fuelConsumption} km/L • ${vehicle.fuelType}`}
                     </p>
                   </div>
                   <div className="flex gap-2">

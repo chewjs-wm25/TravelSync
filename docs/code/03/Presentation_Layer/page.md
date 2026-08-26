@@ -20,11 +20,12 @@ TravelInspirationPage（本页面，纯组装）
   ├─ useSearchAndFilter() ──→ discoveryService.getFilterOptions / getQualityRatedPois / getSuggestions
   │                             （BL 层 → Route API → Cloudflare D1 / Geoapify）
   ├─ useFavorites() ────────→ favoritesService.getSavedItems / togglePoiFavourite / addToTrip
-  │                             （BL 层 → Route API /api/discovery/favorites → D1；addToTrip 经 stub 桥接模块 02）
+  │                             （BL 层 → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → D1；addToTrip 经 stub 桥接模块 02）
+  │                             （savedItems 派生 favouriteIds 供 Recommended Places 星标；toggleItem 驱动收藏切换）
   └─ 子组件（受控 props 注入）
        ├─ SearchAndFilter      ← 筛选/搜索状态
        ├─ CuratedInspirations  ← 无 props（内部消费 hooks）
-       ├─ officalQualityRate   ← pois / isLoading / onAddToTrip / addingToTripId
+       ├─ officalQualityRate   ← pois / isLoading / onAddToTrip / addingToTripId / favouriteIds / onToggleFavourite
        └─ FavouriteList        ← isDrawerOpen / typeOptions / activeType
 ```
 本文件只做状态协调与布局组装，不含任何业务计算与直接 BL 调用。
@@ -36,6 +37,7 @@ TravelInspirationPage（本页面，纯组装）
 | `isDrawerOpen` | `boolean` | 收藏夹抽屉开关（传给 `FavouriteList`） |
 | `addingToTripId` | `string \| null` | 正在加入行程的地点 id（POI 卡片按钮 loading 态） |
 | `tripToast` | `{ status: "success" \| "error"; message: string } \| null` | 加入行程反馈（3 秒自动清除） |
+| `favouriteIds` | `Set<string>` | 已收藏地点 id 集合（`useMemo` 由 `savedItems` 派生，传给 `officalQualityRate` 驱动星标状态） |
 | hooks 派生状态 | 见 `useSearchAndFilter` / `useFavorites` | 筛选、POI 列表、收藏夹数据 |
 
 ## 边界与降级
@@ -82,12 +84,13 @@ TravelInspirationPage（本页面，纯组装）
 - 传出：渲染 `<main className="relative min-h-screen bg-gray-100 px-4 py-6 ...">` 布局，自上而下依次为：
   1. `SearchAndFilter`（受控，注入 `activeTab`/`searchQuery`/`suggestions`/`isSuggesting`/`onSelectSuggestion`/`selectedExperienceType`/`selectedState`/`filterOptions` 及对应 setter）；
   2. `CuratedInspirations`（无 props，内部自行消费 hooks）；
-  3. POI 决策区——`searchQuery.trim()` 非空时渲染「Search Results」提示卡（`<kbd>Enter</kbd>` 说明 + 提示结果在独立搜索页打开）；为空时渲染 `officalQualityRate`（传入 `pois`/`isLoading`/`onAddToTrip`/`addingToTripId`）；
+  3. POI 决策区——`searchQuery.trim()` 非空时渲染「Search Results」提示卡（`<kbd>Enter</kbd>` 说明 + 提示结果在独立搜索页打开）；为空时渲染 `officalQualityRate`（传入 `pois`/`isLoading`/`onAddToTrip`/`addingToTripId`/`favouriteIds`/`onToggleFavourite`）；
   4. `FavouriteList`（受控，传入 `isDrawerOpen`/`setIsDrawerOpen`/`typeOptions`/`activeType`/`setActiveType`）；
   5. 底部固定居中 toast（`z-[60]`，成功 `bg-[#10b981]` / 失败 `bg-[#ef4444]`）。
 - 用处：
   - 调用 `useSearchAndFilter()` 解构出：`activeTab`/`setActiveTab`（场景标签）、`searchQuery`/`setSearchQuery`（搜索词）、`suggestions`/`isSuggesting`/`selectSuggestion`（联想）、`selectedExperienceType`/`selectedState`（筛选下拉）、`filterOptions`（候选项）、`pois`/`isLoading`（Recommended Places 数据）。
-  - 调用 `useFavorites()` 解构出 `typeOptions`（收藏体验类型去重列表）、`activeType`/`setActiveType`（收藏夹类型过滤）、`addToTrip`（加入行程桥接）。
+  - 调用 `useFavorites()` 解构出 `typeOptions`（收藏体验类型去重列表）、`activeType`/`setActiveType`（收藏夹类型过滤）、`addToTrip`（加入行程桥接）、`toggleItem`（收藏切换）与 `savedItems`（收藏列表）。
+  - `favouriteIds`：`useMemo(() => new Set(savedItems.map((item) => item.id)), [savedItems])` 派生已收藏地点 id 集合，与 `toggleItem` 一同传给 `officalQualityRate`——Recommended Places 卡片的星标实心/空心由 `favouriteIds.has(poi.id)` 驱动，收藏切换后随 `savedItems` 即时更新。
   - 维护 `addingToTripId` 与 `tripToast` 两个本地状态，驱动「加入行程」按钮 loading 与全局反馈。
   - 将 hooks 状态以受控 props 形式分发给子组件，页面本身只做组装与状态协调，不包含任何业务计算。
 

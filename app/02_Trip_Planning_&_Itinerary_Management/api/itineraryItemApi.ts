@@ -7,7 +7,10 @@ import {
   deleteItineraryItemById,
   getItineraryItemsForItinerary,
   updateItineraryItemById,
+  importPlaces,
   type DeleteItineraryItemInput,
+  type ImportPlaceInput,
+  type ImportPlacesResult,
   type ItineraryItemServiceInput,
   type UpdateItineraryItemInput,
 } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemService";
@@ -28,7 +31,7 @@ export async function createItineraryItemAction(
   const db = await getDb();
   const result = await createItineraryItem(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;
@@ -43,7 +46,7 @@ export async function updateItineraryItemAction(
   const db = await getDb();
   const result = await updateItineraryItemById(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;
@@ -58,7 +61,7 @@ export async function deleteItineraryItemAction(
   const db = await getDb();
   const result = await deleteItineraryItemById(db, input);
 
-  if (!result.ok) {
+  if (!result.success) {
     const error = new Error(result.message);
     (error as Error & { status?: number }).status = result.status;
     throw error;
@@ -70,4 +73,12 @@ export async function listItineraryItemsAction(
 ): Promise<ItineraryItemRecord[]> {
   const db = await getDb();
   return getItineraryItemsForItinerary(db, itineraryId);
+}
+
+export async function importPlacesAction(
+  itineraryId: string,
+  items: ImportPlaceInput[]
+): Promise<ImportPlacesResult> {
+  const db = await getDb();
+  return importPlaces(db, itineraryId, items);
 }
