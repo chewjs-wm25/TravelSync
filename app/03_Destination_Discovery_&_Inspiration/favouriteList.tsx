@@ -4,9 +4,12 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useFavorites, usePlaceImages } from "./hooks";
+import { usePlaceImages } from "./hooks";
 import PlaceImageAttribution from "./placeImageAttribution";
-import type { SavedItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
+import type {
+  PushToRoutePlannerResult,
+  SavedItem,
+} from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { placeDetailPath } from "./routes";
 import { safeHttpUrl } from "./safeUrl";
 import { ImageOff } from "lucide-react";
@@ -17,6 +20,14 @@ interface ChildProbs {
   typeOptions: string[];
   activeType: string;
   setActiveType: React.Dispatch<React.SetStateAction<string>>;
+  /** 按当前类型过滤后的收藏条目（数据源单一：父级 page.tsx 的 useFavorites 实例） */
+  visibleItems: SavedItem[];
+  /** 收藏总数（悬浮按钮计数；与 visibleItems 同源，收藏/移除后即时更新） */
+  savedItemsCount: number;
+  /** 移除一条收藏（父级注入；hooks 内部自动 refresh 重新拉取列表） */
+  removeItem: (id: string) => Promise<void>;
+  /** 将收藏条目加入行程（经 stub 桥接模块 02；父级注入） */
+  addToTrip: (item: SavedItem) => Promise<PushToRoutePlannerResult>;
 }
 
 /** 星星图标（heroicons outline star） */
@@ -50,14 +61,12 @@ export default function FavouriteList({
   typeOptions,
   activeType,
   setActiveType,
+  visibleItems,
+  savedItemsCount,
+  removeItem,
+  addToTrip,
 }: ChildProbs) {
   const router = useRouter();
-  const {
-    visibleItems,
-    savedItemsCount,
-    removeItem,
-    addToTrip,
-  } = useFavorites();
   /**
    * 收藏条目图片（统一图片链路，与 Recommended Places / Search Places 一致）：
    * 经 discoveryService.getPlaceImage（Wikivoyage → Wikipedia 条目配图 → Commons

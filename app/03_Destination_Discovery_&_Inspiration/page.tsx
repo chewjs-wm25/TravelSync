@@ -35,8 +35,23 @@ export default function TravelInspirationPage() {
     pois,
     isLoading,
   } = useSearchAndFilter();
-  const { typeOptions, activeType, setActiveType, addToTrip, toggleItem, savedItems } =
-    useFavorites();
+  /**
+   * 收藏夹单一数据源：本页面是唯一 useFavorites 实例，收藏数据经 props 下发——
+   * Recommended Places 星标（favouriteIds）、FavouriteList 抽屉（visibleItems /
+   * savedItemsCount / removeItem / addToTrip）共享同一状态，任意一侧收藏/移除后
+   * 其余部分即时同步（避免各自实例状态不同步导致列表不刷新）。
+   */
+  const {
+    typeOptions,
+    activeType,
+    setActiveType,
+    addToTrip,
+    toggleItem,
+    savedItems,
+    visibleItems,
+    savedItemsCount,
+    removeItem,
+  } = useFavorites();
   /** 已收藏地点 id 集合（Recommended Places 卡片星标状态；toggleItem 后随 savedItems 即时更新） */
   const favouriteIds = useMemo(
     () => new Set(savedItems.map((item) => item.id)),
@@ -152,6 +167,10 @@ export default function TravelInspirationPage() {
         typeOptions={typeOptions}
         activeType={activeType}
         setActiveType={setActiveType}
+        visibleItems={visibleItems}
+        savedItemsCount={savedItemsCount}
+        removeItem={removeItem}
+        addToTrip={addToTrip}
       />
 
       {/* 加入行程反馈 toast（POI 卡片触发） */}
