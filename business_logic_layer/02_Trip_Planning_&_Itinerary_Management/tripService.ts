@@ -39,6 +39,7 @@ export type TripServiceInput = {
   startDate?: string | null;
   endDate?: string | null;
   tripNote?: string | null;
+  imageUrl?: string | null;
 };
 
 export type UpdateTripServiceInput = {
@@ -48,6 +49,7 @@ export type UpdateTripServiceInput = {
   startDate?: string | null;
   endDate?: string | null;
   tripNote?: string | null;
+  imageUrl?: string | null;
 };
 
 export type DeleteTripInput = {
@@ -82,6 +84,7 @@ export function validateTripPayload(input: TripServiceInput):
   | TripServiceFailure {
   const tripName = normalizeText(input.tripName);
   const tripNote = normalizeText(input.tripNote);
+  const imageUrl = normalizeText(input.imageUrl);
   const userId = normalizeText(input.userId) ?? DEFAULT_USER_ID;
   const startDate = normalizeText(input.startDate);
   const endDate = normalizeText(input.endDate);
@@ -143,6 +146,7 @@ export function validateTripPayload(input: TripServiceInput):
       startDate,
       endDate,
       tripNote,
+      imageUrl,
     },
   };
 }
@@ -175,6 +179,7 @@ function validateUpdateTripPayload(
       startDate: validation.normalized.startDate,
       endDate: validation.normalized.endDate,
       tripNote: validation.normalized.tripNote,
+      imageUrl: validation.normalized.imageUrl,
     },
   };
 }

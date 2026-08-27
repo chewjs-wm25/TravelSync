@@ -3,45 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
+import {
+  getLocalSuggestions,
+  type LocalSuggestion,
+} from "../api/localSuggestionApi";
 
-type LocalSuggestionItem = {
-  placeId: string;
-  name: string;
-  formatted: string;
-  imageUrl?: string;
-  lat: number;
-  lon: number;
-};
-
-const MALAYSIA_PLACE_SUGGESTIONS: LocalSuggestionItem[] = [
-  { placeId: "local:kuala-lumpur", name: "Kuala Lumpur", formatted: "Kuala Lumpur, Malaysia", imageUrl: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=800&q=80", lat: 3.139, lon: 101.6869 },
-  { placeId: "local:petronas-twin-towers", name: "Petronas Twin Towers", formatted: "Petronas Twin Towers, Kuala Lumpur, Malaysia", imageUrl: "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=80", lat: 3.1579, lon: 101.7113 },
-  { placeId: "local:batu-caves", name: "Batu Caves", formatted: "Batu Caves, Selangor, Malaysia", imageUrl: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=80", lat: 3.2378, lon: 101.6831 },
-  { placeId: "local:penang", name: "Penang", formatted: "Penang, Malaysia", imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80", lat: 5.4141, lon: 100.3292 },
-  { placeId: "local:georgetown", name: "George Town", formatted: "George Town, Penang, Malaysia", imageUrl: "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=800&q=80", lat: 5.4141, lon: 100.3292 },
-  { placeId: "local:langkawi", name: "Langkawi", formatted: "Langkawi, Kedah, Malaysia", imageUrl: "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=800&q=80", lat: 6.35, lon: 99.8 },
-  { placeId: "local:melaka", name: "Melaka", formatted: "Melaka, Malaysia", imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80", lat: 2.1896, lon: 102.2501 },
-  { placeId: "local:malacca", name: "Malacca", formatted: "Malacca, Malaysia", imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80", lat: 2.1896, lon: 102.2501 },
-  { placeId: "local:cameron-highlands", name: "Cameron Highlands", formatted: "Cameron Highlands, Pahang, Malaysia", imageUrl: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=800&q=80", lat: 4.478, lon: 101.375 },
-  { placeId: "local:kota-kinabalu", name: "Kota Kinabalu", formatted: "Kota Kinabalu, Sabah, Malaysia", imageUrl: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=80", lat: 5.9804, lon: 116.0735 },
-  { placeId: "local:kuching", name: "Kuching", formatted: "Kuching, Sarawak, Malaysia", imageUrl: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=80", lat: 1.5536, lon: 110.3593 },
-  { placeId: "local:johor-bahru", name: "Johor Bahru", formatted: "Johor Bahru, Johor, Malaysia", imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80", lat: 1.4927, lon: 103.7414 },
-  { placeId: "local:perhentian-island", name: "Perhentian Island", formatted: "Perhentian Island, Terengganu, Malaysia", imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80", lat: 5.905, lon: 102.739 },
-  { placeId: "local:gunung-mulu", name: "Gunung Mulu", formatted: "Gunung Mulu, Sarawak, Malaysia", imageUrl: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=800&q=80", lat: 4.047, lon: 114.826 },
-];
-
-function buildLocalSuggestions(query: string): LocalSuggestionItem[] {
-  const trimmed = query.trim();
-  if (!trimmed) {
-    return [];
-  }
-
-  const normalized = trimmed.toLowerCase();
-  return MALAYSIA_PLACE_SUGGESTIONS.filter(({ name, formatted }) => {
-    const haystacks = [name, formatted];
-    return haystacks.some((value) => value.toLowerCase().includes(normalized));
-  }).slice(0, 6);
-}
+type LocalSuggestionItem = LocalSuggestion;
 
 export type DayItinerary = {
   id: string;
@@ -56,7 +23,6 @@ type DayItineraryCardProps = {
   day: DayItinerary;
   searchValue: string;
   onSearchChange: (value: string) => void;
-  /** Called when a user selects a suggestion for the itinerary item */
   onSelectSuggestion?: (suggestion?: {
     placeId: string;
     formatted: string;
@@ -118,13 +84,10 @@ export function DayItineraryCard({
   const [draftNote, setDraftNote] = useState(day.note ?? "");
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Suggestions stay local to module 02 so itinerary creation works even when
-  // the external discovery endpoints are unavailable.
   const [suggestions, setSuggestions] = useState<LocalSuggestionItem[]>([]);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
-  const suggestionsTimer = useRef<number | null>(null);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -136,7 +99,6 @@ export function DayItineraryCard({
         setIsDropdownOpen(false);
       }
 
-      // close suggestions if click outside input area
       if (
         inputRef.current &&
         event.target instanceof Node &&
@@ -166,23 +128,27 @@ export function DayItineraryCard({
       return;
     }
 
-    if (suggestionsTimer.current) {
-      window.clearTimeout(suggestionsTimer.current);
-    }
-
-    suggestionsTimer.current = window.setTimeout(() => {
-      const nextSuggestions = buildLocalSuggestions(trimmedValue);
+    void getLocalSuggestions(trimmedValue).then((nextSuggestions) => {
       setSuggestions(nextSuggestions);
       setIsSuggestionsOpen(nextSuggestions.length > 0);
-    }, 150);
-
-    return () => {
-      if (suggestionsTimer.current) {
-        window.clearTimeout(suggestionsTimer.current);
-        suggestionsTimer.current = null;
-      }
-    };
+    });
   }, [searchValue, onSelectSuggestion]);
+
+  const handleSuggestionSelect = (suggestion: LocalSuggestionItem) => {
+    const formatted = suggestion.value || suggestion.formatted || suggestion.name || "";
+    setSuggestions([]);
+    setIsSuggestionsOpen(false);
+    onSearchChange(formatted);
+    onSelectSuggestion?.({
+      placeId: suggestion.id,
+      formatted,
+      name: suggestion.name,
+      imageUrl: suggestion.imageUrl,
+      lat: suggestion.lat,
+      lon: suggestion.lon,
+    });
+    inputRef.current?.focus();
+  };
 
   const handleSaveNote = async (nextNote: string) => {
     setIsSavingNote(true);
@@ -509,7 +475,6 @@ export function DayItineraryCard({
                   value={searchValue}
                   onChange={(event) => {
                     onSearchChange(event.target.value);
-                    // clear any previously selected suggestion when user types
                     onSelectSuggestion?.(undefined);
                   }}
                   onKeyDown={(event) => {
@@ -522,30 +487,20 @@ export function DayItineraryCard({
 
                 {isSuggestionsOpen && suggestions.length > 0 && (
                   <ul className="absolute left-0 right-9 top-full z-30 max-h-56 w-full overflow-auto rounded-md border border-gray-200 bg-white text-left text-xs shadow-lg">
-                    {suggestions.map((s) => (
+                    {suggestions.map((suggestion) => (
                       <li
-                        key={s.placeId}
+                        key={suggestion.id}
                         onMouseDown={(event) => {
                           event.preventDefault();
+                          event.stopPropagation();
                         }}
                         onClick={() => {
-                          const formatted = s.formatted || s.name;
-                          onSearchChange(formatted);
-                          onSelectSuggestion?.({
-                            placeId: s.placeId,
-                            formatted,
-                            name: s.name,
-                            imageUrl: s.imageUrl,
-                            lat: s.lat,
-                            lon: s.lon,
-                          });
-                          setIsSuggestionsOpen(false);
-                          inputRef.current?.focus();
+                          handleSuggestionSelect(suggestion);
                         }}
                         className="cursor-pointer px-3 py-2 hover:bg-gray-50"
                       >
-                        <div className="font-medium text-gray-800">{s.name}</div>
-                        <div className="text-gray-500">{s.formatted}</div>
+                        <div className="font-medium text-gray-800">{suggestion.name}</div>
+                        <div className="text-gray-500">{suggestion.formatted}</div>
                       </li>
                     ))}
                   </ul>

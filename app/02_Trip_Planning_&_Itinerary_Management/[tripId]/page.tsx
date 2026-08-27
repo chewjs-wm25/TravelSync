@@ -1137,12 +1137,33 @@ export default function TripItineraryPage() {
                 day={day}
                 searchValue={searchInputs[day.id] ?? ""}
                 onSearchChange={(value) => {
+                  const trimmedValue = value.trim();
+
                   setSearchInputs((previous) => ({
                     ...previous,
                     [day.id]: value,
                   }));
-                  // Clear any previously selected suggestion when user types
-                  setSelectedSuggestions((prev) => ({ ...prev, [day.id]: undefined }));
+
+                  setSelectedSuggestions((prev) => {
+                    const current = prev[day.id];
+                    if (!current) {
+                      return { ...prev, [day.id]: undefined };
+                    }
+
+                    const labels = [current.formatted, current.name]
+                      .filter(Boolean)
+                      .map((label) => label!.trim().toLowerCase());
+
+                    if (!trimmedValue) {
+                      return { ...prev, [day.id]: undefined };
+                    }
+
+                    if (labels.includes(trimmedValue.toLowerCase())) {
+                      return prev;
+                    }
+
+                    return { ...prev, [day.id]: undefined };
+                  });
                 }}
                 onSelectSuggestion={(sugg) =>
                   setSelectedSuggestions((prev) => ({ ...prev, [day.id]: sugg }))

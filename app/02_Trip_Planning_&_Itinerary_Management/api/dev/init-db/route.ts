@@ -15,7 +15,8 @@ export async function GET() {
       trip_name TEXT NOT NULL,
       start_date TEXT,
       end_date TEXT,
-      trip_note TEXT
+      trip_note TEXT,
+      image_url TEXT
     );`,
     `CREATE TABLE IF NOT EXISTS itineraries (
       itinerary_id TEXT PRIMARY KEY,
@@ -42,8 +43,8 @@ export async function GET() {
       FOREIGN KEY (itinerary_id) REFERENCES itineraries(itinerary_id) ON DELETE CASCADE
     );`,
     // Insert demo trip and itineraries
-    `INSERT INTO trips (trip_id, user_id, trip_name, start_date, end_date, trip_note)
-      VALUES ('trip_langkawi', 'dev-user-001', 'Langkawi Island Escape', '2026-12-20', '2026-12-27', NULL)
+    `INSERT INTO trips (trip_id, user_id, trip_name, start_date, end_date, trip_note, image_url)
+      VALUES ('trip_langkawi', 'dev-user-001', 'Langkawi Island Escape', '2026-12-20', '2026-12-27', NULL, 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80')
       ON CONFLICT(trip_id) DO NOTHING;`,
     `INSERT INTO itineraries (itinerary_id, trip_id, title, date, itinerary_note) VALUES
       ('itin_day1','trip_langkawi','Day 1','2026-12-20',NULL),
@@ -73,6 +74,11 @@ export async function GET() {
     }
 
     // Ensure lat/lon columns exist if older schema was present
+    try {
+      await db.prepare(`ALTER TABLE trips ADD COLUMN image_url TEXT`).run();
+    } catch (err) {
+      // ignore if column already exists or ALTER not supported
+    }
     try {
       await db.prepare(`ALTER TABLE itinerary_items ADD COLUMN lat REAL`).run();
     } catch (err) {

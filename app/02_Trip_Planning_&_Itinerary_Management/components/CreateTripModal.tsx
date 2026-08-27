@@ -20,6 +20,8 @@ export default function CreateTripModal({
   onSuccess,
 }: CreateTripModalProps) {
   const [tripName, setTripName] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isDragActive, setIsDragActive] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,6 +38,7 @@ export default function CreateTripModal({
 
     const timerId = window.setTimeout(() => {
       setTripName("");
+      setImageUrl("");
       setStartDate("");
       setEndDate("");
       setErrorMessage("");
@@ -72,6 +75,30 @@ export default function CreateTripModal({
     };
   }, [isOpen]);
 
+  const handleImageFile = (file?: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("Please choose an image file for the trip card.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      setImageUrl(result);
+      setErrorMessage("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleImageFile(event.target.files?.[0]);
+    event.target.value = "";
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -81,6 +108,7 @@ export default function CreateTripModal({
       await createTripAction({
         userId: "usr_demo",
         tripName,
+        imageUrl: imageUrl || null,
         startDate,
         endDate,
       });
@@ -183,6 +211,73 @@ export default function CreateTripModal({
               )}
 
                </div>
+            </label>
+
+            <label
+              className={`space-y-2 md:col-span-2 rounded-2xl border-2 border-dashed p-4 transition ${
+                isDragActive
+                  ? "border-[#ff6b6b] bg-[#fff5f5]"
+                  : "border-gray-200 bg-gray-50"
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragActive(true);
+              }}
+              onDragLeave={() => setIsDragActive(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragActive(false);
+                handleImageFile(event.dataTransfer.files?.[0]);
+              }}
+            >
+              <span className="text-sm font-semibold text-gray-700">
+                Trip Card Image
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageInputChange}
+                className="hidden"
+              />
+
+              <div className="mt-3 flex flex-col items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-6 text-center">
+                {imageUrl ? (
+                  <>
+                    <img
+                      src={imageUrl}
+                      alt="Trip preview"
+                      className="h-32 w-full rounded-xl object-cover"
+                    />
+                    <div className="text-sm font-medium text-gray-700">
+                      Image selected. Drag a new file here or click to replace it.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#ff6b6b]/10 text-[#ff6b6b]">
+                      <svg
+                        className="h-6 w-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16a4 4 0 01-.88-7.9A5.5 5.5 0 0117.5 8H17a4 4 0 110 8H7zm0 0l3-3m0 0l3 3m-3-3v9"
+                        />
+                      </svg>
+                    </div>
+                    <div className="text-sm font-medium text-gray-700">
+                      Drag and drop an image here
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      or click to browse from your device
+                    </div>
+                  </>
+                )}
+              </div>
             </label>
 
             <label className="space-y-2">

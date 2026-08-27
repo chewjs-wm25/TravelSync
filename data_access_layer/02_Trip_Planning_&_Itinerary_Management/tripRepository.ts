@@ -5,6 +5,7 @@ export type TripRecord = {
   start_date: string | null;
   end_date: string | null;
   trip_note: string | null;
+  image_url: string | null;
 };
 
 export type CreateTripInput = {
@@ -13,6 +14,7 @@ export type CreateTripInput = {
   startDate: string | null;
   endDate: string | null;
   tripNote: string | null;
+  imageUrl: string | null;
 };
 
 export type UpdateTripInput = {
@@ -20,6 +22,7 @@ export type UpdateTripInput = {
   startDate: string | null;
   endDate: string | null;
   tripNote: string | null;
+  imageUrl: string | null;
 };
 
 export async function insertTrip(
@@ -36,8 +39,9 @@ export async function insertTrip(
         trip_name,
         start_date,
         end_date,
-        trip_note
-      ) VALUES (?, ?, ?, ?, ?, ?)`
+        trip_note,
+        image_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       tripId,
@@ -45,7 +49,8 @@ export async function insertTrip(
       input.tripName,
       input.startDate,
       input.endDate,
-      input.tripNote
+      input.tripNote,
+      input.imageUrl
     )
     .run();
 
@@ -56,6 +61,7 @@ export async function insertTrip(
     start_date: input.startDate,
     end_date: input.endDate,
     trip_note: input.tripNote,
+    image_url: input.imageUrl,
   };
 }
 
@@ -68,7 +74,8 @@ export async function listTripsByUser(db: D1Database, userId: string) {
         trip_name,
         start_date,
         end_date,
-        trip_note
+        trip_note,
+        image_url
       FROM trips
       WHERE user_id = ?
       ORDER BY
@@ -91,7 +98,8 @@ export async function getTripById(db: D1Database, tripId: string) {
         trip_name,
         start_date,
         end_date,
-        trip_note
+        trip_note,
+        image_url
       FROM trips
       WHERE trip_id = ?`
     )
@@ -117,10 +125,10 @@ export async function updateTrip(
   const updateResult = await db
     .prepare(
       `UPDATE trips
-      SET trip_name = ?, start_date = ?, end_date = ?, trip_note = ?
+      SET trip_name = ?, start_date = ?, end_date = ?, trip_note = ?, image_url = ?
       WHERE trip_id = ?`
     )
-    .bind(data.tripName, data.startDate, data.endDate, data.tripNote, tripId)
+    .bind(data.tripName, data.startDate, data.endDate, data.tripNote, data.imageUrl, tripId)
     .run();
 
   if (updateResult.meta.changes === 0) {
@@ -135,7 +143,8 @@ export async function updateTrip(
         trip_name,
         start_date,
         end_date,
-        trip_note
+        trip_note,
+        image_url
       FROM trips
       WHERE trip_id = ?`
     )

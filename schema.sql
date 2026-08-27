@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS trips (
     trip_name TEXT NOT NULL,                  -- VARCHAR
     start_date TEXT,                          -- DATE (ISO8601 YYYY-MM-DD)
     end_date TEXT,                            -- DATE (ISO8601 YYYY-MM-DD)
-    trip_note TEXT                            -- TEXT
+    trip_note TEXT,                           -- TEXT
+    image_url TEXT                            -- VARCHAR / optional card image url
 );
 
 -- Table 2: Itinerary

@@ -20,6 +20,7 @@ type TripRecord = {
   start_date: string | null;
   end_date: string | null;
   trip_note: string | null;
+  image_url: string | null;
 };
 
 const suggestedTrips = [
@@ -223,6 +224,7 @@ export default function PlanningPage() {
                 key={trip.trip_id}
                 tripId={trip.trip_id}
                 name={trip.trip_name}
+                image={trip.image_url ?? undefined}
                 startDate={formatTripDate(trip.start_date)}
                 endDate={formatTripDate(trip.end_date)}
                 locationsCount={0}
