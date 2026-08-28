@@ -118,8 +118,8 @@ export default function CreateTripModal({
         userId: user.id,
         tripName,
         imageUrl: imageUrl || null,
-        startDate,
-        endDate,
+        startDate: startDate || null,
+        endDate: endDate || null,
       });
 
       onSuccess();

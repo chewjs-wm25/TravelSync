@@ -49,10 +49,13 @@ function wasD1MutationSuccessful(result: {
   return result.success !== false;
 }
 
+import { ensureTripSchema } from "./tripSchema";
+
 export async function getItineraryItemById(
   db: D1Database,
   itemId: string
 ): Promise<ItineraryItemRecord | null> {
+  await ensureTripSchema(db);
   // Dynamically include lat/lon if the columns exist
   try {
     const pragma = await db.prepare(`PRAGMA table_info('itinerary_items')`).all();
@@ -132,6 +135,7 @@ export async function addItineraryItem(
   lat?: number | null,
   lon?: number | null
 ): Promise<boolean> {
+  await ensureTripSchema(db);
   // Insert without lat/lon first for maximum compatibility, then attempt to set lat/lon via UPDATE if provided and supported.
   const insertResult = await db
     .prepare(
@@ -188,6 +192,7 @@ export async function updateItineraryItem(
   itemId: string,
   updates: Partial<ItineraryItem>
 ): Promise<boolean> {
+  await ensureTripSchema(db);
   const setClauses: string[] = [];
   const values: Array<string | number | null> = [];
 
@@ -278,6 +283,7 @@ export async function deleteItineraryItem(
   db: D1Database,
   itemId: string
 ): Promise<boolean> {
+  await ensureTripSchema(db);
   const result = await db
     .prepare(
       `DELETE FROM itinerary_items
@@ -293,6 +299,7 @@ export async function getItineraryItemsByItineraryId(
   db: D1Database,
   itineraryId: string
 ): Promise<ItineraryItemRecord[]> {
+  await ensureTripSchema(db);
   // Dynamically include lat/lon when selecting by itinerary
   try {
     const pragma = await db.prepare(`PRAGMA table_info('itinerary_items')`).all();

@@ -25,10 +25,13 @@ export type UpdateTripInput = {
   imageUrl: string | null;
 };
 
+import { ensureTripSchema } from "./tripSchema";
+
 export async function insertTrip(
   db: D1Database,
   input: CreateTripInput
 ): Promise<TripRecord> {
+  await ensureTripSchema(db);
   const tripId = crypto.randomUUID();
 
   await db
@@ -66,6 +69,7 @@ export async function insertTrip(
 }
 
 export async function listTripsByUser(db: D1Database, userId: string) {
+  await ensureTripSchema(db);
   const result = await db
     .prepare(
       `SELECT
@@ -90,6 +94,7 @@ export async function listTripsByUser(db: D1Database, userId: string) {
 }
 
 export async function getTripById(db: D1Database, tripId: string) {
+  await ensureTripSchema(db);
   return db
     .prepare(
       `SELECT
@@ -108,6 +113,7 @@ export async function getTripById(db: D1Database, tripId: string) {
 }
 
 export async function deleteTripById(db: D1Database, tripId: string) {
+  await ensureTripSchema(db);
   await db
     .prepare(
       `DELETE FROM trips
@@ -122,6 +128,7 @@ export async function updateTrip(
   tripId: string,
   data: UpdateTripInput
 ): Promise<TripRecord | null> {
+  await ensureTripSchema(db);
   const updateResult = await db
     .prepare(
       `UPDATE trips
