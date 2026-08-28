@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
 
 import {
   deleteTripAction,
@@ -94,6 +95,12 @@ export default function PlanningPage() {
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { isLoggedIn, user, refreshSession } = useAuthStore();
+
+  // Refresh session on mount to pick up cookie-backed session from Module 01
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
 
   useEffect(() => {
     let isMounted = true;
@@ -102,7 +109,16 @@ export default function PlanningPage() {
       setIsLoadingTrips(true);
 
       try {
-        const data = await listTripsAction("usr_demo");
+        // Only load trips for authenticated users. Module 02 is locked behind login.
+        const { isLoggedIn, user } = useAuthStore.getState();
+        if (!isLoggedIn || !user?.id) {
+          // Not logged in: show empty list (UI will show prompt to login)
+          if (!isMounted) return;
+          setTrips([]);
+          return;
+        }
+
+        const data = await listTripsAction(user.id);
         if (!isMounted) {
           return;
         }
@@ -186,7 +202,15 @@ export default function PlanningPage() {
           </h2>
           <button
             type="button"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+              if (!isLoggedIn) {
+                // redirect to Module 01 account page to login
+                window.location.href = "/01_User_&_Account_Management";
+                return;
+              }
+
+              setIsCreateModalOpen(true);
+            }}
             className="flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#ff5252]"
           >
             <svg
@@ -213,10 +237,23 @@ export default function PlanningPage() {
             <div className="h-[320px] animate-pulse rounded-2xl border border-dashed border-gray-200 bg-gray-50" />
           </div>
         ) : trips.length === 0 ? (
-          <CreateTripCard
-            variant="empty"
-            onOpen={() => setIsCreateModalOpen(true)}
-          />
+          !isLoggedIn ? (
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center">
+              <p className="mb-3 text-lg font-semibold text-gray-800">Module locked</p>
+              <p className="mb-4 text-sm text-gray-600">Please sign in to access your trips and create new itineraries.</p>
+              <a
+                href="/01_User_&_Account_Management"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              >
+                Go to Sign in
+              </a>
+            </div>
+          ) : (
+            <CreateTripCard
+              variant="empty"
+              onOpen={() => setIsCreateModalOpen(true)}
+            />
+          )
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {trips.map((trip) => (
@@ -233,7 +270,14 @@ export default function PlanningPage() {
               />
             ))}
 
-            <CreateTripCard onOpen={() => setIsCreateModalOpen(true)} />
+            <CreateTripCard onOpen={() => {
+                if (!isLoggedIn) {
+                  window.location.href = "/01_User_&_Account_Management";
+                  return;
+                }
+
+                setIsCreateModalOpen(true);
+              }} />
           </div>
         )}
       </section>

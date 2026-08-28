@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
 import { useEffect, useState } from "react";
 
 import { discoveryService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
@@ -165,6 +166,11 @@ export default function TripItineraryPage() {
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const { isLoggedIn, user, refreshSession } = useAuthStore();
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
+
   // Editing trip start/end dates from the itinerary header
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [draftStartDate, setDraftStartDate] = useState<string>(""
@@ -190,8 +196,18 @@ export default function TripItineraryPage() {
       setIsLoading(true);
 
       try {
+        // Only allow loading workspace for logged-in users. Module 02 requires authenticated session.
+        if (!isLoggedIn || !user?.id) {
+          if (!isMounted) return;
+          setTrip(null);
+          setItineraries([]);
+          setDayCards([]);
+          setIsLoading(false);
+          return;
+        }
+
         const [trips, tripItineraries] = await Promise.all([
-          listTripsAction("usr_demo"),
+          listTripsAction(user.id),
           listItinerariesAction(tripId),
         ]);
 
@@ -956,6 +972,23 @@ export default function TripItineraryPage() {
   const tripEnd = formatTripDate(trip?.end_date ?? null);
   const canCreateItinerary = Boolean(trip && trip.start_date && trip.end_date);
 
+  if (!isLoggedIn) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 pb-16 text-gray-800">
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center">
+          <p className="mb-3 text-lg font-semibold text-gray-800">Account Not Found</p>
+          <p className="mb-4 text-sm text-gray-600">Please sign in to access this trip. Trips are private to each account.</p>
+          <a
+            href="/01_User_&_Account_Management"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-4 py-2 text-sm font-semibold text-white shadow-sm"
+          >
+            Go to Sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-16 text-gray-800">
       <CreateItineraryModal
@@ -978,6 +1011,8 @@ export default function TripItineraryPage() {
         tripName={tripTitle}
         startDate={tripStart}
         endDate={tripEnd}
+        ownerAvatar={user?.avatarUrl ?? undefined}
+        ownerName={user?.name ?? undefined}
         onSaveTripName={handleSaveTripName}
       />
 

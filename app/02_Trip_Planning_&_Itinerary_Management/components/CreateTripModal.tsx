@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
 
 import { createTripAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 import {
@@ -99,14 +100,22 @@ export default function CreateTripModal({
     event.target.value = "";
   };
 
+  const { user, isLoggedIn } = useAuthStore();
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     setErrorMessage("");
 
     try {
+      if (!isLoggedIn || !user?.id) {
+        // redirect to sign in if somehow modal opened without session
+        window.location.href = "/01_User_&_Account_Management";
+        return;
+      }
+
       await createTripAction({
-        userId: "usr_demo",
+        userId: user.id,
         tripName,
         imageUrl: imageUrl || null,
         startDate,
@@ -142,7 +151,7 @@ export default function CreateTripModal({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold tracking-[0.3em] text-[#ff6b6b] uppercase">
-                Module 02
+                Trip Planning
               </p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">
                 Create Trip
