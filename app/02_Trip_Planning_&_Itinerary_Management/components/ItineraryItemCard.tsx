@@ -7,7 +7,8 @@ import { ItemNoteEditor } from "./ItemNoteEditor";
 export type ItineraryItem = {
   id: string;
   name: string;
-  image: string;
+  image?: string;
+  imageUrl?: string;
   note?: string;
   position?: number;
   order_index?: number;
@@ -33,6 +34,7 @@ export function ItineraryItemCard({
 }: ItineraryItemCardProps) {
   const resolvedImage =
     item.image ||
+    item.imageUrl ||
     "https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&w=400&q=80";
   const resolvedPosition = item.position ?? item.order_index;
 
@@ -103,6 +105,7 @@ export function ItineraryItemCard({
               alt={item.name}
               width={80}
               height={56}
+              unoptimized
               className="h-full w-full object-cover"
             />
           </div>

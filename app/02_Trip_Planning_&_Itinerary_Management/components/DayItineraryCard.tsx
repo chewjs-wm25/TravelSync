@@ -88,6 +88,7 @@ export function DayItineraryCard({
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -100,9 +101,9 @@ export function DayItineraryCard({
       }
 
       if (
-        inputRef.current &&
+        searchContainerRef.current &&
         event.target instanceof Node &&
-        !inputRef.current.contains(event.target as Node)
+        !searchContainerRef.current.contains(event.target as Node)
       ) {
         setIsSuggestionsOpen(false);
       }
@@ -467,7 +468,7 @@ export function DayItineraryCard({
 
           <div className="mt-2 border-t border-gray-200/60 pt-2">
             <div className="relative flex items-center">
-              <div className="relative w-full">
+              <div ref={searchContainerRef} className="relative w-full">
                 <input
                   ref={inputRef}
                   type="text"
@@ -490,10 +491,6 @@ export function DayItineraryCard({
                     {suggestions.map((suggestion) => (
                       <li
                         key={suggestion.id}
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                        }}
                         onClick={() => {
                           handleSuggestionSelect(suggestion);
                         }}
