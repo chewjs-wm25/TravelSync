@@ -43,8 +43,18 @@ export async function POST(
       lat: typeof body.lat === "number" ? body.lat : null,
       lon: typeof body.lon === "number" ? body.lon : null,
       type: typeof body.type === "string" ? body.type : null,
-      startTime: typeof body.startTime === "string" ? body.startTime : null,
-      endTime: typeof body.endTime === "string" ? body.endTime : null,
+      startTime:
+        typeof body.startTime === "string"
+          ? body.startTime
+          : typeof body.start_time === "string"
+            ? body.start_time
+            : null,
+      endTime:
+        typeof body.endTime === "string"
+          ? body.endTime
+          : typeof body.end_time === "string"
+            ? body.end_time
+            : null,
     });
 
     return NextResponse.json(

@@ -55,32 +55,63 @@ async function handleUpdate(
       unknown
     >;
 
-    const item = await updateItineraryItemAction({
+    const updatePayload: any = {
       itineraryId,
       itemId,
-      name: typeof body.name === "string" ? body.name : null,
-      note: typeof body.note === "string" ? body.note : null,
-      image: typeof body.image === "string" ? body.image : null,
-      position:
+    };
+
+    if (body.name !== undefined) {
+      updatePayload.name = typeof body.name === "string" ? body.name : null;
+    }
+    if (body.note !== undefined) {
+      updatePayload.note = typeof body.note === "string" ? body.note : null;
+    }
+    if (body.image !== undefined) {
+      updatePayload.image = typeof body.image === "string" ? body.image : null;
+    }
+    if (body.position !== undefined) {
+      updatePayload.position =
         typeof body.position === "number"
           ? body.position
           : typeof body.position === "string"
             ? body.position
-            : null,
-      order_index:
+            : null;
+    }
+    if (body.order_index !== undefined) {
+      updatePayload.order_index =
         typeof body.order_index === "number"
           ? body.order_index
           : typeof body.order_index === "string"
             ? body.order_index
-            : null,
-         destination: typeof body.destination === "string" ? body.destination : null,
-         referenceId: typeof body.referenceId === "string" ? body.referenceId : null,
-         lat: typeof body.lat === "number" ? body.lat : null,
-         lon: typeof body.lon === "number" ? body.lon : null,
-         type: typeof body.type === "string" ? body.type : null,
-         startTime: typeof body.startTime === "string" ? body.startTime : null,
-         endTime: typeof body.endTime === "string" ? body.endTime : null,
-    });
+            : null;
+    }
+    if (body.destination !== undefined) {
+      updatePayload.destination = typeof body.destination === "string" ? body.destination : null;
+    }
+    if (body.referenceId !== undefined) {
+      updatePayload.referenceId = typeof body.referenceId === "string" ? body.referenceId : null;
+    }
+    if (body.lat !== undefined) {
+      updatePayload.lat = typeof body.lat === "number" ? body.lat : null;
+    }
+    if (body.lon !== undefined) {
+      updatePayload.lon = typeof body.lon === "number" ? body.lon : null;
+    }
+    if (body.type !== undefined) {
+      updatePayload.type = typeof body.type === "string" ? body.type : null;
+    }
+
+    const bodyStartTime = body.startTime !== undefined ? body.startTime : body.start_time;
+    if (bodyStartTime !== undefined) {
+      updatePayload.startTime = typeof bodyStartTime === "string" ? bodyStartTime : null;
+    }
+
+    const bodyEndTime = body.endTime !== undefined ? body.endTime : body.end_time;
+    if (bodyEndTime !== undefined) {
+      updatePayload.endTime = typeof bodyEndTime === "string" ? bodyEndTime : null;
+    }
+
+    const item = await updateItineraryItemAction(updatePayload);
 
     return NextResponse.json({ success: true, item: mapItemResponse(item) }, { status: 200 });
   } catch (error) {

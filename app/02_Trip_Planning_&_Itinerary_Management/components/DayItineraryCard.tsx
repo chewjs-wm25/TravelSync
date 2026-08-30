@@ -19,6 +19,7 @@ export type DayItinerary = {
   items: ItineraryItem[];
 };
 
+// In DayItineraryCard.tsx
 type DayItineraryCardProps = {
   day: DayItinerary;
   searchValue: string;
@@ -38,9 +39,16 @@ type DayItineraryCardProps = {
   onAddDayAfter: (dayId: string) => void;
   onToggleCollapse: (collapseValue?: boolean) => void;
   onToggleItemEdit: (itemId: string) => void;
+  // FIX: Change startTime and endTime to start_time and end_time
   onSaveItem: (
     itemId: string,
-    payload: { name: string; note: string; position?: number }
+    payload: {
+      name: string;
+      note: string;
+      position?: number;
+      start_time?: string;
+      end_time?: string;
+    }
   ) => void | Promise<void>;
   onSaveNote: (note: string) => Promise<boolean> | boolean;
   onEditDay: (title: string, date: string) => void;
@@ -454,16 +462,22 @@ export function DayItineraryCard({
                 No items found
               </div>
             ) : (
-              day.items.map((item) => (
-                <ItineraryItemCard
-                  key={item.id}
-                  item={item}
-                  onDelete={() => onDeleteItem(item.id)}
-                  onToggleEdit={() => onToggleItemEdit(item.id)}
-                  onSaveItem={(payload) => onSaveItem(item.id, payload)}
-                />
-              ))
-            )}
+              day.items.map((item, index) => {
+                const previousItem = index > 0 ? day.items[index - 1] : undefined;
+                const previousEndTime = previousItem?.end_time;
+
+                return (
+                  <ItineraryItemCard
+          key={item.id}
+          item={item}
+          previousEndTime={previousEndTime}
+          onDelete={() => onDeleteItem(item.id)}
+          onToggleEdit={() => onToggleItemEdit(item.id)}
+          onSaveItem={(payload) => onSaveItem(item.id, payload)}
+        />
+      );
+    })
+  )}
           </div>
 
           <div className="mt-2 border-t border-gray-200/60 pt-2">

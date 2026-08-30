@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS itinerary_items (
     type TEXT CHECK(type IN ('activity', 'food', 'lodging', 'transit', 'other')), -- ENUM
     reference_id TEXT,                        -- VARCHAR (External API / POI ID)
     destination TEXT,                         -- VARCHAR (Malaysia location / address)
-    start_time TEXT,                          -- DATETIME (ISO8601 YYYY-MM-DD HH:MM)
-    end_time TEXT,                            -- DATETIME (ISO8601 YYYY-MM-DD HH:MM)
+    start_time TIME,                          -- TIME (HH:MM)
+    end_time TIME,                            -- TIME (HH:MM)
     FOREIGN KEY (itinerary_id) REFERENCES itineraries(itinerary_id) ON DELETE CASCADE
 );
 

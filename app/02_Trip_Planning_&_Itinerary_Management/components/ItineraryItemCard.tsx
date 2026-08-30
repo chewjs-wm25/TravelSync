@@ -13,21 +13,27 @@ export type ItineraryItem = {
   position?: number;
   order_index?: number;
   isEditingItem?: boolean;
+  start_time?: string;
+  end_time?: string;
 };
 
 type ItineraryItemCardProps = {
   item: ItineraryItem;
+  previousEndTime?: string; // ADD THIS
   onDelete: () => void | Promise<void>;
   onToggleEdit: () => void;
   onSaveItem: (payload: {
     name: string;
     note: string;
     position?: number;
+    start_time?: string;
+    end_time?: string;
   }) => void | Promise<void>;
 };
 
 export function ItineraryItemCard({
   item,
+  previousEndTime, // ADD THIS
   onDelete,
   onToggleEdit,
   onSaveItem,
@@ -49,6 +55,11 @@ export function ItineraryItemCard({
             {typeof resolvedPosition === "number" ? (
               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                 #{resolvedPosition}
+              </span>
+            ) : null}
+            {item.start_time || item.end_time ? (
+              <span className="text-xs text-gray-600 ml-2">
+                {item.start_time ? `${item.start_time}` : ''}{item.start_time && item.end_time ? ' – ' : ''}{item.end_time ? `${item.end_time}` : ''}
               </span>
             ) : null}
           </div>
@@ -117,6 +128,9 @@ export function ItineraryItemCard({
           initialName={item.name}
           initialNote={item.note ?? ""}
           initialPosition={resolvedPosition}
+          initialStartTime={item.start_time}
+          initialEndTime={item.end_time}
+          previousEndTime={previousEndTime} // PASS THIS
           onSaveItem={onSaveItem}
           onCancel={onToggleEdit}
         />

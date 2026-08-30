@@ -116,6 +116,8 @@ function mapItemResponse(
     note: item.note ?? item.itinerary_item_note ?? item.itinerary_note ?? undefined,
     position: position ?? undefined,
     order_index: item.order_index ?? item.position ?? position ?? undefined,
+    start_time: item.start_time ?? undefined,
+    end_time: item.end_time ?? undefined,
     isEditingItem: false,
   };
 }
@@ -839,17 +841,42 @@ export default function TripItineraryPage() {
     );
   };
 
-  const handleSaveItem = async (
+  const handleUpdateItem = async (
     dayId: string,
     itemId: string,
-    payload: { name: string; note: string; position?: number }
-  ) => {
-    const trimmedName = payload.name.trim();
-
-    if (!trimmedName) {
-      setToastMessage("Itinerary item name is required");
-      return;
+    trimmedName: string,
+    payload: {
+      note?: string;
+      position?: number;
+      start_time?: string;
+      end_time?: string;
     }
+  ) => {
+    // Check for time overlap with existing items in the day
+    const targetDay = dayCards.find((day) => day.id === dayId);
+    if (targetDay) {
+      const overlapError = hasTimeOverlap(
+        targetDay.items,
+        itemId,
+        payload.start_time,
+        payload.end_time
+      );
+
+      if (overlapError) {
+        setToastMessage(overlapError);
+        return;
+      }
+    }
+
+    // Inside handleUpdateItem in page.tsx
+const existingItem = targetDay?.items.find((item) => item.id === itemId);
+const effectiveStartTime = payload.start_time ?? existingItem?.start_time;
+const effectiveEndTime = payload.end_time ?? existingItem?.end_time;
+
+if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartTime) {
+  setToastMessage("End time cannot be earlier than start time");
+  return;
+}
 
     const applyLocalUpdate = () => {
       setDayCards((previous) =>
@@ -870,6 +897,8 @@ export default function TripItineraryPage() {
                   ...item,
                   name: trimmedName,
                   note: payload.note,
+                  start_time: payload.start_time ?? item.start_time,
+                  end_time: payload.end_time ?? item.end_time,
                   position: payload.position ?? item.position,
                   order_index: payload.position ?? item.order_index,
                   isEditingItem: false,
@@ -899,6 +928,8 @@ export default function TripItineraryPage() {
             name: trimmedName,
             note: payload.note,
             position: payload.position,
+            start_time: payload.start_time,
+            end_time: payload.end_time,
           }),
         }
       );
@@ -919,17 +950,13 @@ export default function TripItineraryPage() {
 
       setDayCards((previous) =>
         previous.map((day) => {
-          if (day.id !== dayId) {
-            return day;
-          }
+          if (day.id !== dayId) return day;
 
           return {
             ...day,
             items: sortDayItems(
               day.items.map((item) => {
-                if (item.id !== itemId) {
-                  return item;
-                }
+                if (item.id !== itemId) return item;
 
                 return {
                   ...item,
@@ -945,6 +972,8 @@ export default function TripItineraryPage() {
                     updatedItem.itinerary_item_note ??
                     updatedItem.itinerary_note ??
                     undefined,
+                  start_time: updatedItem.start_time ?? payload.start_time ?? item.start_time,
+                  end_time: updatedItem.end_time ?? payload.end_time ?? item.end_time,
                   position:
                     updatedPosition ?? payload.position ?? item.position,
                   order_index:
@@ -965,6 +994,21 @@ export default function TripItineraryPage() {
         error instanceof Error ? error.message : "Failed to update item"
       );
     }
+  };
+
+  const handleSaveItem = async (
+    dayId: string,
+    itemId: string,
+    payload: {
+      name?: string;
+      note?: string;
+      position?: number;
+      start_time?: string;
+      end_time?: string;
+    }
+  ) => {
+    const trimmedName = payload.name?.trim() ?? "";
+    return handleUpdateItem(dayId, itemId, trimmedName, payload);
   };
 
   const tripTitle = trip?.trip_name ?? "Trip itinerary";
@@ -1230,4 +1274,39 @@ export default function TripItineraryPage() {
       </div>
     </div>
   );
+}
+
+function hasTimeOverlap(
+  items: DayItinerary["items"],
+  currentItemId: string,
+  startTime?: string,
+  endTime?: string
+): string | null {
+  // 1. Check if end time is earlier than start time
+  if (startTime && endTime && endTime <= startTime) {
+    return "End time cannot be earlier than or same as start time";
+  }
+
+  if (!startTime) return null;
+
+  for (const item of items) {
+    if (item.id === currentItemId || !item.start_time) continue;
+
+    // Check if start time falls within an existing item's window
+    if (item.end_time && startTime >= item.start_time && startTime < item.end_time) {
+      return `Start time overlaps with "${item.name}" (${item.start_time} – ${item.end_time})`;
+    }
+
+    // Check if end time falls within an existing item's window
+    if (endTime && item.end_time && endTime > item.start_time && endTime <= item.end_time) {
+      return `End time overlaps with "${item.name}" (${item.start_time} – ${item.end_time})`;
+    }
+
+    // Check if new window completely covers an existing item
+    if (endTime && item.end_time && startTime <= item.start_time && endTime >= item.end_time) {
+      return `Time range completely covers "${item.name}" (${item.start_time} – ${item.end_time})`;
+    }
+  }
+
+  return null;
 }

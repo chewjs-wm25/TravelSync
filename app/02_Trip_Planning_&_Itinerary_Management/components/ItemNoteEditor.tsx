@@ -2,16 +2,21 @@
 
 import { useState } from "react";
 
-type ItemEditPayload = {
+export type ItemEditPayload = {
   name: string;
   note: string;
   position?: number;
+  start_time?: string;
+  end_time?: string;
 };
 
-type ItemNoteEditorProps = {
+export type ItemNoteEditorProps = {
   initialName: string;
   initialNote: string;
   initialPosition?: number;
+  initialStartTime?: string;
+  initialEndTime?: string;
+  previousEndTime?: string; // ADD THIS
   onSaveItem: (payload: ItemEditPayload) => void | Promise<void>;
   onCancel: () => void;
 };
@@ -20,6 +25,9 @@ export function ItemNoteEditor({
   initialName,
   initialNote,
   initialPosition,
+  initialStartTime,
+  initialEndTime,
+  previousEndTime, // ADD THIS
   onSaveItem,
   onCancel,
 }: ItemNoteEditorProps) {
@@ -28,6 +36,8 @@ export function ItemNoteEditor({
   const [tempPosition, setTempPosition] = useState(
     initialPosition?.toString() ?? ""
   );
+  const [tempStartTime, setTempStartTime] = useState(initialStartTime ?? "");
+  const [tempEndTime, setTempEndTime] = useState(initialEndTime ?? "");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -40,25 +50,39 @@ export function ItemNoteEditor({
 
     const trimmedPosition = tempPosition.trim();
     let parsedPosition: number | undefined;
-
     if (trimmedPosition.length > 0) {
       const nextPosition = Number.parseInt(trimmedPosition, 10);
       if (!Number.isInteger(nextPosition) || nextPosition <= 0) {
         setErrorMessage("Position must be a positive integer");
         return;
       }
-
       parsedPosition = nextPosition;
     }
 
+    // Validate optional start/end time format HH:MM
+    const timeRegex = /^\d{2}:\d{2}$/;
+    if (tempStartTime && !timeRegex.test(tempStartTime)) {
+      setErrorMessage("Start time must be in HH:MM format");
+      return;
+    }
+    if (tempEndTime && !timeRegex.test(tempEndTime)) {
+      setErrorMessage("End time must be in HH:MM format");
+      return;
+    }
+    if (tempStartTime && previousEndTime && tempStartTime < previousEndTime) {
+  setErrorMessage(`Start time cannot be earlier than previous item end time (${previousEndTime})`);
+  return;
+}
+
     setErrorMessage(null);
     setIsSaving(true);
-
     try {
       await onSaveItem({
         name: trimmedName,
         note: tempNote,
         position: parsedPosition,
+        start_time: tempStartTime,
+        end_time: tempEndTime,
       });
     } finally {
       setIsSaving(false);
@@ -107,6 +131,36 @@ export function ItemNoteEditor({
             value={tempNote}
             onChange={(event) => setTempNote(event.target.value)}
             placeholder="Add a note for this place..."
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            disabled={isSaving}
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block space-y-1 text-xs font-semibold text-gray-700">
+          <span>Start Time</span>
+          <input
+            type="time"
+            value={tempStartTime}
+            onChange={(e) => {
+              setTempStartTime(e.target.value);
+              setErrorMessage(null);
+            }}
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            disabled={isSaving}
+          />
+        </label>
+
+        <label className="block space-y-1 text-xs font-semibold text-gray-700">
+          <span>End Time</span>
+          <input
+            type="time"
+            value={tempEndTime}
+            onChange={(e) => {
+              setTempEndTime(e.target.value);
+              setErrorMessage(null);
+            }}
             className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
             disabled={isSaving}
           />
