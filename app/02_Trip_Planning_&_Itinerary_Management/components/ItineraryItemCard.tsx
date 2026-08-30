@@ -15,6 +15,9 @@ export type ItineraryItem = {
   isEditingItem?: boolean;
   start_time?: string;
   end_time?: string;
+  /** Coordinates for Module 04 route calculation */
+  lat?: number;
+  lon?: number;
 };
 
 type ItineraryItemCardProps = {

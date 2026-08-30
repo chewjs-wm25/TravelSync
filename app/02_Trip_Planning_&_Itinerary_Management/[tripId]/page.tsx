@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 import { discoveryService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
 import {
@@ -51,6 +51,9 @@ type ItemApiPayload = {
   start_time?: string | null;
   end_time?: string | null;
   reference_id?: string | null;
+  /** Coordinates stored with the item for Module 04 route calculation */
+  lat?: number | null;
+  lon?: number | null;
 };
 
 function formatTripDate(value: string | null) {
@@ -119,6 +122,9 @@ function mapItemResponse(
     start_time: item.start_time ?? undefined,
     end_time: item.end_time ?? undefined,
     isEditingItem: false,
+    // Pass through coordinates for Module 04 route calculation
+    lat: item.lat ?? undefined,
+    lon: item.lon ?? undefined,
   };
 }
 
@@ -163,6 +169,24 @@ export default function TripItineraryPage() {
       | undefined
     >
   >({});
+
+const handleSelectSuggestion = useCallback(
+    (
+      dayId: string,
+      sugg?: {
+        placeId: string;
+        formatted: string;
+        name?: string;
+        imageUrl?: string;
+        lat?: number;
+        lon?: number;
+      }
+    ) => {
+      setSelectedSuggestions((prev) => ({ ...prev, [dayId]: sugg }));
+    },
+    []
+  );
+
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
@@ -588,6 +612,8 @@ export default function TripItineraryPage() {
             position: day.items.length + 1,
             order_index: day.items.length + 1,
             isEditingItem: false,
+            lat: resolvedLat ?? undefined,
+            lon: resolvedLon ?? undefined,
           };
 
           return {
@@ -634,7 +660,11 @@ export default function TripItineraryPage() {
       }
 
       const item = payload.item;
-      const newItem = mapItemResponse(item ?? {}, query);
+      const newItem = {
+        ...mapItemResponse(item ?? {}, query),
+        lat: item?.lat ?? resolvedLat ?? undefined,
+        lon: item?.lon ?? resolvedLon ?? undefined,
+      };
 
       setDayCards((previous) =>
         previous.map((day) => {
@@ -842,36 +872,37 @@ export default function TripItineraryPage() {
   };
 
   const handleUpdateItem = async (
-    dayId: string,
-    itemId: string,
-    trimmedName: string,
-    payload: {
-      note?: string;
-      position?: number;
-      start_time?: string;
-      end_time?: string;
-    }
-  ) => {
-    // Check for time overlap with existing items in the day
-    const targetDay = dayCards.find((day) => day.id === dayId);
-    if (targetDay) {
-      const overlapError = hasTimeOverlap(
-        targetDay.items,
-        itemId,
-        payload.start_time,
-        payload.end_time
-      );
+  dayId: string,
+  itemId: string,
+  trimmedName: string,
+  payload: {
+    note?: string;
+    position?: number;
+    start_time?: string;
+    end_time?: string;
+  }
+) => {
+  const targetDay = dayCards.find((day) => day.id === dayId);
+  const existingItem = targetDay?.items.find((item) => item.id === itemId);
 
-      if (overlapError) {
-        setToastMessage(overlapError);
-        return;
-      }
-    }
+  // Compute effective times before validating
+  const effectiveStartTime = payload.start_time ?? existingItem?.start_time;
+  const effectiveEndTime = payload.end_time ?? existingItem?.end_time;
 
-    // Inside handleUpdateItem in page.tsx
-const existingItem = targetDay?.items.find((item) => item.id === itemId);
-const effectiveStartTime = payload.start_time ?? existingItem?.start_time;
-const effectiveEndTime = payload.end_time ?? existingItem?.end_time;
+  // Validate using full effective times
+  if (targetDay) {
+    const overlapError = hasTimeOverlap(
+      targetDay.items,
+      itemId,
+      effectiveStartTime,
+      effectiveEndTime
+    );
+
+    if (overlapError) {
+      setToastMessage(overlapError);
+      return;
+    }
+  }
 
 if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartTime) {
   setToastMessage("End time cannot be earlier than start time");
@@ -1209,67 +1240,65 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
             </button>
           </div>
         ) : (
-          <div className="space-y-6">
-            {dayCards.map((day) => (
-              <DayItineraryCard
-                key={day.id}
-                day={day}
-                searchValue={searchInputs[day.id] ?? ""}
-                onSearchChange={(value) => {
-                  const trimmedValue = value.trim();
+<div className="space-y-6">
+  {dayCards.map((day) => (
+    <DayCardWrapper
+      key={day.id}
+      day={day}
+      searchValue={searchInputs[day.id] ?? ""}
+      onSearchChange={(value) => {
+        const trimmedValue = value.trim();
 
-                  setSearchInputs((previous) => ({
-                    ...previous,
-                    [day.id]: value,
-                  }));
+        setSearchInputs((previous) => ({
+          ...previous,
+          [day.id]: value,
+        }));
 
-                  setSelectedSuggestions((prev) => {
-                    const current = prev[day.id];
-                    if (!current) {
-                      return { ...prev, [day.id]: undefined };
-                    }
+        setSelectedSuggestions((prev) => {
+          const current = prev[day.id];
+          if (!current) {
+            return { ...prev, [day.id]: undefined };
+          }
 
-                    const labels = [current.formatted, current.name]
-                      .filter(Boolean)
-                      .map((label) => label!.trim().toLowerCase());
+          const labels = [current.formatted, current.name]
+            .filter(Boolean)
+            .map((label) => label!.trim().toLowerCase());
 
-                    if (!trimmedValue) {
-                      return { ...prev, [day.id]: undefined };
-                    }
+          if (!trimmedValue) {
+            return { ...prev, [day.id]: undefined };
+          }
 
-                    if (labels.includes(trimmedValue.toLowerCase())) {
-                      return prev;
-                    }
+          if (labels.includes(trimmedValue.toLowerCase())) {
+            return prev;
+          }
 
-                    return { ...prev, [day.id]: undefined };
-                  });
-                }}
-                onSelectSuggestion={(sugg) =>
-                  setSelectedSuggestions((prev) => ({ ...prev, [day.id]: sugg }))
-                }
-                onAddItem={() => handleAddItem(day.id)}
-                onDeleteItem={(itemId) => void handleDeleteItem(day.id, itemId)}
-                onDeleteDay={() => {
-                  void handleDeleteDay(day.id);
-                }}
-                onAddDayBefore={(id) => void handleAddDay("before", id)}
-                onAddDayAfter={(id) => void handleAddDay("after", id)}
-                onToggleCollapse={(collapseValue) =>
-                  handleToggleCollapse(day.id, collapseValue)
-                }
-                onToggleItemEdit={(itemId) =>
-                  handleToggleItemEdit(day.id, itemId)
-                }
-                onSaveItem={(itemId, payload) =>
-                  handleSaveItem(day.id, itemId, payload)
-                }
-                onSaveNote={(note) => handleSaveItineraryNote(day.id, note)}
-                onEditDay={(nextTitle, nextDate) =>
-                  void handleEditDay(day.id, nextTitle, nextDate)
-                }
-              />
-            ))}
-          </div>
+          return { ...prev, [day.id]: undefined };
+        });
+      }}
+      onSelectSuggestion={handleSelectSuggestion}
+      onAddItem={() => handleAddItem(day.id)}
+      onDeleteItem={(itemId) => void handleDeleteItem(day.id, itemId)}
+      onDeleteDay={() => {
+        void handleDeleteDay(day.id);
+      }}
+      onAddDayBefore={(id) => void handleAddDay("before", id)}
+      onAddDayAfter={(id) => void handleAddDay("after", id)}
+      onToggleCollapse={(collapseValue) =>
+        handleToggleCollapse(day.id, collapseValue)
+      }
+      onToggleItemEdit={(itemId) =>
+        handleToggleItemEdit(day.id, itemId)
+      }
+      onSaveItem={(itemId, payload) =>
+        handleSaveItem(day.id, itemId, payload)
+      }
+      onSaveNote={(note) => handleSaveItineraryNote(day.id, note)}
+      onEditDay={(nextTitle, nextDate) =>
+        void handleEditDay(day.id, nextTitle, nextDate)
+      }
+    />
+  ))}
+</div>
         )}
       </div>
     </div>
@@ -1309,4 +1338,61 @@ function hasTimeOverlap(
   }
 
   return null;
+}
+
+type DayCardWrapperProps = {
+  day: DayItinerary;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  onSelectSuggestion: (
+    dayId: string,
+    sugg?: {
+      placeId: string;
+      formatted: string;
+      name?: string;
+      imageUrl?: string;
+      lat?: number;
+      lon?: number;
+    }
+  ) => void;
+  onAddItem: () => void;
+  onDeleteItem: (itemId: string) => void;
+  onDeleteDay: () => void;
+  onAddDayBefore: (id: string) => void;
+  onAddDayAfter: (id: string) => void;
+  onToggleCollapse: (collapseValue?: boolean) => void;
+  onToggleItemEdit: (itemId: string) => void;
+  onSaveItem: (
+    itemId: string,
+    payload: {
+      name?: string;
+      note?: string;
+      position?: number;
+      start_time?: string;
+      end_time?: string;
+    }
+  ) => Promise<void>;
+  onSaveNote: (note: string) => Promise<boolean>;
+  onEditDay: (nextTitle: string, nextDate: string) => void;
+};
+
+function DayCardWrapper({
+  day,
+  onSelectSuggestion,
+  ...rest
+}: DayCardWrapperProps) {
+  const handleSelect = useCallback(
+    (sugg: Parameters<DayCardWrapperProps["onSelectSuggestion"]>[1]) => {
+      onSelectSuggestion(day.id, sugg);
+    },
+    [day.id, onSelectSuggestion]
+  );
+
+  return (
+    <DayItineraryCard
+      day={day}
+      onSelectSuggestion={handleSelect}
+      {...rest}
+    />
+  );
 }

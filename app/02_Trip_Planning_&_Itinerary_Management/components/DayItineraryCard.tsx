@@ -7,6 +7,8 @@ import {
   getLocalSuggestions,
   type LocalSuggestion,
 } from "../api/localSuggestionApi";
+import { generateRoute } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/moduleAPI";
+import type { Stop } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/moduleAPI";
 
 type LocalSuggestionItem = LocalSuggestion;
 
@@ -95,9 +97,87 @@ export function DayItineraryCard({
   const [suggestions, setSuggestions] = useState<LocalSuggestionItem[]>([]);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
+  // Route segments: key = "fromId->toId", value = summary or null (unavailable)
+  type RouteSegment = { distanceKm: number; timeMinutes: number } | null;
+  const [routeSegments, setRouteSegments] = useState<Record<string, RouteSegment>>({});
+  const [loadingSegmentKeys, setLoadingSegmentKeys] = useState<Set<string>>(new Set());
+
+  // Recalculate all connectors whenever the item list changes (add or delete)
+  useEffect(() => {
+    if (day.items.length < 2) {
+      setRouteSegments({});
+      setLoadingSegmentKeys(new Set());
+      return;
+    }
+
+    let cancelled = false;
+
+    const calculateSegments = async () => {
+      for (let i = 0; i < day.items.length - 1; i++) {
+        if (cancelled) break;
+
+        const from = day.items[i]!;
+        const to = day.items[i + 1]!;
+        const key = `${from.id}->${to.id}`;
+
+        // Skip pairs without coordinates
+        if (
+          from.lat == null || from.lon == null ||
+          to.lat == null || to.lon == null
+        ) {
+          if (!cancelled) {
+            setRouteSegments((prev) => ({ ...prev, [key]: null }));
+          }
+          continue;
+        }
+
+        // Mark as loading
+        if (!cancelled) {
+          setLoadingSegmentKeys((prev) => new Set(prev).add(key));
+        }
+
+        try {
+          const fromStop: Stop = { id: from.id, name: from.name, lat: from.lat, lng: from.lon };
+          const toStop: Stop = { id: to.id, name: to.name, lat: to.lat, lng: to.lon };
+          console.log(from.lat, from.lon, to.lat, to.lon)
+          const result = await generateRoute(fromStop, toStop, 'car', 'fastest');
+
+          if (!cancelled) {
+            setRouteSegments((prev) => ({
+              ...prev,
+              [key]: result.success
+                ? { distanceKm: result.summary.distanceKm, timeMinutes: result.summary.timeMinutes }
+                : null,
+            }));
+          }
+        } catch {
+          if (!cancelled) {
+            setRouteSegments((prev) => ({ ...prev, [key]: null }));
+          }
+        } finally {
+          if (!cancelled) {
+            setLoadingSegmentKeys((prev) => {
+              const next = new Set(prev);
+              next.delete(key);
+              return next;
+            });
+          }
+        }
+      }
+    };
+
+    void calculateSegments();
+
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day.items.map((item) => item.id).join(",")]);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -465,19 +545,66 @@ export function DayItineraryCard({
               day.items.map((item, index) => {
                 const previousItem = index > 0 ? day.items[index - 1] : undefined;
                 const previousEndTime = previousItem?.end_time;
+                const segmentKey = previousItem ? `${previousItem.id}->${item.id}` : null;
+                const isSegmentLoading = segmentKey ? loadingSegmentKeys.has(segmentKey) : false;
+                const segment = segmentKey ? routeSegments[segmentKey] : undefined;
 
                 return (
-                  <ItineraryItemCard
-          key={item.id}
-          item={item}
-          previousEndTime={previousEndTime}
-          onDelete={() => onDeleteItem(item.id)}
-          onToggleEdit={() => onToggleItemEdit(item.id)}
-          onSaveItem={(payload) => onSaveItem(item.id, payload)}
-        />
-      );
-    })
-  )}
+                  <div key={item.id}>
+                    {segmentKey && (
+                      <div className="flex items-center gap-2 py-1 px-1">
+                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+                        <div className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-medium shadow-sm">
+                          {isSegmentLoading ? (
+                            <>
+                              <svg className="h-3 w-3 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                              </svg>
+                              <span className="text-gray-400">Calculating…</span>
+                            </>
+                          ) : segment ? (
+                            <>
+                              <svg className="h-3 w-3 text-[#ff6b6b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7" />
+                              </svg>
+                              <span className="text-gray-600">
+                                {segment.distanceKm.toFixed(1)} km
+                              </span>
+                              <span className="text-gray-300">·</span>
+                              <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-gray-600">
+                                {segment.timeMinutes < 60
+                                  ? `${Math.round(segment.timeMinutes)} min`
+                                  : `${Math.floor(segment.timeMinutes / 60)}h ${Math.round(segment.timeMinutes % 60)}min`}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-3 w-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7" />
+                              </svg>
+                              <span className="text-gray-400">No route data</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+                      </div>
+                    )}
+                    <ItineraryItemCard
+                      item={item}
+                      previousEndTime={previousEndTime}
+                      onDelete={() => onDeleteItem(item.id)}
+                      onToggleEdit={() => onToggleItemEdit(item.id)}
+                      onSaveItem={(payload) => onSaveItem(item.id, payload)}
+                    />
+                  </div>
+                );
+              })
+            )}
+
           </div>
 
           <div className="mt-2 border-t border-gray-200/60 pt-2">
