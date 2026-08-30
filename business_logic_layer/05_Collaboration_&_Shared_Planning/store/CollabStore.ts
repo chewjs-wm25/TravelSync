@@ -14,6 +14,7 @@ import type {
   CollabTrip,
   InviteResult,
 } from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
+import type { TripShareSummary } from "../server/TripShareService";
 
 export type {
   CollabRole,
@@ -26,6 +27,7 @@ export type {
   ActivityEntry,
   CollabTrip,
   InviteResult,
+  TripShareSummary,
 };
 
 const POLL_INTERVAL_MS = 1000;
@@ -36,6 +38,11 @@ function getAuthUserId(): string {
   return auth.user?.id ?? "";
 }
 
+interface ControlCenterState {
+  owned: TripShareSummary[];
+  joined: TripShareSummary[];
+}
+
 interface CollabState {
   currentUserId: string;
   activeTripId: string;
@@ -43,9 +50,16 @@ interface CollabState {
   loading: boolean;
   error: string | null;
 
-  load: () => Promise<void>;
+  // Control Center
+  controlCenter: ControlCenterState | null;
+  controlLoading: boolean;
+  controlError: string | null;
+
+  load: (tripId?: string) => Promise<void>;
+  loadControlCenter: () => Promise<void>;
   setCurrentUser: (id: string) => void;
   setActiveTrip: (id: string) => void;
+  toggleShare: (tripId: string, isShared: boolean) => Promise<{ success: boolean; message?: string }>;
 
   inviteCollaborator: (email: string, role: InviteRole) => Promise<InviteResult>;
   cancelInvite: (inviteId: string) => Promise<void>;
@@ -68,7 +82,7 @@ interface CollabState {
  *
  * 同步策略：乐观更新 + 轮询。
  * - 写操作后立即本地更新 UI（乐观更新）
- * - 后台每 3 秒轮询 bootstrap 获取最新状态
+ * - 后台每 1 秒轮询 bootstrap 获取最新状态（带 activeTripId）
  */
 export const useCollabStore = create<CollabState>()((set, get) => {
   let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -77,7 +91,6 @@ export const useCollabStore = create<CollabState>()((set, get) => {
   const startPolling = () => {
     if (pollTimer) return;
     pollTimer = setInterval(() => {
-      // 写操作进行中时跳过轮询，避免覆盖乐观更新
       if (isWriting) return;
       void silentRefresh();
     }, POLL_INTERVAL_MS);
@@ -90,44 +103,37 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     }
   };
 
-  /** 静默刷新：不显示 loading 状态，不显示错误 */
+  /** 静默刷新：不显示 loading 状态，不显示错误，带 activeTripId */
   const silentRefresh = async () => {
     try {
-      const data = await collabApi.bootstrap(get().currentUserId);
+      const { currentUserId, activeTripId } = get();
+      if (!activeTripId) return;
+      const data = await collabApi.bootstrap(currentUserId, activeTripId);
       const trip = data.trip;
       if (!trip) return;
 
-      // 智能合并：保留乐观更新产生的临时数据
       set((state) => {
         const currentTrip = state.trips[0];
         if (!currentTrip) {
           return { trips: [trip] };
         }
 
-        // 合并成员列表（去重）
         const memberMap = new Map<string, CollabMember>();
         for (const m of trip.members) memberMap.set(m.id, m);
         for (const m of currentTrip.members) {
           if (!memberMap.has(m.id)) memberMap.set(m.id, m);
         }
 
-        // 合并邀请列表（去重）
         const inviteMap = new Map<string, CollabInvite>();
         for (const i of trip.invites) inviteMap.set(i.id, i);
         for (const i of currentTrip.invites) {
           if (!inviteMap.has(i.id)) inviteMap.set(i.id, i);
         }
 
-        // 合并行程明细（去重，保留服务端数据为主）
-        const itemMap = new Map<string, ItineraryItem>();
-        for (const i of trip.items) itemMap.set(i.itemId, i);
-        // 只保留服务端存在的项（删除的项会被移除）
         const mergedItems = trip.items;
 
-        // 合并评论（去重，保留服务端数据为主）
         const commentMap = new Map<string, CollabComment>();
         for (const c of trip.comments) commentMap.set(c.id, c);
-        // 仅添加尚未同步到服务端的临时评论（跳过已有真实版本的）
         for (const c of currentTrip.comments) {
           if (c.id.startsWith("temp-")) {
             const hasReal = Array.from(commentMap.values()).some(
@@ -151,51 +157,96 @@ export const useCollabStore = create<CollabState>()((set, get) => {
         return { trips: [mergedTrip] };
       });
     } catch {
-      // 静默失败，下次轮询再试
+      // 静默失败
     }
   };
 
   return {
     currentUserId: getAuthUserId(),
-    activeTripId: "trip_langkawi",
+    activeTripId: "",
     trips: [],
     loading: true,
     error: null,
+    controlCenter: null,
+    controlLoading: true,
+    controlError: null,
 
-    load: async () => {
-      set({ loading: true, error: null });
+    load: async (tripId?: string) => {
+      const effectiveTripId = tripId ?? get().activeTripId ?? "";
+      const uid = getAuthUserId();
+      // 若既无指定也无 active，则仍走旧逻辑：尝试加载默认（bootstrap 无 tripId 回退到 trip_langkawi）
+      set({ loading: true, error: null, currentUserId: uid });
       try {
-        const data = await collabApi.bootstrap(get().currentUserId);
+        const data = await collabApi.bootstrap(uid, effectiveTripId || undefined);
         const trips = [data.trip];
-        const activeTripId = trips.some((t) => t.tripId === get().activeTripId)
-          ? get().activeTripId
-          : (trips[0]?.tripId ?? "");
-        set({ trips, activeTripId, loading: false });
+        const nextActive = effectiveTripId || data.trip.tripId;
+        set({ trips, activeTripId: nextActive, loading: false });
         startPolling();
       } catch {
         set({
           loading: false,
-          trips: [buildFallbackTrip(get().currentUserId)],
-          activeTripId: "trip_langkawi",
+          trips: [buildFallbackTrip(uid)],
+          activeTripId: effectiveTripId || "trip_langkawi",
           error:
             "演示模式：本地数据库无数据，已加载内置演示数据（写入功能不可用）。运行 npm run dev 会自动初始化真实数据库。",
         });
       }
     },
 
-    setCurrentUser: (id) => {
-      stopPolling();
-      set({ currentUserId: id });
-      void get().load();
+    loadControlCenter: async () => {
+      const uid = getAuthUserId();
+      if (!uid) {
+        set({ controlCenter: { owned: [], joined: [] }, controlLoading: false, controlError: null });
+        return;
+      }
+      set({ controlLoading: true, controlError: null });
+      try {
+        const data = await collabApi.listControlCenter(uid);
+        if ((data as { success: boolean }).success === false) throw new Error((data as { message?: string }).message ?? "Failed");
+        set({ controlCenter: { owned: (data as { owned: TripShareSummary[] }).owned ?? [], joined: (data as { joined: TripShareSummary[] }).joined ?? [] }, controlLoading: false });
+      } catch (e) {
+        set({ controlLoading: false, controlError: e instanceof Error ? e.message : "Failed to load trips", controlCenter: { owned: [], joined: [] } });
+      }
     },
 
-    setActiveTrip: (id) => set({ activeTripId: id }),
+    setCurrentUser: (id) => {
+      stopPolling();
+      set((state) => ({ currentUserId: id, activeTripId: state.activeTripId }));
+      const active = get().activeTripId;
+      if (active) {
+        void get().load(active);
+      } else {
+        void get().load();
+      }
+      void get().loadControlCenter();
+    },
+
+    setActiveTrip: (id) => {
+      stopPolling();
+      set({ activeTripId: id });
+      void get().load(id);
+    },
+
+    toggleShare: async (tripId, isShared) => {
+      isWriting = true;
+      try {
+        const res = await collabApi.toggleShare(get().currentUserId, tripId, isShared);
+        if (!res.success) return { success: false, message: res.message ?? "Failed" };
+        // 成功后刷新 Control Center（踢出立即反映）
+        await get().loadControlCenter();
+        return { success: true };
+      } catch (e) {
+        return { success: false, message: e instanceof Error ? e.message : "Failed" };
+      } finally {
+        isWriting = false;
+      }
+    },
 
     inviteCollaborator: async (email, role) => {
       isWriting = true;
       try {
-        const res = await collabApi.invite(get().currentUserId, email, role);
-        // 乐观更新：立即添加邀请到本地
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        const res = await collabApi.invite(get().currentUserId, email, role, tripId);
         if (res.success && res.invite) {
           const { trips } = get();
           if (trips.length > 0) {
@@ -203,6 +254,8 @@ export const useCollabStore = create<CollabState>()((set, get) => {
               trips: [{ ...trips[0], invites: [...trips[0].invites, res.invite] }],
             });
           }
+          // 邀请后刷新 control center 的 pending 数
+          void get().loadControlCenter();
         }
         return res;
       } finally {
@@ -213,8 +266,8 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     cancelInvite: async (inviteId) => {
       isWriting = true;
       try {
-        await collabApi.cancelInvite(get().currentUserId, inviteId);
-        // 乐观更新：立即从本地移除
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        await collabApi.cancelInvite(get().currentUserId, inviteId, tripId);
         const { trips } = get();
         if (trips.length > 0) {
           set({
@@ -226,6 +279,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             ],
           });
         }
+        void get().loadControlCenter();
       } finally {
         isWriting = false;
       }
@@ -234,9 +288,10 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     acceptInvite: async (inviteId) => {
       isWriting = true;
       try {
-        await collabApi.updateInvite(inviteId, "accepted", get().currentUserId);
-        // 轮询会拉取最新数据
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        await collabApi.updateInvite(inviteId, "accepted", get().currentUserId, tripId);
         await silentRefresh();
+        void get().loadControlCenter();
       } finally {
         isWriting = false;
       }
@@ -245,8 +300,8 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     rejectInvite: async (inviteId) => {
       isWriting = true;
       try {
-        await collabApi.updateInvite(inviteId, "rejected", get().currentUserId);
-        // 乐观更新：立即从本地移除
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        await collabApi.updateInvite(inviteId, "rejected", get().currentUserId, tripId);
         const { trips } = get();
         if (trips.length > 0) {
           set({
@@ -258,6 +313,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             ],
           });
         }
+        void get().loadControlCenter();
       } finally {
         isWriting = false;
       }
@@ -267,7 +323,6 @@ export const useCollabStore = create<CollabState>()((set, get) => {
       isWriting = true;
       try {
         await collabApi.expireInvites();
-        // 乐观更新：移除所有 pending 邀请
         const { trips } = get();
         if (trips.length > 0) {
           set({
@@ -279,6 +334,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             ],
           });
         }
+        void get().loadControlCenter();
       } finally {
         isWriting = false;
       }
@@ -287,8 +343,8 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     changeRole: async (memberId, role) => {
       isWriting = true;
       try {
-        await collabApi.changeRole(get().currentUserId, memberId, role);
-        // 乐观更新：立即修改本地角色
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        await collabApi.changeRole(get().currentUserId, memberId, role, tripId);
         const { trips } = get();
         if (trips.length > 0) {
           set({
@@ -310,8 +366,8 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     removeMember: async (memberId) => {
       isWriting = true;
       try {
-        await collabApi.removeMember(get().currentUserId, memberId);
-        // 乐观更新：立即从本地移除
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        await collabApi.removeMember(get().currentUserId, memberId, tripId);
         const { trips } = get();
         if (trips.length > 0) {
           set({
@@ -323,6 +379,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             ],
           });
         }
+        void get().loadControlCenter();
       } finally {
         isWriting = false;
       }
@@ -331,9 +388,11 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     leaveTrip: async () => {
       isWriting = true;
       try {
-        await collabApi.leaveTrip(get().currentUserId);
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        await collabApi.leaveTrip(get().currentUserId, tripId);
         stopPolling();
         await get().load();
+        void get().loadControlCenter();
       } finally {
         isWriting = false;
       }
@@ -342,7 +401,8 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     addItem: async (day, title, note) => {
       isWriting = true;
       try {
-        const res = await collabApi.addItem(get().currentUserId, day, title, note);
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        const res = await collabApi.addItem(get().currentUserId, day, title, note, tripId);
         if (res.success && res.item) {
           const { trips } = get();
           if (trips.length > 0) {
@@ -364,8 +424,8 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     removeItem: async (itemId) => {
       isWriting = true;
       try {
-        await collabApi.removeItem(get().currentUserId, itemId);
-        // 乐观更新：立即从本地移除
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        await collabApi.removeItem(get().currentUserId, itemId, tripId);
         const { trips } = get();
         if (trips.length > 0) {
           set({
@@ -385,8 +445,8 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     addComment: async (text) => {
       isWriting = true;
       try {
-        await collabApi.addComment(get().currentUserId, text);
-        // 乐观更新：立即添加评论
+        const tripId = get().activeTripId || get().trips[0]?.tripId;
+        await collabApi.addComment(get().currentUserId, text, tripId);
         const { trips, currentUserId } = get();
         if (trips.length > 0) {
           const tempComment: CollabComment = {
@@ -418,8 +478,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
 });
 
 /**
- * 订阅 module 01 登录状态：身份变化（登录 / 登出 / 切换账号 / 持久化恢复）
- * 时同步 currentUserId 并重新拉取数据。
+ * 订阅 module 01 登录状态：身份变化时同步 currentUserId 并重新拉取数据。
  */
 useAuthStore.subscribe((auth) => {
   const nextId = auth.user?.id ?? "";

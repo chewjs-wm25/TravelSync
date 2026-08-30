@@ -83,3 +83,44 @@ export async function updateLastSeen(tripId: string, userId: string): Promise<vo
     .bind(now, tripId, userId)
     .run();
 }
+
+/** 查询某用户参与的所有行程 ID（joined + owned via collaboration） */
+export async function findTripIdsByUserId(userId: string): Promise<string[]> {
+  const db = await getDB();
+  const res = await db
+    .prepare("SELECT DISTINCT trip_id FROM Collaborators WHERE user_id = ? AND status = 'active'")
+    .bind(userId)
+    .all<{ trip_id: string }>();
+  return (res.results ?? []).map((r) => r.trip_id);
+}
+
+/** 统计行程的协作者数量（含 Owner） */
+export async function countByTrip(tripId: string): Promise<number> {
+  const db = await getDB();
+  const res = await db
+    .prepare("SELECT COUNT(*) as cnt FROM Collaborators WHERE trip_id = ? AND status = 'active'")
+    .bind(tripId)
+    .first<{ cnt: number }>();
+  return res?.cnt ?? 0;
+}
+
+/** 删除行程的所有非 Owner 协作者（Share→Private 立即踢出） */
+export async function deleteNonOwners(tripId: string, ownerId: string): Promise<number> {
+  const db = await getDB();
+  const res = await db
+    .prepare("DELETE FROM Collaborators WHERE trip_id = ? AND user_id != ?")
+    .bind(tripId, ownerId)
+    .run();
+  return res.meta.changes ?? 0;
+}
+
+/** 确保 Owner 行存在（Share 开启时） */
+export async function ensureOwner(tripId: string, ownerId: string): Promise<void> {
+  const db = await getDB();
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO Collaborators (role, status, trip_id, user_id, invited_by) VALUES ('Owner','active',?,?,NULL)`
+    )
+    .bind(tripId, ownerId)
+    .run();
+}

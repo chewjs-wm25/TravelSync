@@ -1,8 +1,6 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getDB } from "@/data_access_layer/05_Collaboration_&_Shared_Planning/db";
 import * as InviteRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo";
 import * as CollaboratorRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
-import * as AccountRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/AccountRepo";
-import { ensureAccountSchema } from "@/data_access_layer/01_User_&_Account_Management/AccountSchema";
 import { ACTIVE_TRIP_ID, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
 import { broadcaster } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/EventBroadcaster";
@@ -62,7 +60,7 @@ function validUsername(username: string): boolean {
  */
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
+    const body = (await req.json().catch(() => ({}))) as {
       token?: string;
       username?: string;
       password?: string;
@@ -85,15 +83,16 @@ export async function POST(req: Request) {
     if (invite.status !== "pending") return error("This invitation is no longer pending.");
     if (new Date(invite.expires_at) < new Date()) return error("This invitation has expired.");
 
-    // 2. 初始化 DB + 确保 users 表存在
-    const { env } = await getCloudflareContext({ async: true });
-    const db = (env as { TEST_DB?: D1Database }).TEST_DB;
+    // 2. 初始化 DB
+    const db = await getDB();
     if (!db) return error("Database not available.");
-    await ensureAccountSchema(db);
 
-    // 3. 检查用户名是否已存在
-    const existing = await db.prepare("SELECT id FROM users WHERE username = ?").bind(username).first();
-    if (existing) return error("Username is already taken.");
+    // 3. 检查用户名与邮箱是否已存在
+    const existingUsername = await db.prepare("SELECT id FROM users WHERE LOWER(username) = ? LIMIT 1").bind(username).first();
+    if (existingUsername) return error("Username is already taken.");
+
+    const existingEmail = await db.prepare("SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1").bind(invite.receiver_email.toLowerCase()).first();
+    if (existingEmail) return error("An account with this email already exists. Please sign in instead.");
 
     // 4. 创建用户（email 来自邀请）
     const userId = crypto.randomUUID();
@@ -101,9 +100,17 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
 
     await db.prepare(
-      `INSERT INTO users (id, username, email, password_hash, full_name, phone, ic_hash, profile_picture, is_verified, is_active, is_locked, failed_attempts, lock_until, created_at, role)
-       VALUES (?, ?, ?, ?, ?, NULL, '', NULL, 1, 1, 0, 0, NULL, ?, 'user')`
-    ).bind(userId, username, invite.receiver_email, passwordHash, fullName, now).run();
+      `INSERT INTO users (id, username, email, password_hash, full_name, phone, ic_hash, profile_picture, is_verified, is_active, is_locked, failed_attempts, lock_until, last_login, created_at, role)
+       VALUES (?, ?, ?, ?, ?, NULL, '', NULL, 1, 1, 0, 0, NULL, ?, ?, 'user')`
+    ).bind(userId, username, invite.receiver_email.toLowerCase(), passwordHash, fullName, now, now).run();
+
+    try {
+      await db.prepare(
+        "INSERT OR IGNORE INTO user_settings (user_id, notifications_enabled, language, theme, privacy_level) VALUES (?, 1, 'en', 'light', 'private')"
+      ).bind(userId).run();
+    } catch {
+      // ignore
+    }
 
     // 5. 创建 session（自动登录）
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 天
@@ -118,33 +125,36 @@ export async function POST(req: Request) {
       `INSERT INTO user_sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)`
     ).bind(crypto.randomUUID(), userId, sessionToken, expiresAt.toISOString()).run();
 
+    const targetTripId = invite.trip_id || ACTIVE_TRIP_ID;
+
     // 6. 接受邀请 → 创建 Collaborator
     await InviteRepo.updateStatus(invite.invitation_id, "accepted");
     await InviteRepo.updateReceiverUserId(invite.invitation_id, userId);
 
     await CollaboratorRepo.insertCollaborator({
       role: invite.role,
-      trip_id: ACTIVE_TRIP_ID,
+      trip_id: targetTripId,
       user_id: userId,
       invited_by: invite.sender_id,
     });
 
     await logActivity({
-      trip_id: ACTIVE_TRIP_ID,
+      trip_id: targetTripId,
       user_id: userId,
       action: `registered and accepted the invite as ${invite.role}`,
     });
 
-    broadcaster.broadcast(ACTIVE_TRIP_ID, {
+    broadcaster.broadcast(targetTripId, {
       type: "member_joined",
       member: { id: userId, name: fullName, email: invite.receiver_email, role: invite.role, avatar: "" },
     });
 
-    // 7. 返回 user + session cookie
+    // 7. 返回 user + tripId + session cookie
     const maxAge = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
     return Response.json(
       {
         success: true,
+        tripId: targetTripId,
         user: {
           id: userId,
           username,

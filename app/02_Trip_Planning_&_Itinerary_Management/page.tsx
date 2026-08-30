@@ -70,11 +70,10 @@ export default function PlanningPage() {
 
       try {
         // Only load trips for authenticated users. Module 02 is locked behind login.
-        const { isLoggedIn, user } = useAuthStore.getState();
         if (!isLoggedIn || !user?.id) {
-          // Not logged in: show empty list (UI will show prompt to login)
           if (!isMounted) return;
           setTrips([]);
+          setIsLoadingTrips(false);
           return;
         }
 
@@ -100,7 +99,7 @@ export default function PlanningPage() {
     return () => {
       isMounted = false;
     };
-  }, [refreshCounter]);
+  }, [refreshCounter, isLoggedIn, user?.id]);
 
   useEffect(() => {
     if (!toastMessage) {

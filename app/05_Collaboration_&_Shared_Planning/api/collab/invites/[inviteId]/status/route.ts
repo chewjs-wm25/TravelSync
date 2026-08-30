@@ -1,4 +1,4 @@
-﻿import * as InviteRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo";
+import * as InviteRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo";
 import * as CollaboratorRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/CollaboratorRepo";
 import * as AccountRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/AccountRepo";
 import { logActivity } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ActivityLogger";
@@ -19,8 +19,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!status) return error("status must be 'accepted' or 'rejected'.");
 
     const invite = await InviteRepo.findById(inviteId);
-    if (!invite || invite.trip_id !== ACTIVE_TRIP_ID) return error("Invitation not found", 404);
+    if (!invite) return error("Invitation not found", 404);
     if (invite.status !== "pending") return error("Invitation is no longer pending.");
+
+    const targetTripId = invite.trip_id || ACTIVE_TRIP_ID;
 
     await InviteRepo.updateStatus(inviteId, status);
 
@@ -28,29 +30,26 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (status === "accepted") {
       const existing = invite.receiver_user_id
         ? await AccountRepo.findAccountById(invite.receiver_user_id)
-        : await AccountRepo.findAccountByEmail(invite.receiver_email);
+        : (body.userId ? await AccountRepo.findAccountById(body.userId) : await AccountRepo.findAccountByEmail(invite.receiver_email));
       const account = existing ?? (await AccountRepo.insertAccount({
         username: displayNameFromEmail(invite.receiver_email),
         email: invite.receiver_email,
       }));
-      await InviteRepo.updateStatus(
-        inviteId,
-        "accepted"
-      );
+      await InviteRepo.updateReceiverUserId(inviteId, account.id);
       await CollaboratorRepo.insertCollaborator({
         role: invite.role === "Editor" ? "Editor" : "Viewer",
-        trip_id: ACTIVE_TRIP_ID,
+        trip_id: targetTripId,
         user_id: account.id,
         invited_by: invite.sender_id,
       });
       await logActivity({
-        trip_id: ACTIVE_TRIP_ID,
+        trip_id: targetTripId,
         user_id: account.id,
         action: `accepted the invite as ${invite.role}`,
       });
 
       // 广播新成员加入事件
-      broadcaster.broadcast(ACTIVE_TRIP_ID, {
+      broadcaster.broadcast(targetTripId, {
         type: "member_joined",
         member: {
           id: account.id,
@@ -61,7 +60,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
         },
       });
 
-      broadcaster.broadcast(ACTIVE_TRIP_ID, {
+      broadcaster.broadcast(targetTripId, {
         type: "activity",
         entry: {
           id: `act-${Date.now()}`,
@@ -72,12 +71,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
       });
     } else {
       await logActivity({
-        trip_id: ACTIVE_TRIP_ID,
+        trip_id: targetTripId,
         user_id: actorAccount.id,
         action: `${invite.receiver_email} declined the invite to join as ${invite.role}`,
       });
 
-      broadcaster.broadcast(ACTIVE_TRIP_ID, {
+      broadcaster.broadcast(targetTripId, {
         type: "activity",
         entry: {
           id: `act-${Date.now()}`,
@@ -88,7 +87,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       });
     }
 
-    return json({ success: true, status });
+    return json({ success: true, status, tripId: targetTripId });
   } catch (e) {
     return error(e instanceof Error ? e.message : "Could not update invite");
   }

@@ -1,43 +1,53 @@
-﻿import * as MessageRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/MessageRepo";
+import * as MessageRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/MessageRepo";
 import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
 import { requirePermission } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/PermissionValidator";
 import { mapChat } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/ReplyMapper";
 import { broadcaster } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/EventBroadcaster";
-import { ACTIVE_TRIP_ID, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
+import { extractTripId, json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 
-/** POST { text } 发送评论 */
+/** POST { text, tripId? } 发送评论 */
 export async function POST(req: Request) {
   try {
     const me = await resolveDemoUser(extractUserId(req));
-    await requirePermission(ACTIVE_TRIP_ID, me.id, "comment");
+    const body = (await req.json().catch(() => ({}))) as {
+      text?: string;
+      tripId?: string;
+      trip_id?: string;
+    };
+    const targetTripId = extractTripId(req, body);
 
-    const body = (await req.json()) as { text?: string };
+    await requirePermission(targetTripId, me.id, "comment");
+
     const text = body.text?.trim() ?? "";
     if (!text) return error("Comment text is required.");
 
     const msgId = await MessageRepo.insertChat({
-      trip_id: ACTIVE_TRIP_ID,
+      trip_id: targetTripId,
       user_id: me.id,
       text,
     });
 
     // 广播评论事件
-    broadcaster.broadcast(ACTIVE_TRIP_ID, {
-      type: "comment_added",
-      comment: {
-        id: String(msgId),
-        authorId: me.id,
-        authorName: me.username,
-        avatar: me.profile_picture ?? "",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        text,
+    broadcaster.broadcast(
+      targetTripId,
+      {
+        type: "comment_added",
+        comment: {
+          id: String(msgId),
+          authorId: me.id,
+          authorName: me.username,
+          avatar: me.profile_picture ?? "",
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          text,
+        },
       },
-    }, me.id);
+      me.id
+    );
 
-    broadcaster.broadcast(ACTIVE_TRIP_ID, {
+    broadcaster.broadcast(targetTripId, {
       type: "activity",
       entry: {
         id: `act-${Date.now()}`,
@@ -57,7 +67,8 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const me = await resolveDemoUser(extractUserId(req));
-    const rows = await MessageRepo.findByTrip(ACTIVE_TRIP_ID);
+    const targetTripId = extractTripId(req);
+    const rows = await MessageRepo.findByTrip(targetTripId);
     const comments = rows.map((row) =>
       mapChat(
         {

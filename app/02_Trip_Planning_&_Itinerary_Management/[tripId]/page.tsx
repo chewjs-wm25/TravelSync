@@ -276,7 +276,7 @@ const handleSelectSuggestion = useCallback(
     return () => {
       isMounted = false;
     };
-  }, [tripId, refreshCounter]);
+  }, [tripId, refreshCounter, isLoggedIn, user?.id]);
 
   useEffect(() => {
     if (!toastMessage) {

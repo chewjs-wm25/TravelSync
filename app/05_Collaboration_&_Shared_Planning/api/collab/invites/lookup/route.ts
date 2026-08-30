@@ -15,16 +15,26 @@ export async function GET(req: Request) {
 
     const trip = await TripRepo.findTripById(invite.trip_id);
 
+    const { getDB } = await import("@/data_access_layer/05_Collaboration_&_Shared_Planning/db");
+    const db = await getDB();
+    const existingUser = await db
+      .prepare("SELECT id, username, full_name, email FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1")
+      .bind(invite.receiver_email)
+      .first<{ id: string; username: string; full_name: string; email: string }>();
+
     return json({
       success: true,
       invite: {
         id: invite.invitation_id,
+        token: invite.Token,
         email: invite.receiver_email,
         role: invite.role,
+        tripId: invite.trip_id,
         tripName: trip?.TripName ?? "Unknown Trip",
         tripRegion: trip?.Region ?? "",
         invitedBy: invite.sender_name,
         expiresAt: invite.expires_at,
+        accountExists: Boolean(existingUser),
       },
     });
   } catch (e) {

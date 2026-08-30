@@ -25,9 +25,9 @@ export async function findByTrip(tripId: string): Promise<InviteWithSender[]> {
   const db = await getDB();
   const res = await db
     .prepare(
-      `SELECT i.*, u.username AS sender_name
+      `SELECT i.*, COALESCE(u.full_name, u.username, 'A Member') AS sender_name
        FROM Collaboration_Invitations i
-       JOIN users u ON u.id = i.sender_id
+       LEFT JOIN users u ON u.id = i.sender_id
        WHERE i.trip_id = ?
        ORDER BY i.sent_at DESC`
     )
@@ -48,9 +48,9 @@ export async function findByToken(token: string): Promise<InviteWithSender | nul
   const db = await getDB();
   return db
     .prepare(
-      `SELECT i.*, u.username AS sender_name
+      `SELECT i.*, COALESCE(u.full_name, u.username, 'A Member') AS sender_name
        FROM Collaboration_Invitations i
-       JOIN users u ON u.id = i.sender_id
+       LEFT JOIN users u ON u.id = i.sender_id
        WHERE i.Token = ? LIMIT 1`
     )
     .bind(token)
