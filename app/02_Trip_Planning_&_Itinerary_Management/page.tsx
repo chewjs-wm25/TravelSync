@@ -11,7 +11,7 @@ import CreateTripCard from "@/app/02_Trip_Planning_&_Itinerary_Management/compon
 import CreateTripModal from "@/app/02_Trip_Planning_&_Itinerary_Management/components/CreateTripModal";
 import EditTripModal from "@/app/02_Trip_Planning_&_Itinerary_Management/components/EditTripModal";
 import SearchBar from "@/app/02_Trip_Planning_&_Itinerary_Management/components/SearchBar";
-import SuggestedTripCard from "@/app/02_Trip_Planning_&_Itinerary_Management/components/SuggestedTripCard";
+
 import TripCard from "@/app/02_Trip_Planning_&_Itinerary_Management/components/TripCard";
 
 type TripRecord = {
@@ -24,47 +24,7 @@ type TripRecord = {
   image_url: string | null;
 };
 
-const suggestedTrips = [
-  {
-    id: "s1",
-    name: "Langkawi Island Escape",
-    image:
-      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
-    description:
-      "A serene 4-day itinerary covering Cable Car rides, pristine beach sunsets, and mangrove boat tours.",
-    owner: {
-      username: "traveler_sam",
-      avatar:
-        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
-    },
-  },
-  {
-    id: "s2",
-    name: "Melaka Historic Walk",
-    image:
-      "https://images.unsplash.com/photo-1565008447742-97f6f38c985c?auto=format&fit=crop&w=800&q=80",
-    description:
-      "Relaxed weekend exploring Jonker Street night market, Nyonya food hotspots, and river cruises.",
-    owner: {
-      username: "history_buff_99",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
-    },
-  },
-  {
-    id: "s3",
-    name: "Kota Kinabalu Adventure",
-    image:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
-    description:
-      "Mountain views at Mount Kinabalu park combined with island hopping near Tunku Abdul Rahman Marine Park.",
-    owner: {
-      username: "hiking_alex",
-      avatar:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80",
-    },
-  },
-];
+
 
 function formatTripDate(value: string | null) {
   if (!value) {
@@ -283,51 +243,6 @@ export default function PlanningPage() {
       </section>
 
       <hr className="border-gray-200" />
-
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-gray-800">
-              Explore
-            </h2>
-            <h3 className="mt-0.5 text-xs font-medium text-gray-500">
-              Suggested Trip
-            </h3>
-          </div>
-
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-900"
-          >
-            <svg
-              className="h-4 w-4 text-gray-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Refresh
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {suggestedTrips.map((suggestion) => (
-            <SuggestedTripCard
-              key={suggestion.id}
-              name={suggestion.name}
-              image={suggestion.image}
-              description={suggestion.description}
-              owner={suggestion.owner}
-            />
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
