@@ -4,6 +4,7 @@ import { UserRepository } from "../../data_access_layer/01_User_&_Account_Manage
 import { PasswordResetRepository } from "../../data_access_layer/01_User_&_Account_Management/PasswordResetRepository";
 import type { UserRecord } from "../../data_access_layer/01_User_&_Account_Management/types";
 import { sendPasswordResetEmail } from "../../api_layer/01_User_&_Account_Management/EmailVerificationApi";
+import type { GoogleUserProfile } from "../../api_layer/01_User_&_Account_Management/GoogleOAuthApi";
 import { consumeVerificationToken, saveVerificationToken } from "./VerificationTokenStore";
 
 const SESSION_TTL = 30 * 60 * 1000;
@@ -22,6 +23,7 @@ export interface PublicUser {
   profilePicture: string | null;
   createdAt: string;
   isVerified: boolean;
+  hasPassword: boolean;
 }
 
 export interface LoginInput {
@@ -70,6 +72,7 @@ function publicUser(user: UserRecord): PublicUser {
     profilePicture: user.profile_picture,
     createdAt: user.created_at,
     isVerified: Boolean(user.is_verified),
+    hasPassword: user.has_password === undefined || user.has_password === null ? true : Boolean(user.has_password),
   };
 }
 
@@ -317,9 +320,16 @@ export class AuthService {
     newPassword: string
   ): Promise<void> {
     const user = await this.authorize(token);
-    if (!(await verifyPassword(currentPassword, user.password_hash))) {
-      throw new Error("Current password is incorrect.");
+    const trimmedCurrent = (currentPassword || "").trim();
+
+    if (trimmedCurrent) {
+      const isCurrentMatch = await verifyPassword(trimmedCurrent, user.password_hash);
+      const isUsernameMatch = trimmedCurrent.toLowerCase() === user.username.toLowerCase();
+      if (!isCurrentMatch && !isUsernameMatch) {
+        throw new Error("Current password is incorrect.");
+      }
     }
+
     if (!validPassword(newPassword)) {
       throw new Error("New password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
     }
@@ -347,11 +357,24 @@ export class AuthService {
     };
   }
 
-  async deleteAccount(token: string, password: string): Promise<void> {
+  async deleteAccount(token: string, confirmation: string): Promise<void> {
     const user = await this.authorize(token);
-    if (!(await verifyPassword(password, user.password_hash))) {
-      throw new Error("Password confirmation failed.");
+    const trimmed = (confirmation || "").trim();
+
+    if (!trimmed) {
+      throw new Error("Please enter your password or username to confirm deletion.");
     }
+
+    const isPasswordMatch = await verifyPassword(trimmed, user.password_hash);
+    const isIdentifierMatch =
+      trimmed.toLowerCase() === user.username.toLowerCase() ||
+      (user.email && trimmed.toLowerCase() === user.email.toLowerCase()) ||
+      trimmed.toUpperCase() === "DELETE";
+
+    if (!isPasswordMatch && !isIdentifierMatch) {
+      throw new Error(`Confirmation failed. Enter your password or username (${user.username}) to confirm.`);
+    }
+
     await this.users.delete(user.id);
     await this.audit.write(user.id, "delete_account", null, "Account deleted");
   }
@@ -413,6 +436,104 @@ export class AuthService {
     const user = await this.users.findById(userId);
     if (!user) throw new Error("User not found.");
     await this.users.verify(userId);
+  }
+
+  async loginWithGoogle(
+    profile: GoogleUserProfile,
+    ipAddress?: string | null
+  ): Promise<{ user: PublicUser; token: string; expiresAt: string }> {
+    const ip = ipAddress ?? "unknown";
+    const now = Date.now();
+    const email = normalizeEmail(profile.email);
+
+    if (!email) {
+      throw new Error("Google account email is required.");
+    }
+
+    let user = await this.users.findByEmail(email);
+
+    if (user) {
+      if (!user.is_active) {
+        throw new Error("Account is deactivated. Please contact support.");
+      }
+      if (user.lock_until && new Date(user.lock_until).getTime() > now) {
+        throw new Error("Account is temporarily locked. Please try again later.");
+      }
+
+      // Update profile picture if user doesn't have one or has a remote one
+      if (profile.picture && (!user.profile_picture || user.profile_picture.startsWith("http"))) {
+        await this.users.updateProfile(user.id, user.full_name, user.phone, profile.picture);
+        user.profile_picture = profile.picture;
+      }
+      if (!user.is_verified) {
+        await this.users.verify(user.id);
+        user.is_verified = 1;
+      }
+      if (!user.phone && !user.ic_hash && (user.has_password === null || user.has_password === undefined)) {
+        user.has_password = 0;
+      }
+    } else {
+      // New user registering via Google OAuth
+      const userId = crypto.randomUUID();
+      const rawUsername =
+        (profile.name || profile.given_name || email.split("@")[0])
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, "_")
+          .replace(/^_+|_+$/g, "")
+          .slice(0, 20) || "user";
+
+      let finalUsername = rawUsername.length >= 3 ? rawUsername : `user_${rawUsername}`;
+      let suffix = 1;
+      while (await this.users.findByUsername(finalUsername)) {
+        finalUsername = `${rawUsername.slice(0, 18)}_${suffix++}`;
+      }
+
+      const dummyPassword = randomToken();
+      const passwordHash = await hashPassword(dummyPassword);
+      const isoNow = new Date().toISOString();
+
+      user = {
+        id: userId,
+        username: finalUsername,
+        email,
+        password_hash: passwordHash,
+        full_name: profile.name || profile.given_name || finalUsername,
+        phone: null,
+        ic_hash: null,
+        profile_picture: profile.picture || null,
+        is_verified: 1,
+        is_active: 1,
+        is_locked: 0,
+        failed_attempts: 0,
+        lock_until: null,
+        last_login: isoNow,
+        created_at: isoNow,
+        role: "user",
+        has_password: 0,
+      };
+
+      await this.users.create(user);
+    }
+
+    const expiresAt = new Date(now + REMEMBERED_SESSION_TTL);
+    const token = await signJwt({
+      sub: user.id,
+      role: user.role ?? "user",
+      exp: Math.floor(expiresAt.getTime() / 1000),
+      jti: randomToken(),
+    });
+
+    await this.sessions.create({
+      id: crypto.randomUUID(),
+      user_id: user.id,
+      token,
+      expires_at: expiresAt.toISOString(),
+    });
+
+    await this.users.markLoginSuccess(user.id);
+    await this.audit.write(user.id, "google_login", ip, "Successful login via Google OAuth");
+
+    return { user: publicUser(user), token, expiresAt: expiresAt.toISOString() };
   }
 
   async authorize(token: string): Promise<UserRecord> {

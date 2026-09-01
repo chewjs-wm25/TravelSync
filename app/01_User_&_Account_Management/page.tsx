@@ -51,24 +51,61 @@ async function accountRequest(
 
 export default function AccountSettingsPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [mode, setMode] = useState<"signin" | "register" | "forgot" | "reset">("signin");
+  const { logout: authLogout } = useAuthStore();
+  const [mode, setMode] = useState<"signin" | "register" | "forgot" | "reset">(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("reset_token") || params.get("token")) return "reset";
+    }
+    return "signin";
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [forgotEmail, setForgotEmail] = useState("");
-  const [resetToken, setResetToken] = useState("");
+  const [resetToken, setResetToken] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("reset_token") || params.get("token") || "";
+    }
+    return "";
+  });
   const [newResetPassword, setNewResetPassword] = useState("");
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
+  const [notice, setNotice] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("notice") || "";
+    }
+    return "";
+  });
+  const [error, setError] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("error") || "";
+    }
+    return "";
+  });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // 检查 URL 是否带 reset_token
+    const unsubscribe = useAuthStore.subscribe((state) => {
+      if (!state.isLoggedIn) {
+        setUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tokenParam = params.get("reset_token") || params.get("token");
-      if (tokenParam) {
-        setResetToken(tokenParam);
-        setMode("reset");
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("error") || url.searchParams.has("notice")) {
+        url.searchParams.delete("error");
+        url.searchParams.delete("notice");
+        window.history.replaceState(
+          {},
+          "",
+          url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "")
+        );
       }
     }
 
@@ -78,9 +115,15 @@ export default function AccountSettingsPage() {
           const u = ((await response.json()) as { user: AuthUser }).user;
           setUser(u);
           useAuthStore.getState().syncUser(mapAccountUser(u));
+        } else {
+          setUser(null);
+          useAuthStore.getState().syncUser(null);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setUser(null);
+        useAuthStore.getState().syncUser(null);
+      });
   }, []);
 
   function update(name: keyof FormState, value: string | boolean) {
@@ -155,9 +198,10 @@ export default function AccountSettingsPage() {
         user={user}
         request={accountRequest}
         onUserChange={setUser}
-        onLogout={() => {
-          void useAuthStore.getState().logout();
+        onLogout={async () => {
+          await authLogout();
           setUser(null);
+          setNotice("You have been signed out.");
         }}
       />
     );

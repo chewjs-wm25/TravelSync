@@ -1,13 +1,16 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { DashboardUser } from "./DashboardPage";
 
 export default function DeleteAccountTab({
+  user,
   onDelete,
 }: {
-  onDelete: (password: string) => Promise<void>;
+  user: DashboardUser;
+  onDelete: (confirmation: string) => Promise<void>;
 }) {
-  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +21,7 @@ export default function DeleteAccountTab({
     setError(null);
     setDeleting(true);
     try {
-      await onDelete(password);
+      await onDelete(confirmation.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete account.");
       setDeleting(false);
@@ -46,14 +49,16 @@ export default function DeleteAccountTab({
       )}
 
       <label className="block text-sm font-medium text-red-900">
-        Confirm with your password
+        Confirm deletion
+        <span className="block mt-0.5 text-xs font-normal text-red-700">
+          Enter your <strong>password</strong>, or type your username (<strong>{user.username}</strong>) to confirm.
+        </span>
         <input
           required
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter your current password"
-          className="mt-1 w-full rounded-lg border border-red-300 bg-white p-2.5 text-sm outline-none transition focus:border-red-600 focus:ring-1 focus:ring-red-600"
+          value={confirmation}
+          onChange={(e) => setConfirmation(e.target.value)}
+          placeholder={`Enter password or "${user.username}"`}
+          className="mt-1.5 w-full rounded-lg border border-red-300 bg-white p-2.5 text-sm outline-none transition focus:border-red-600 focus:ring-1 focus:ring-red-600"
         />
       </label>
 
@@ -69,7 +74,7 @@ export default function DeleteAccountTab({
 
       <button
         type="submit"
-        disabled={!confirmed || !password || deleting}
+        disabled={!confirmed || !confirmation.trim() || deleting}
         className="rounded-lg bg-red-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {deleting ? "Deleting account..." : "Permanently Delete Account"}

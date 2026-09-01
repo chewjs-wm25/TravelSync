@@ -1,10 +1,13 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { DashboardUser } from "./DashboardPage";
 
 export default function SecurityTab({
+  user,
   onSave,
 }: {
+  user: DashboardUser;
   onSave: (data: Record<string, unknown>) => Promise<void>;
 }) {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -14,6 +17,8 @@ export default function SecurityTab({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const hasPassword = user.hasPassword;
 
   // Validation rules
   const hasMinLength = newPassword.length >= 8;
@@ -44,13 +49,16 @@ export default function SecurityTab({
 
     setSaving(true);
     try {
-      await onSave({ currentPassword, newPassword });
+      await onSave({
+        currentPassword,
+        newPassword,
+      });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setSuccess("Password updated successfully.");
+      setSuccess("Password saved successfully.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update password.");
+      setError(err instanceof Error ? err.message : "Failed to save password.");
     } finally {
       setSaving(false);
     }
@@ -69,9 +77,20 @@ export default function SecurityTab({
         </p>
       )}
 
+      {!hasPassword && (
+        <div className="rounded-lg bg-teal-50 border border-teal-200 p-4">
+          <h3 className="text-sm font-semibold text-teal-900">Set your account password</h3>
+          <p className="mt-1 text-xs text-teal-700">
+            You signed in with Google and have not set an account password yet. Set a password below to enable password login and account deletion.
+          </p>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <p className="text-xs text-slate-500">
-          Manage your login password to keep your account secure.
+          {hasPassword
+            ? "Manage your login password to keep your account secure."
+            : "Enter and confirm your new password."}
         </p>
         <button
           type="button"
@@ -82,27 +101,29 @@ export default function SecurityTab({
         </button>
       </div>
 
-      <label className="block text-sm font-medium text-slate-700">
-        Current Password
-        <input
-          required
-          type={showPasswords ? "text" : "password"}
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          placeholder="Enter current password"
-          className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-        />
-      </label>
+      {hasPassword && (
+        <label className="block text-sm font-medium text-slate-700">
+          Current Password
+          <input
+            required
+            type={showPasswords ? "text" : "password"}
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Enter current password"
+            className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
+          />
+        </label>
+      )}
 
       <label className="block text-sm font-medium text-slate-700">
-        New Password
+        {hasPassword ? "New Password" : "Password"}
         <input
           required
           minLength={8}
           type={showPasswords ? "text" : "password"}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Enter new password"
+          placeholder={hasPassword ? "Enter new password" : "Enter a strong password"}
           className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
         />
       </label>
@@ -130,14 +151,14 @@ export default function SecurityTab({
       </div>
 
       <label className="block text-sm font-medium text-slate-700">
-        Confirm New Password
+        {hasPassword ? "Confirm New Password" : "Confirm Password"}
         <input
           required
           minLength={8}
           type={showPasswords ? "text" : "password"}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          placeholder="Repeat new password"
+          placeholder="Repeat password"
           className={`mt-1 w-full rounded-lg border p-2.5 text-sm outline-none transition ${
             confirmPassword && !passwordsMatch
               ? "border-red-400 focus:border-red-600 focus:ring-1 focus:ring-red-600"
@@ -154,7 +175,7 @@ export default function SecurityTab({
         disabled={saving || !isPasswordValid || !passwordsMatch}
         className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {saving ? "Updating..." : "Change password"}
+        {saving ? "Saving..." : "Save password"}
       </button>
     </form>
   );

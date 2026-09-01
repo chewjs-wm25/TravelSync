@@ -49,10 +49,11 @@ export class UserRepository {
 
   async create(user: UserRecord): Promise<void> {
     const storedEmail = user.email ? user.email.trim().toLowerCase() : `${user.username}@local.invalid`;
+    const hasPassword = user.has_password ?? 1;
     await this.db
       .prepare(
-        `INSERT INTO users (id, username, email, password_hash, full_name, phone, ic_hash, profile_picture, is_verified, is_active, is_locked, failed_attempts, lock_until, last_login, created_at, role)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, NULL, NULL, ?, ?)`
+        `INSERT INTO users (id, username, email, password_hash, full_name, phone, ic_hash, profile_picture, is_verified, is_active, is_locked, failed_attempts, lock_until, last_login, created_at, role, has_password)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, NULL, NULL, ?, ?, ?)`
       )
       .bind(
         user.id,
@@ -65,7 +66,8 @@ export class UserRepository {
         user.profile_picture ?? null,
         user.is_verified ?? 1,
         user.created_at,
-        user.role ?? "user"
+        user.role ?? "user",
+        hasPassword
       )
       .run();
 
@@ -98,7 +100,7 @@ export class UserRepository {
   async updatePassword(id: string, passwordHash: string): Promise<void> {
     await this.db
       .prepare(
-        "UPDATE users SET password_hash = ?, failed_attempts = 0, is_locked = 0, lock_until = NULL WHERE id = ?"
+        "UPDATE users SET password_hash = ?, has_password = 1, failed_attempts = 0, is_locked = 0, lock_until = NULL WHERE id = ?"
       )
       .bind(passwordHash, id)
       .run();
@@ -148,6 +150,27 @@ export class UserRepository {
   }
 
   async delete(id: string): Promise<void> {
+    try {
+      await this.db.prepare("DELETE FROM user_sessions WHERE user_id = ?").bind(id).run();
+    } catch {}
+    try {
+      await this.db.prepare("DELETE FROM user_settings WHERE user_id = ?").bind(id).run();
+    } catch {}
+    try {
+      await this.db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").bind(id).run();
+    } catch {}
+    try {
+      await this.db.prepare("UPDATE audit_logs SET user_id = NULL WHERE user_id = ?").bind(id).run();
+    } catch {}
+    try {
+      await this.db.prepare("DELETE FROM collaborators WHERE user_id = ?").bind(id).run();
+    } catch {}
+    try {
+      await this.db.prepare("DELETE FROM trip_collaborators WHERE user_id = ?").bind(id).run();
+    } catch {}
+    try {
+      await this.db.prepare("DELETE FROM favorites WHERE user_id = ?").bind(id).run();
+    } catch {}
     await this.db.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
   }
 

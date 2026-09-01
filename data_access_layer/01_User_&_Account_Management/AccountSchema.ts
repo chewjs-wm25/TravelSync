@@ -15,7 +15,8 @@ const ACCOUNT_SCHEMA = [
     lock_until TEXT,
     last_login TEXT,
     created_at TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user'
+    role TEXT NOT NULL DEFAULT 'user',
+    has_password INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE TABLE IF NOT EXISTS user_sessions (
     id TEXT PRIMARY KEY,
@@ -66,6 +67,7 @@ export function ensureAccountSchema(db: D1Database): Promise<void> {
     try { await db.prepare("ALTER TABLE users ADD COLUMN username TEXT").run(); } catch { /* Existing databases already have the column. */ }
     try { await db.prepare("ALTER TABLE users ADD COLUMN ic_hash TEXT").run(); } catch { /* Existing databases already have the column. */ }
     try { await db.prepare("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'").run(); } catch { /* Existing databases already have the column. */ }
+    try { await db.prepare("ALTER TABLE users ADD COLUMN has_password INTEGER NOT NULL DEFAULT 1").run(); } catch { /* Existing databases already have the column. */ }
 
     // Seed or update default test accounts
     const now = new Date().toISOString();

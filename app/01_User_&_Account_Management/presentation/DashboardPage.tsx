@@ -16,6 +16,7 @@ export interface DashboardUser {
   profilePicture: string | null;
   createdAt: string;
   isVerified: boolean;
+  hasPassword: boolean;
 }
 
 export type AccountAction = (
@@ -111,7 +112,7 @@ export default function DashboardPage({
               <ProfileTab user={user} onSave={(data) => run("profile", data)} />
             )}
             {tab === "security" && (
-              <SecurityTab onSave={(data) => run("password", data)} />
+              <SecurityTab user={user} onSave={(data) => run("password", data)} />
             )}
             {tab === "settings" && (
               <SettingsTab
@@ -122,9 +123,11 @@ export default function DashboardPage({
             )}
             {tab === "delete" && (
               <DeleteAccountTab
-                onDelete={(password) =>
-                  run("delete-account", { password }).then(onLogout)
-                }
+                user={user}
+                onDelete={async (confirmation) => {
+                  await request("delete-account", { confirmation });
+                  await onLogout();
+                }}
               />
             )}
           </div>

@@ -1,6 +1,11 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { AuthService } from "../../../business_logic_layer/01_User_&_Account_Management";
 import { ensureAccountSchema } from "../../../data_access_layer/01_User_&_Account_Management/AccountSchema";
+import {
+  buildGoogleAuthUrl,
+  exchangeGoogleAuthCode,
+  fetchGoogleUserProfile,
+} from "../../../api_layer/01_User_&_Account_Management/GoogleOAuthApi";
 
 async function authService(): Promise<AuthService> {
   const { env } = await getCloudflareContext({ async: true });
@@ -130,7 +135,10 @@ export async function POST(request: Request): Promise<Response> {
 
     if (action === "delete-account") {
       if (!token) throw new Error("Unauthorized");
-      await service.deleteAccount(token, String(input.password ?? ""));
+      await service.deleteAccount(
+        token,
+        String(input.password ?? input.confirmation ?? "")
+      );
       return Response.json(
         { success: true },
         {
@@ -192,25 +200,96 @@ export async function GET(request: Request): Promise<Response> {
     const action = new URL(request.url).searchParams.get("action");
     if (action === "google") {
       const clientId = process.env.GOOGLE_CLIENT_ID;
-      const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-      if (!clientId || !redirectUri) {
-        return new Response(
-          "Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_REDIRECT_URI to the server environment.",
-          { status: 501, headers: { "Content-Type": "text/plain; charset=utf-8" } }
+      const origin = new URL(request.url).origin;
+      const redirectUri =
+        process.env.GOOGLE_REDIRECT_URI ||
+        `${origin}/01_User_&_Account_Management/account-actions?action=google-callback`;
+
+      if (!clientId) {
+        return Response.redirect(
+          `${origin}/01_User_&_Account_Management?error=${encodeURIComponent(
+            "Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to the server environment."
+          )}`,
+          302
         );
       }
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: "code",
-        scope: "openid email profile",
-        access_type: "offline",
-        prompt: "select_account",
+
+      const authUrl = buildGoogleAuthUrl({
+        clientId,
+        redirectUri,
       });
-      return Response.redirect(
-        `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
-        302
-      );
+      return Response.redirect(authUrl, 302);
+    }
+
+    if (action === "google-callback") {
+      const origin = new URL(request.url).origin;
+      const searchParams = new URL(request.url).searchParams;
+      const oauthError = searchParams.get("error");
+      if (oauthError) {
+        const errorDesc = searchParams.get("error_description") || oauthError;
+        return Response.redirect(
+          `${origin}/01_User_&_Account_Management?error=${encodeURIComponent(errorDesc)}`,
+          302
+        );
+      }
+
+      const code = searchParams.get("code");
+      if (!code) {
+        return Response.redirect(
+          `${origin}/01_User_&_Account_Management?error=${encodeURIComponent(
+            "Authorization code missing from Google callback."
+          )}`,
+          302
+        );
+      }
+
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri =
+        process.env.GOOGLE_REDIRECT_URI ||
+        `${origin}/01_User_&_Account_Management/account-actions?action=google-callback`;
+
+      if (!clientId || !clientSecret) {
+        return Response.redirect(
+          `${origin}/01_User_&_Account_Management?error=${encodeURIComponent(
+            "Google OAuth configuration is incomplete (missing client ID or secret)."
+          )}`,
+          302
+        );
+      }
+
+      try {
+        const tokenData = await exchangeGoogleAuthCode({
+          code,
+          clientId,
+          clientSecret,
+          redirectUri,
+        });
+
+        const profile = await fetchGoogleUserProfile(tokenData.access_token);
+        const service = await authService();
+        const result = await service.loginWithGoogle(
+          profile,
+          request.headers.get("x-forwarded-for")
+        );
+
+        const maxAge = Math.floor((new Date(result.expiresAt).getTime() - Date.now()) / 1000);
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: `${origin}/01_User_&_Account_Management`,
+            "Set-Cookie": `travelsync_session=${encodeURIComponent(
+              result.token
+            )}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
+          },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to authenticate with Google.";
+        return Response.redirect(
+          `${origin}/01_User_&_Account_Management?error=${encodeURIComponent(message)}`,
+          302
+        );
+      }
     }
     if (action === "verify-email") {
       const verificationToken = new URL(request.url).searchParams.get("token");

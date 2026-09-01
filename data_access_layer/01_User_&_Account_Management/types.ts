@@ -15,6 +15,7 @@ export interface UserRecord {
   last_login: string | null;
   created_at: string;
   role?: string;
+  has_password?: number;
 }
 
 export interface UserSettingsRecord {
