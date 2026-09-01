@@ -6,6 +6,9 @@ import type {
   ItineraryItem,
   BootstrapResponse,
   CollabRole,
+  ImportTripPayload,
+  ImportTripResult,
+  ExportedTripPlan,
 } from "./types";
 
 const BASE = "/05_Collaboration_&_Shared_Planning/api/collab";
@@ -37,6 +40,7 @@ export type SSEEvent =
   | { type: "item_removed"; itemId: string }
   | { type: "comment_added"; comment: { id: string; authorId: string; authorName: string; avatar: string; time: string; text: string } }
   | { type: "activity"; entry: { id: string; actor: string; action: string; at: number } }
+  | { type: "trip_liked"; tripId: string; liked: boolean; count: number; likers: { id: string; name: string; avatar: string }[]; actor: { id: string; name: string } }
   | { type: "heartbeat"; timestamp: number };
 
 /** SSE 订阅返回的清理函数 */
@@ -174,6 +178,38 @@ export const collabApi = {
   getComments(userId: string, tripId?: string): Promise<{ success: boolean; comments: CollabComment[] }> {
     const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
     return request(`${BASE}/messages${qs}`, { headers: headers(userId, tripId) });
+  },
+
+  /** 获取行程点赞信息 */
+  getLikes(tripId?: string, userId?: string): Promise<{ success: boolean; tripId: string; count: number; likedByMe: boolean; likers: { id: string; name: string; avatar: string }[] }> {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request(`${BASE}/likes${qs}`, { headers: headers(userId, tripId) });
+  },
+
+  /** 点赞 / 取消点赞 */
+  toggleLike(tripId?: string, userId?: string): Promise<{ success: boolean; tripId: string; liked: boolean; count: number; likers: { id: string; name: string; avatar: string }[] }> {
+    return request(`${BASE}/likes`, {
+      method: "POST",
+      headers: headers(userId, tripId),
+      body: JSON.stringify({ tripId }),
+    });
+  },
+
+  /** 导入行程：创建新 Trip 并写入全部日程与明细 */
+  importTrip(userId: string, payload: ImportTripPayload): Promise<ImportTripResult> {
+    return request<ImportTripResult>(`${BASE}/import`, {
+      method: "POST",
+      headers: headers(userId),
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /** 获取完整行程导出数据 */
+  getTripExport(tripId: string, userId?: string): Promise<{ success: boolean; data?: ExportedTripPlan; message?: string }> {
+    return request<{ success: boolean; data?: ExportedTripPlan; message?: string }>(
+      `${BASE}/trips/${encodeURIComponent(tripId)}/export`,
+      { headers: headers(userId, tripId) }
+    );
   },
 
   /** 订阅 SSE 实时事件 */

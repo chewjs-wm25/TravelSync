@@ -14,6 +14,7 @@ export type SSEEvent =
   | { type: "item_removed"; itemId: string }
   | { type: "comment_added"; comment: { id: string; authorId: string; authorName: string; avatar: string; time: string; text: string } }
   | { type: "activity"; entry: { id: string; actor: string; action: string; at: number } }
+  | { type: "trip_liked"; tripId: string; liked: boolean; count: number; likers: { id: string; name: string; avatar: string }[]; actor: { id: string; name: string } }
   | { type: "heartbeat"; timestamp: number };
 
 interface Listener {

@@ -86,6 +86,13 @@ const SCHEMA_STATEMENTS = [
     action TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
   )`,
+  `CREATE TABLE IF NOT EXISTS trip_likes (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    trip_id TEXT NOT NULL REFERENCES Trip(TripID) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    UNIQUE(trip_id, user_id)
+  )`,
   `INSERT INTO Trip (TripID, TripName, StartDate, EndDate, Region, Status, TripNote, UserID)
    VALUES ('trip_langkawi','Langkawi Island Escape','2026-12-20','2026-12-27','Langkawi, Kedah, Malaysia','planning',NULL,'dev-user-001')
    ON CONFLICT(TripID) DO NOTHING`,

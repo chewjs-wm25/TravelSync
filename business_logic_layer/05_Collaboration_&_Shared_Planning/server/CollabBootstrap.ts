@@ -60,12 +60,15 @@ export async function loadBootstrap(
   // Update last_seen for the current user (heartbeat for online status)
   await CollaboratorRepo.updateLastSeen(tripId, meUserId).catch(() => {});
 
-  let [itineraries, members, invites, chats, activity] = await Promise.all([
+  let [itineraries, members, invites, chats, activity, likes] = await Promise.all([
     ItineraryRepo.findByTrip(tripId),
     CollaboratorRepo.findByTrip(tripId),
     InviteRepo.findByTrip(tripId),
     MessageRepo.findByTrip(tripId),
     ActivityLogRepo.findByTrip(tripId),
+    import("@/data_access_layer/05_Collaboration_&_Shared_Planning/TripLikeRepo").then((m) =>
+      m.getLikes(tripId, meUserId)
+    ).catch(() => ({ count: 0, likedByMe: false, likers: [] })),
   ]);
 
   // 若当前用户是 Owner 但尚无 Collaborator 行（私有首次打开），自动补 Owner 以保证页面 me 存在
@@ -140,6 +143,7 @@ export async function loadBootstrap(
         )
       ),
       activity: activity.map(mapActivity),
+      likes,
     },
   };
 }

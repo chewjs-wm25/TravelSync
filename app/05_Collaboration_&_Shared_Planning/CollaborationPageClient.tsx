@@ -20,6 +20,8 @@ import {
   Mail,
   ArrowLeft,
   UserRound,
+  Upload,
+  FileCode,
 } from "lucide-react";
 import {
   can,
@@ -28,16 +30,20 @@ import {
   daysRemaining,
   formatDate,
 } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/InvitationService";
+import { exportTripToJSONString } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/PlanImportExportService";
 import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab";
 import type { CollabTrip } from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
 
 import InviteCollaboratorsPanel from "./components/InviteCollaboratorsPanel";
 import PendingInvitesPanel from "./components/PendingInvitesPanel";
 import MemberManagementPanel from "./components/MemberManagementPanel";
 import SharedTripPlanEditor from "./components/SharedTripPlanEditor";
+import LikePlanButton from "./components/LikePlanButton";
 import ActivityFeed from "./components/ActivityFeed";
 import ControlCenter from "./components/ControlCenter";
+import ImportTripModal from "./components/ImportTripModal";
 
 function formatTripDates(start?: string | null, end?: string | null): string {
   if (!start) return "";
@@ -69,6 +75,7 @@ export default function CollaborationPageClient({
   const [inviteToken, setInviteToken] = useState<string | null>(initialInvite ?? null);
   const [toast, setToast] = useState<string | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Store hooks
   const storeTrip = useCollabStore(
@@ -112,6 +119,33 @@ export default function CollaborationPageClient({
     }
   }, [tripParam, initialTrip, initialMeId, isLoggedIn, load]);
 
+  useEffect(() => {
+    if (!tripParam) return;
+    const unsub = collabApi.subscribeToEvents(
+      user?.id || storeCurrentUserId || "",
+      (event) => {
+        if (event.type === "trip_liked" && event.tripId === tripParam) {
+          useCollabStore.setState((prev) => ({
+            trips: prev.trips.map((t) =>
+              t.tripId === event.tripId
+                ? {
+                    ...t,
+                    likes: {
+                      count: event.count,
+                      likedByMe: event.likers.some((l) => l.id === (user?.id || storeCurrentUserId)),
+                      likers: event.likers,
+                    },
+                  }
+                : t
+            ),
+          }));
+        }
+      },
+      tripParam
+    );
+    return () => unsub();
+  }, [tripParam, user?.id, storeCurrentUserId]);
+
   const showToast = (text: string) => {
     setToast(text);
     setTimeout(() => setToast(null), 3000);
@@ -143,6 +177,22 @@ export default function CollaborationPageClient({
     if (!trip) return;
     const ics = generateICS(trip);
     downloadFile(ics, `${trip.tripName.replace(/\s+/g, "_")}_itinerary.ics`, "text/calendar");
+  };
+
+  const exportJSON = async () => {
+    if (!trip) return;
+    try {
+      const res = await collabApi.getTripExport(trip.tripId, currentUserId);
+      if (res.success && res.data) {
+        const json = JSON.stringify(res.data, null, 2);
+        downloadFile(json, `${trip.tripName.replace(/\s+/g, "_")}_plan.json`, "application/json");
+        return;
+      }
+    } catch {
+      // fallback
+    }
+    const json = exportTripToJSONString(trip);
+    downloadFile(json, `${trip.tripName.replace(/\s+/g, "_")}_plan.json`, "application/json");
   };
 
   const generateExportContent = (t: typeof trip, _format: string) => {
@@ -407,23 +457,33 @@ END:VCALENDAR`;
             <h1 className="text-2xl font-semibold text-gray-800">{trip.tripName}</h1>
             <p className="mt-1 text-gray-500">{formatTripDates(trip.startDate, trip.endDate)}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Like Plan Button */}
+            <LikePlanButton tripId={trip.tripId} size="md" showLikersPopover={true} />
+
             {/* 同步状态指示器 */}
-            <div className="flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-600">
+            <div className="flex items-center gap-1.5 rounded-xl bg-green-50 px-3.5 py-2.5 text-xs font-medium text-green-600 border border-green-200/60">
               <RefreshCw size={14} />
               <span>Synced</span>
             </div>
             <button
               onClick={handleShareLink}
-              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-100 px-5 py-3 font-medium text-gray-700 transition hover:bg-gray-200 active:scale-[0.97]"
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-100 px-5 py-2.5 font-medium text-gray-700 transition hover:bg-gray-200 active:scale-[0.97]"
             >
               <Share2 size={18} />
               Share Link
             </button>
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 active:scale-[0.97]"
+            >
+              <Upload size={18} className="text-primary-500" />
+              <span>Import Plan</span>
+            </button>
             {canInvite && (
               <button
                 onClick={handleInviteScroll}
-                className="flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-3 font-medium text-white shadow-md transition hover:bg-primary-500/80 active:scale-[0.97]"
+                className="flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 font-medium text-white shadow-md transition hover:bg-primary-500/80 active:scale-[0.97]"
               >
                 <UserPlus size={18} />
                 Invite
@@ -462,6 +522,20 @@ END:VCALENDAR`;
                 Export Itinerary
               </p>
               <div className="space-y-3">
+                <button
+                  onClick={exportJSON}
+                  className="flex w-full items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/30 px-4 py-3 text-left transition hover:bg-amber-50 active:scale-[0.98]"
+                >
+                  <FileCode size={20} className="shrink-0 text-amber-600" />
+                  <div>
+                    <span className="text-sm font-semibold text-gray-800 block">
+                      Export as JSON
+                    </span>
+                    <span className="text-[11px] text-gray-500">
+                      Standard format, importable to any new plan
+                    </span>
+                  </div>
+                </button>
                 <button
                   onClick={exportPDF}
                   className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]"
@@ -611,6 +685,16 @@ END:VCALENDAR`;
           {toast}
         </div>
       )}
+
+      {/* ─── Import Trip Plan Modal ─── */}
+      <ImportTripModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={(newTripId) => {
+          setIsImportModalOpen(false);
+          window.location.href = `/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(newTripId)}`;
+        }}
+      />
     </div>
   );
 }

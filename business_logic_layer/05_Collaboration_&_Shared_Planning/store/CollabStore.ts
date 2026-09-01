@@ -74,6 +74,8 @@ interface CollabState {
   addItem: (day: number, title: string, note?: string) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   addComment: (text: string) => Promise<void>;
+  toggleLike: (tripId?: string) => Promise<void>;
+  importTripPlan: (payload: import("@/api_layer/05_Collaboration_&_Shared_Planning/types").ImportTripPayload) => Promise<import("@/api_layer/05_Collaboration_&_Shared_Planning/types").ImportTripResult>;
 }
 
 /**
@@ -152,6 +154,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
           items: mergedItems,
           comments: Array.from(commentMap.values()),
           activity: trip.activity.length > 0 ? trip.activity : currentTrip.activity,
+          likes: trip.likes ?? currentTrip.likes,
         };
 
         return { trips: [mergedTrip] };
@@ -470,6 +473,78 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             ],
           });
         }
+      } finally {
+        isWriting = false;
+      }
+    },
+
+    toggleLike: async (tripId?: string) => {
+      const targetTrip = tripId || get().activeTripId || get().trips[0]?.tripId;
+      if (!targetTrip) return;
+      const uid = get().currentUserId;
+
+      // 乐观更新
+      set((state) => {
+        const trip = state.trips.find((t) => t.tripId === targetTrip) ?? state.trips[0];
+        if (!trip) return state;
+        const currentLikes = trip.likes ?? { count: 0, likedByMe: false, likers: [] };
+        const nextLiked = !currentLikes.likedByMe;
+        const nextCount = nextLiked ? currentLikes.count + 1 : Math.max(0, currentLikes.count - 1);
+        const nextLikers = nextLiked
+          ? [{ id: uid, name: "You", avatar: "" }, ...currentLikes.likers]
+          : currentLikes.likers.filter((l) => l.id !== uid);
+
+        const updatedTrip: CollabTrip = {
+          ...trip,
+          likes: {
+            count: nextCount,
+            likedByMe: nextLiked,
+            likers: nextLikers,
+          },
+        };
+        return {
+          trips: state.trips.map((t) => (t.tripId === targetTrip ? updatedTrip : t)),
+        };
+      });
+
+      try {
+        const res = await collabApi.toggleLike(targetTrip, uid);
+        if (res.success) {
+          set((state) => {
+            const trip = state.trips.find((t) => t.tripId === targetTrip) ?? state.trips[0];
+            if (!trip) return state;
+            const updatedTrip: CollabTrip = {
+              ...trip,
+              likes: {
+                count: res.count,
+                likedByMe: res.liked,
+                likers: res.likers,
+              },
+            };
+            return {
+              trips: state.trips.map((t) => (t.tripId === targetTrip ? updatedTrip : t)),
+            };
+          });
+        }
+      } catch {
+        // Rollback handled by polling
+      }
+    },
+
+    importTripPlan: async (payload) => {
+      isWriting = true;
+      try {
+        const uid = get().currentUserId || getAuthUserId();
+        const res = await collabApi.importTrip(uid, payload);
+        if (res.success) {
+          await get().loadControlCenter();
+        }
+        return res;
+      } catch (e) {
+        return {
+          success: false,
+          message: e instanceof Error ? e.message : "Failed to import trip plan",
+        };
       } finally {
         isWriting = false;
       }
