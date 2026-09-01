@@ -33,9 +33,15 @@ export async function insertActivity(a: {
   user_id: string;
   action: string;
 }): Promise<void> {
-  const db = await getDB();
-  await db
-    .prepare("INSERT INTO activity_logs (trip_id, user_id, action) VALUES (?, ?, ?)")
-    .bind(a.trip_id, a.user_id, a.action)
-    .run();
+  try {
+    const db = await getDB();
+    const { ensureTripExists } = await import("./TripRepo");
+    await ensureTripExists(a.trip_id, a.user_id);
+    await db
+      .prepare("INSERT INTO activity_logs (trip_id, user_id, action) VALUES (?, ?, ?)")
+      .bind(a.trip_id, a.user_id, a.action)
+      .run();
+  } catch {
+    // ignore log failure
+  }
 }

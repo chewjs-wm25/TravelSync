@@ -35,7 +35,7 @@ import type { CollabTrip } from "@/api_layer/05_Collaboration_&_Shared_Planning/
 import InviteCollaboratorsPanel from "./components/InviteCollaboratorsPanel";
 import PendingInvitesPanel from "./components/PendingInvitesPanel";
 import MemberManagementPanel from "./components/MemberManagementPanel";
-import ItineraryPermissionDemo from "./components/ItineraryPermissionDemo";
+import SharedTripPlanEditor from "./components/SharedTripPlanEditor";
 import ActivityFeed from "./components/ActivityFeed";
 import ControlCenter from "./components/ControlCenter";
 
@@ -335,12 +335,12 @@ END:VCALENDAR`;
       return (
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-gray-500">
           <ShieldCheck size={40} className="text-primary-500/60" />
-          <p className="text-sm">请先登录以查看协作行程。</p>
+          <p className="text-sm font-medium text-gray-700">Please sign in to view and collaborate on trips.</p>
           <a
             href="/01_User_&_Account_Management"
             className="rounded-xl bg-primary-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
           >
-            前往登录
+            Sign In
           </a>
         </div>
       );
@@ -362,12 +362,12 @@ END:VCALENDAR`;
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-gray-500">
         <ShieldCheck size={40} className="text-primary-500/60" />
-        <p className="text-sm">请先登录以查看协作行程。</p>
+        <p className="text-sm font-medium text-gray-700">Please sign in to view and collaborate on trips.</p>
         <a
           href="/01_User_&_Account_Management"
           className="rounded-xl bg-primary-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
         >
-          前往登录
+          Sign In
         </a>
       </div>
     );
@@ -437,8 +437,7 @@ END:VCALENDAR`;
           <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-xs leading-relaxed text-warning">
             <ShieldCheck size={16} className="mt-0.5 shrink-0" />
             <div>
-              <b>演示模式：</b>本地数据库暂不可用，当前展示内置演示数据，写入操作不可用。
-              在项目根目录运行 <code className="rounded bg-warning/20 px-1">npm run dev</code> 会自动初始化真实数据库。
+              <b>Demo Mode:</b> Local database is temporarily unavailable. Displaying built-in demo data.
             </div>
           </div>
         )}
@@ -450,7 +449,7 @@ END:VCALENDAR`;
             <InviteCollaboratorsPanel />
             <PendingInvitesPanel isOwner={isOwner} />
             <MemberManagementPanel />
-            <ItineraryPermissionDemo />
+            <SharedTripPlanEditor />
           </div>
 
           {/* ── Right: Permissions + Activity + Export (4 cols) ── */}
@@ -1005,6 +1004,7 @@ function InviteOnboardingFlow({
               <input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !submitting && username && pwValid && fullName && handleRegisterSubmit()}
                 placeholder="your full name"
                 className="w-full rounded-xl border border-gray-200 bg-[#FAF8FF] px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />
@@ -1017,6 +1017,7 @@ function InviteOnboardingFlow({
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !submitting && username && pwValid && fullName && handleRegisterSubmit()}
                 placeholder="create a strong password"
                 className="w-full rounded-xl border border-gray-200 bg-[#FAF8FF] px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />

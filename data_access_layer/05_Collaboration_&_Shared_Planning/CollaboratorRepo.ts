@@ -43,12 +43,21 @@ export async function insertCollaborator(c: {
   invited_by?: string | null;
 }): Promise<void> {
   const db = await getDB();
+  const { ensureTripExists } = await import("./TripRepo");
+  await ensureTripExists(c.trip_id, c.user_id);
+
+  let validInviter: string | null = null;
+  if (c.invited_by) {
+    const inviter = await db.prepare("SELECT id FROM users WHERE id = ? LIMIT 1").bind(c.invited_by).first();
+    if (inviter) validInviter = c.invited_by;
+  }
+
   await db
     .prepare(
       `INSERT OR IGNORE INTO Collaborators (role, status, trip_id, user_id, invited_by)
        VALUES (?, 'active', ?, ?, ?)`
     )
-    .bind(c.role, c.trip_id, c.user_id, c.invited_by ?? null)
+    .bind(c.role, c.trip_id, c.user_id, validInviter)
     .run();
 }
 

@@ -209,9 +209,12 @@ export default function ControlCenter() {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-gray-500">
         <ShieldCheck size={40} className="text-primary-500/60" />
-        <p className="text-sm">请先登录以查看协作行程。</p>
-        <a href="/01_User_&_Account_Management" className="rounded-xl bg-primary-500 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-500/80">
-          前往登录
+        <p className="text-sm font-medium text-gray-700">Please sign in to view and collaborate on trips.</p>
+        <a
+          href="/01_User_&_Account_Management"
+          className="rounded-xl bg-primary-500 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-primary-500/80 active:scale-[0.97]"
+        >
+          Sign In
         </a>
       </div>
     );
