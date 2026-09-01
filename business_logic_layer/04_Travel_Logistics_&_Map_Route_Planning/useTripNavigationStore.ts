@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { fetchRouteShape } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi';
+import type { RouteVariant } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi';
 import { fetchPublicTransportRoute } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi';
+import { getPublicTransportSpeed } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi';
 import type { PublicTransportLeg, PublicTransportStop } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi';
 
 export type VehicleType = 'car' | 'walk' | 'public transport';
@@ -62,6 +64,7 @@ interface TripNavigationState {
   origin: Stop | null;
   destination: Stop | null;
   generatedRoute: RoutePoint[];
+  routeAlternatives: RouteVariant[];
   summary: RouteSummary;
   savedRoutes: SavedRoute[];
   routePickerOpen: boolean;
@@ -72,8 +75,11 @@ interface TripNavigationState {
   currentUserId: string | null; // Track current logged-in user
   publicTransportStops: PublicTransportStop[];
   publicTransportLegs: PublicTransportLeg[];
+  availableTransitModes: Array<Exclude<PublicTransportLeg['mode'], 'walking'>>;
+  preferredTransitMode: PublicTransportLeg['mode'] | null;
   isRouteLoading: boolean;
   setVehicleType: (value: VehicleType) => void;
+  setPreferredTransitMode: (mode: PublicTransportLeg['mode'] | null) => void;
   setRoutePickerOpen: (open: boolean) => void;
   setActiveField: (field: RouteField | null) => void;
   setRouteLocation: (field: RouteField, stop: Stop) => void;
@@ -88,6 +94,7 @@ interface TripNavigationState {
   setDefaultVehicle: (id: string) => void;
   setSelectedVehicleId: (id: string) => void;
   setCurrentUserId: (userId: string | null) => Promise<void>;
+  selectRoute: (route: RouteVariant) => void;
 }
 
 const defaultVehicle: Vehicle = {
@@ -97,21 +104,6 @@ const defaultVehicle: Vehicle = {
   category: 'car',
   fuelType: 'Petrol',
   isDefault: true,
-};
-
-const defaultStops = {
-  origin: {
-    id: 'default-origin',
-    name: 'Kuala Lumpur',
-    lat: 3.139,
-    lng: 101.6869,
-  },
-  destination: {
-    id: 'default-destination',
-    name: 'Petaling Jaya',
-    lat: 3.103,
-    lng: 101.6067,
-  },
 };
 
 let latestRouteRequest = 0;
@@ -163,7 +155,7 @@ const calculateSummary = (
 
   const baseDistance = actualDistanceKm ?? getDistanceKm(origin, destination);
   const distance = baseDistance;
-  // Walking speed set to 1.2 m/s (4.32 km/h) to make walking slower than driving
+  // 1.2 m/s is the product requirement for walking estimates.
   const speeds: Record<VehicleType, number> = {
     car: 50,
     walk: 4.32,
@@ -208,10 +200,15 @@ const calculateSummary = (
 
 const generatePublicTransportRoute = async (
   origin: Stop,
-  destination: Stop
-): Promise<{ points: RoutePoint[]; stops: PublicTransportStop[]; legs: PublicTransportLeg[] }> => {
+  destination: Stop,
+  preferredMode: PublicTransportLeg['mode'] | null
+): Promise<{ points: RoutePoint[]; stops: PublicTransportStop[]; legs: PublicTransportLeg[]; availableModes: Array<Exclude<PublicTransportLeg['mode'], 'walking'>>; durationMinutes: number }> => {
   try {
-    const route = await fetchPublicTransportRoute(origin, destination);
+    const route = await fetchPublicTransportRoute(origin, destination, preferredMode);
+    const durationMinutes = route.legs.reduce((total, leg) => {
+      const distanceKm = leg.points.slice(1).reduce((distance, point, index) => distance + getDistanceKm(leg.points[index] as Stop, point as Stop), 0);
+      return total + (distanceKm / getPublicTransportSpeed(leg.mode)) * 60;
+    }, 0);
     return {
       points: route.points.map((point, index) => ({
         id: route.stops[index]?.id ?? `transit-${index}`,
@@ -221,21 +218,25 @@ const generatePublicTransportRoute = async (
       })),
       stops: route.stops,
       legs: route.legs,
+      availableModes: route.availableModes,
+      durationMinutes,
     };
   } catch {
     const transitStop = {
-      id: 'estimated-lrt-stop',
-      name: 'Estimated LRT interchange',
+      id: 'estimated-transit-stop',
+      name: 'Estimated transit interchange',
       lat: (origin.lat + destination.lat) / 2,
       lng: (origin.lng + destination.lng) / 2,
     };
     return {
       points: [origin, transitStop, destination],
       stops: [origin, transitStop, destination],
+      durationMinutes: ((getDistanceKm(origin, transitStop) + getDistanceKm(transitStop, destination)) / 30) * 60,
       legs: [
-        { mode: 'walking', name: 'Walk to LRT', points: [origin, transitStop] },
-        { mode: 'lrt', name: 'LRT (estimated)', points: [transitStop, destination] },
+        { mode: 'walking', name: 'Walk to transit', points: [origin, transitStop] },
+        { mode: 'bus', name: 'Public transport (estimated)', points: [transitStop, destination] },
       ],
+      availableModes: ['bus'],
     };
   }
 };
@@ -245,11 +246,12 @@ const buildRoutePoints = async (
   destination: Stop,
   vehicleType: VehicleType,
   optimizationMode: OptimizationMode,
-  vehicle?: Vehicle
-): Promise<{ points: RoutePoint[]; stops: PublicTransportStop[]; legs: PublicTransportLeg[]; distanceKm?: number; durationMinutes?: number }> => {
+  vehicle?: Vehicle,
+  preferredTransitMode: PublicTransportLeg['mode'] | null = null
+  ): Promise<{ points: RoutePoint[]; stops: PublicTransportStop[]; legs: PublicTransportLeg[]; alternatives?: RouteVariant[]; availableModes?: Array<Exclude<PublicTransportLeg['mode'], 'walking'>>; distanceKm?: number; durationMinutes?: number }> => {
   if (vehicleType === 'public transport') {
-    const route = await generatePublicTransportRoute(origin, destination);
-    return { ...route, distanceKm: undefined, durationMinutes: undefined };
+    const route = await generatePublicTransportRoute(origin, destination, preferredTransitMode);
+    return { ...route, distanceKm: undefined };
   }
 
   // For walking, get actual walking path
@@ -265,7 +267,7 @@ const buildRoutePoints = async (
   // For car with optimization
   try {
     const route = await fetchRouteShape(origin, destination, vehicleType, optimizationMode, getEstimatedCostPerKm(vehicle));
-    return { points: route.points.length > 1 ? route.points : [origin, destination], stops: [], legs: [], distanceKm: route.distanceKm, durationMinutes: route.durationMinutes };
+    return { points: route.points.length > 1 ? route.points : [origin, destination], stops: [], legs: [], alternatives: route.alternatives, distanceKm: route.distanceKm, durationMinutes: route.durationMinutes };
   } catch {
     return { points: [origin, destination], stops: [], legs: [] };
   }
@@ -276,6 +278,7 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
   origin: null,
   destination: null,
   generatedRoute: [],
+  routeAlternatives: [],
   summary: {
     distanceKm: 0,
     timeMinutes: 0,
@@ -294,16 +297,44 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
   currentUserId: null,
   publicTransportStops: [],
   publicTransportLegs: [],
+  availableTransitModes: [],
+  preferredTransitMode: null,
   isRouteLoading: false,
 
+  selectRoute: (route) => {
+    const { origin, destination, vehicleType, optimizationMode, vehicles, selectedVehicleId } = get();
+    if (!origin || !destination || vehicleType !== 'car') return;
+
+    set({
+      generatedRoute: route.points,
+      summary: calculateSummary(
+        origin,
+        destination,
+        vehicleType,
+        optimizationMode,
+        route.distanceKm,
+        vehicles.find((vehicle) => vehicle.id === selectedVehicleId),
+        route.durationMinutes
+      ),
+    });
+  },
+
   setVehicleType: (value: VehicleType) => {
-    const { origin, destination, optimizationMode, vehicles, selectedVehicleId } = get();
+    const { origin, destination, optimizationMode } = get();
     const effectiveMode = value === 'car' ? optimizationMode : 'fastest';
     set({
       vehicleType: value,
       optimizationMode: effectiveMode,
     });
     if (origin && destination) {
+      void get().generateRoute();
+    }
+  },
+
+  setPreferredTransitMode: (mode) => {
+    set({ preferredTransitMode: mode });
+    const { origin, destination, vehicleType } = get();
+    if (vehicleType === 'public transport' && origin && destination) {
       void get().generateRoute();
     }
   },
@@ -333,7 +364,7 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
 
   generateRoute: async () => {
     const requestId = ++latestRouteRequest;
-    const { origin, destination, vehicleType, optimizationMode, vehicles, selectedVehicleId } = get();
+    const { origin, destination, vehicleType, optimizationMode, vehicles, selectedVehicleId, preferredTransitMode } = get();
     if (!origin || !destination) {
       set({ isRouteLoading: false });
       return;
@@ -347,7 +378,8 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
         destination,
         vehicleType,
         optimizationMode,
-        vehicles.find((vehicle) => vehicle.id === selectedVehicleId)
+        vehicles.find((vehicle) => vehicle.id === selectedVehicleId),
+        preferredTransitMode
       );
       const routePoints = route.points;
 
@@ -356,11 +388,11 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
           if (index === 0) return 0;
           return sum + getDistanceKm(points[index - 1] as Stop, point as Stop);
         }, 0);
-
       if (requestId !== latestRouteRequest) return;
 
       set({
         generatedRoute: routePoints,
+        routeAlternatives: route.alternatives ?? [],
         isRouteLoading: false,
         summary: calculateSummary(
           origin,
@@ -373,22 +405,27 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
         ),
         publicTransportStops: route.stops,
         publicTransportLegs: route.legs,
+        availableTransitModes: route.availableModes ?? [],
+        preferredTransitMode: preferredTransitMode && preferredTransitMode !== 'walking' && route.availableModes?.includes(preferredTransitMode) ? preferredTransitMode : null,
       });
+
     } catch {
       if (requestId !== latestRouteRequest) return;
 
       set({
         generatedRoute: [origin, destination],
+        routeAlternatives: [],
         isRouteLoading: false,
         summary: calculateSummary(origin, destination, vehicleType, optimizationMode, undefined, vehicles.find((vehicle) => vehicle.id === selectedVehicleId)),
         publicTransportStops: [],
         publicTransportLegs: [],
+        availableTransitModes: [],
       });
     }
   },
 
   applyOptimization: (mode: OptimizationMode) => {
-    const { origin, destination, vehicleType, vehicles, selectedVehicleId } = get();
+    const { origin, destination, vehicleType } = get();
     const effectiveMode = vehicleType === 'car' ? mode : 'fastest';
     const shouldRegenerate = Boolean(origin && destination);
     set({
@@ -410,9 +447,11 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
       vehicleType: route.vehicleType,
       optimizationMode: route.optimizationMode,
       generatedRoute: route.routePoints,
+      routeAlternatives: [],
       summary: route.summary,
       publicTransportStops: route.publicTransportStops ?? [],
       publicTransportLegs: route.publicTransportLegs ?? [],
+      availableTransitModes: [...new Set((route.publicTransportLegs ?? []).map((leg) => leg.mode).filter((mode): mode is Exclude<PublicTransportLeg['mode'], 'walking'> => mode !== 'walking'))],
     });
   },
 
