@@ -150,6 +150,7 @@ export class UserRepository {
   }
 
   async delete(id: string): Promise<void> {
+    // 1. Module 01 自身关联清理
     try {
       await this.db.prepare("DELETE FROM user_sessions WHERE user_id = ?").bind(id).run();
     } catch {}
@@ -162,25 +163,81 @@ export class UserRepository {
     try {
       await this.db.prepare("UPDATE audit_logs SET user_id = NULL WHERE user_id = ?").bind(id).run();
     } catch {}
+
+    // 2. 若用户拥有协作行程（Trip.UserID），需先清理该行程下级联的日程项与聊天，再删除 Trip
     try {
-      await this.db.prepare("DELETE FROM collaborators WHERE user_id = ?").bind(id).run();
+      const trips = await this.db
+        .prepare("SELECT TripID FROM Trip WHERE UserID = ?")
+        .bind(id)
+        .all<{ TripID: string }>();
+      const tripIds = (trips?.results ?? []).map((t) => t.TripID);
+      for (const tid of tripIds) {
+        try {
+          await this.db.prepare("DELETE FROM chats WHERE trip_id = ?").bind(tid).run();
+          await this.db.prepare("DELETE FROM activity_logs WHERE trip_id = ?").bind(tid).run();
+          await this.db.prepare("DELETE FROM Collaboration_Invitations WHERE trip_id = ?").bind(tid).run();
+          await this.db.prepare("DELETE FROM Collaborators WHERE trip_id = ?").bind(tid).run();
+          await this.db.prepare("DELETE FROM trip_likes WHERE trip_id = ?").bind(tid).run();
+          await this.db.prepare("DELETE FROM plan_share_keys WHERE trip_id = ?").bind(tid).run();
+          const itins = await this.db
+            .prepare("SELECT ItineraryID FROM Itinerary WHERE TripID = ?")
+            .bind(tid)
+            .all<{ ItineraryID: string }>();
+          for (const it of itins?.results ?? []) {
+            await this.db.prepare("DELETE FROM Itinerary_Item WHERE ItineraryID = ?").bind(it.ItineraryID).run();
+          }
+          await this.db.prepare("DELETE FROM Itinerary WHERE TripID = ?").bind(tid).run();
+          await this.db.prepare("DELETE FROM Trip WHERE TripID = ?").bind(tid).run();
+        } catch {}
+      }
     } catch {}
-    try {
-      await this.db.prepare("DELETE FROM trip_collaborators WHERE user_id = ?").bind(id).run();
-    } catch {}
-    try {
-      await this.db.prepare("DELETE FROM favorites WHERE user_id = ?").bind(id).run();
-    } catch {}
+
+    // 3. 清理用户在各模块作为参与者/作者的残留外键引用
+    const cleanupStatements: { sql: string; binds: (string | number)[] }[] = [
+      // 聊天与动态日志
+      { sql: "DELETE FROM chats WHERE user_id = ?", binds: [id] },
+      { sql: "DELETE FROM activity_logs WHERE user_id = ?", binds: [id] },
+      // 协作邀请（作为发件人或收件人）
+      { sql: "DELETE FROM Collaboration_Invitations WHERE sender_id = ? OR receiver_user_id = ?", binds: [id, id] },
+      { sql: "DELETE FROM collaboration_invitations WHERE sender_id = ? OR receiver_user_id = ?", binds: [id, id] },
+      // 协作者记录（若曾邀请他人，将他人的 invited_by 置 NULL；并删除自己的协作者记录）
+      { sql: "UPDATE Collaborators SET invited_by = NULL WHERE invited_by = ?", binds: [id] },
+      { sql: "UPDATE collaborators SET invited_by = NULL WHERE invited_by = ?", binds: [id] },
+      { sql: "DELETE FROM Collaborators WHERE user_id = ?", binds: [id] },
+      { sql: "DELETE FROM collaborators WHERE user_id = ?", binds: [id] },
+      { sql: "DELETE FROM trip_collaborators WHERE user_id = ?", binds: [id] },
+      // 点赞与分享
+      { sql: "DELETE FROM trip_likes WHERE user_id = ?", binds: [id] },
+      { sql: "DELETE FROM plan_share_keys WHERE created_by = ?", binds: [id] },
+      // 模块 02/03 行程与收藏
+      { sql: "DELETE FROM Trip WHERE UserID = ?", binds: [id] },
+      { sql: "DELETE FROM trips WHERE user_id = ?", binds: [id] },
+      { sql: "DELETE FROM favorites WHERE user_id = ?", binds: [id] },
+      { sql: "DELETE FROM favorite_items WHERE user_id = ?", binds: [id] },
+    ];
+
+    for (const stmt of cleanupStatements) {
+      try {
+        await this.db.prepare(stmt.sql).bind(...stmt.binds).run();
+      } catch {}
+    }
+
+    // 4. 所有子表外键引用清理完毕后，安全删除 users 主表记录
     await this.db.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
   }
 
   async deleteByIdentifier(identifier: string): Promise<void> {
-    const normalized = identifier.trim().toLowerCase();
-    const raw = identifier.trim();
-    await this.db
-      .prepare("DELETE FROM users WHERE LOWER(email) = ?1 OR LOWER(username) = ?1 OR phone = ?2")
-      .bind(normalized, raw)
-      .run();
+    const user = await this.findByIdentifier(identifier);
+    if (user) {
+      await this.delete(user.id);
+    } else {
+      const normalized = identifier.trim().toLowerCase();
+      const raw = identifier.trim();
+      await this.db
+        .prepare("DELETE FROM users WHERE LOWER(email) = ?1 OR LOWER(username) = ?1 OR phone = ?2")
+        .bind(normalized, raw)
+        .run();
+    }
   }
 
   async settings(id: string): Promise<UserSettingsRecord | null> {
