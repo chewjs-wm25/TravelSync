@@ -192,6 +192,27 @@ export class UserRepository {
       }
     } catch {}
 
+    // 2.1 若用户在模块 02 中拥有行程（trips 表），清理下属 itineraries 与 itinerary_items
+    try {
+      const m2Trips = await this.db
+        .prepare("SELECT trip_id FROM trips WHERE user_id = ?")
+        .bind(id)
+        .all<{ trip_id: string }>();
+      for (const mt of m2Trips?.results ?? []) {
+        try {
+          const m2Itins = await this.db
+            .prepare("SELECT itinerary_id FROM itineraries WHERE trip_id = ?")
+            .bind(mt.trip_id)
+            .all<{ itinerary_id: string }>();
+          for (const mi of m2Itins?.results ?? []) {
+            await this.db.prepare("DELETE FROM itinerary_items WHERE itinerary_id = ?").bind(mi.itinerary_id).run();
+          }
+          await this.db.prepare("DELETE FROM itineraries WHERE trip_id = ?").bind(mt.trip_id).run();
+          await this.db.prepare("DELETE FROM trips WHERE trip_id = ?").bind(mt.trip_id).run();
+        } catch {}
+      }
+    } catch {}
+
     // 3. 清理用户在各模块作为参与者/作者的残留外键引用
     const cleanupStatements: { sql: string; binds: (string | number)[] }[] = [
       // 聊天与动态日志
