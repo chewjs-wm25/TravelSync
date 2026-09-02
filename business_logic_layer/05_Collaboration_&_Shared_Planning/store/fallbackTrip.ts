@@ -3,10 +3,7 @@ import type { CollabTrip } from "@/api_layer/05_Collaboration_&_Shared_Planning/
 const DAY = 86400000;
 
 function chatTime(fromNowMs: number): string {
-  return new Date(Date.now() - fromNowMs).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return new Date(Date.now() - fromNowMs).toISOString();
 }
 
 /**

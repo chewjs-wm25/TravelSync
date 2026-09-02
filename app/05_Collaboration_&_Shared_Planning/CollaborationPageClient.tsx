@@ -62,6 +62,74 @@ function formatTripDates(start?: string | null, end?: string | null): string {
   return sStr === eStr ? `${sStr}, ${s.getFullYear()}` : `${sStr}-${eStr}`;
 }
 
+function parseCommentDate(rawTime?: string): Date | null {
+  if (!rawTime) return null;
+  let dateStr: any = rawTime.trim();
+  if (/^\d{10,13}$/.test(dateStr)) {
+    dateStr = Number(dateStr);
+  } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)) {
+    dateStr = dateStr.replace(" ", "T") + "Z";
+  } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(dateStr)) {
+    dateStr += "Z";
+  }
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function formatCommentTime(rawTime?: string): string {
+  if (!rawTime) return "";
+  const trimmed = rawTime.trim();
+  const date = parseCommentDate(trimmed);
+  if (!date) return trimmed;
+
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  const timeFormatted = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  if (isToday) return timeFormatted;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate();
+
+  if (isYesterday) return `Yesterday ${timeFormatted}`;
+
+  if (date.getFullYear() === now.getFullYear()) {
+    const monthDay = date.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+    });
+    return `${monthDay}, ${timeFormatted}`;
+  }
+
+  const fullDate = date.toLocaleDateString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  return `${fullDate}, ${timeFormatted}`;
+}
+
+function getFullCommentTimestamp(rawTime?: string): string {
+  if (!rawTime) return "";
+  const date = parseCommentDate(rawTime);
+  if (!date) return rawTime;
+  return date.toLocaleString([], {
+    dateStyle: "full",
+    timeStyle: "medium",
+  });
+}
+
 export default function CollaborationPageClient({
   initialTripId,
   initialInvite,
@@ -725,14 +793,19 @@ END:VCALENDAR`;
                 );
                 const authorMember = trip?.members.find((m) => m.id === c.authorId);
                 const avatarUrl = c.avatar || (isMe ? me?.avatar : authorMember?.avatar);
+                const authorFullName = authorMember?.name || c.authorName || "Member";
+                const myFullName = me?.name || (c.authorName !== "You" ? c.authorName : "") || "";
                 const displayName = isMe
-                  ? (me?.name ? `${me.name.split(" ")[0]} (You)` : "You")
-                  : (c.authorName || authorMember?.name || "Member");
+                  ? (myFullName ? `${myFullName} (You)` : "You")
+                  : authorFullName;
                 const initial = (
                   isMe
-                    ? (me?.name?.charAt(0) || "Y")
-                    : (c.authorName?.charAt(0) || authorMember?.name?.charAt(0) || "M")
+                    ? (myFullName.charAt(0) || "Y")
+                    : (authorFullName.charAt(0) || "M")
                 ).toUpperCase();
+
+                const formattedTime = formatCommentTime(c.time);
+                const fullTimeTooltip = getFullCommentTimestamp(c.time);
 
                 if (isMe) {
                   return (
@@ -743,8 +816,11 @@ END:VCALENDAR`;
                           <span className="text-[11px] font-semibold text-emerald-800">
                             {displayName}
                           </span>
-                          <span className="flex items-center gap-1 text-[9px] text-emerald-700/80">
-                            {c.time}
+                          <span
+                            className="flex items-center gap-1 text-[9px] text-emerald-700/80 cursor-default"
+                            title={fullTimeTooltip}
+                          >
+                            {formattedTime}
                             <CheckCheck size={12} className="text-emerald-600" />
                           </span>
                         </div>
@@ -798,7 +874,12 @@ END:VCALENDAR`;
                         <span className="text-[11px] font-semibold text-emerald-700">
                           {displayName}
                         </span>
-                        <span className="text-[9px] text-gray-400">{c.time}</span>
+                        <span
+                          className="text-[9px] text-gray-400 cursor-default"
+                          title={fullTimeTooltip}
+                        >
+                          {formattedTime}
+                        </span>
                       </div>
                       <p className="text-xs leading-relaxed text-gray-800 break-words whitespace-pre-wrap">
                         {c.text}

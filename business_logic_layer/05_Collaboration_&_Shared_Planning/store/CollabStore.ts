@@ -491,10 +491,7 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             authorId: currentUserId,
             authorName: currentMember?.name || "You",
             avatar: currentMember?.avatar || "",
-            time: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
+            time: new Date().toISOString(),
             text,
             own: true,
           };

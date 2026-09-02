@@ -35,12 +35,9 @@ export async function POST(req: Request) {
         comment: {
           id: String(msgId),
           authorId: me.id,
-          authorName: me.username,
+          authorName: me.full_name || me.username,
           avatar: me.profile_picture ?? "",
-          time: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          time: new Date().toISOString(),
           text,
         },
       },
@@ -51,7 +48,7 @@ export async function POST(req: Request) {
       type: "activity",
       entry: {
         id: `act-${Date.now()}`,
-        actor: me.username,
+        actor: me.full_name || me.username,
         action: `added a comment: "${text.slice(0, 30)}${text.length > 30 ? "..." : ""}"`,
         at: Date.now(),
       },
@@ -75,6 +72,7 @@ export async function GET(req: Request) {
           id: row.id,
           user_id: row.user_id,
           username: row.username,
+          full_name: row.full_name,
           profile_picture: row.profile_picture,
           text: row.text,
           created_at: row.created_at,

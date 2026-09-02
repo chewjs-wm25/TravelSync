@@ -135,6 +135,7 @@ export async function loadBootstrap(
             id: row.id,
             user_id: row.user_id,
             username: row.username,
+            full_name: row.full_name,
             profile_picture: row.profile_picture,
             text: row.text,
             created_at: row.created_at,

@@ -17,6 +17,7 @@ type ChatRow = {
   id: number;
   user_id: string;
   username: string;
+  full_name?: string | null;
   profile_picture: string | null;
   text: string;
   created_at: string;
@@ -30,7 +31,7 @@ export function mapMember(row: MemberRow): CollabMember {
   const online = lastSeen > 0 && Date.now() - lastSeen < ONLINE_THRESHOLD_MS;
   return {
     id: row.user_id,
-    name: row.username,
+    name: row.full_name || row.username,
     email: row.email,
     role: row.role as CollabRole,
     avatar: row.profile_picture ?? "",
@@ -64,15 +65,18 @@ export function mapItem(row: ItemRow, itineraryDayMap: Record<string, number>): 
 
 /** DB 评论 → UI CollabComment */
 export function mapChat(row: ChatRow, currentUserId: string): CollabComment {
+  let time = row.created_at;
+  if (time && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(time)) {
+    time = time.replace(" ", "T") + "Z";
+  } else if (time && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(time)) {
+    time += "Z";
+  }
   return {
     id: String(row.id),
     authorId: row.user_id,
-    authorName: row.username,
+    authorName: row.full_name || row.username,
     avatar: row.profile_picture ?? "",
-    time: new Date(row.created_at).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
+    time: time || new Date().toISOString(),
     text: row.text,
     own: row.user_id === currentUserId,
   };
@@ -82,7 +86,7 @@ export function mapChat(row: ChatRow, currentUserId: string): CollabComment {
 export function mapActivity(row: ActivityWithUser): ActivityEntry {
   return {
     id: String(row.id),
-    actor: row.username,
+    actor: (row as any).full_name || row.username,
     action: row.action,
     at: Date.parse(row.created_at),
   };

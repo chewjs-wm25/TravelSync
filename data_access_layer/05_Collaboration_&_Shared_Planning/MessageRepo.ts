@@ -10,6 +10,7 @@ export interface ChatRow {
 
 export interface ChatWithAccount extends ChatRow {
   username: string;
+  full_name: string | null;
   profile_picture: string | null;
 }
 
@@ -17,7 +18,7 @@ export async function findByTrip(tripId: string): Promise<ChatWithAccount[]> {
   const db = await getDB();
   const res = await db
     .prepare(
-      `SELECT m.id, m.trip_id, m.user_id, m.text, m.created_at, u.username, u.profile_picture
+      `SELECT m.id, m.trip_id, m.user_id, m.text, m.created_at, u.username, u.full_name, u.profile_picture
        FROM chats m
        JOIN users u ON u.id = m.user_id
        WHERE m.trip_id = ?

@@ -15,6 +15,7 @@ export interface CollaboratorRow {
 
 export interface CollaboratorWithAccount extends CollaboratorRow {
   username: string;
+  full_name: string | null;
   email: string;
   profile_picture: string | null;
 }
@@ -24,7 +25,7 @@ export async function findByTrip(tripId: string): Promise<CollaboratorWithAccoun
   const db = await getDB();
   const res = await db
     .prepare(
-      `SELECT c.*, u.username, u.email, u.profile_picture
+      `SELECT c.*, u.username, u.full_name, u.email, u.profile_picture
        FROM Collaborators c
        JOIN users u ON u.id = c.user_id
        WHERE c.trip_id = ? AND c.status = 'active'
