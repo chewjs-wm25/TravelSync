@@ -12,7 +12,7 @@
  *   - PUT（写入缓存）为正常用户流程，要求登录会话（401）；
  *   - DELETE（清空全部缓存）为危险操作，要求管理员会话（401/403）。
  *
- * 值语义（与仓储一致，v3 来源引用格式）：
+ * 值语义（与仓储一致，v5 来源引用格式）：
  *   - GET 返回 { entry }：entry 为 null = 未缓存；{source:"none"} = 确定无图；
  *     {source:"wikimedia",url} = 永久 URL；{source:"mapillary",imageId} = 图片 id
  *     （URL 有时效，用 id 换取新 URL，不得缓存 URL）；

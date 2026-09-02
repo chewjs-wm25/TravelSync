@@ -7,8 +7,8 @@
  *
  * 授权（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）：
  *   - 请求携带当前会话凭证（Authorization: Bearer <token>），
- *     服务端以会话解析当前用户 ID —— 本类不再向服务端传递 userId 参数
- *     （签名保留 userId 参数仅为兼容接口契约，实现中忽略），
+ *     服务端以会话解析当前用户 ID —— 接口签名已完全移除 userId 参数，
+ *     本类不向服务端传递任何 userId，
  *     杜绝"前端指定任意 userId"的越权路径；
  *   - 未登录（无 token）：GET 返回空列表（服务端按匿名返回 []），
  *     POST / DELETE 服务端返回 401 并在此抛出 Error。

@@ -28,15 +28,16 @@
 
 | 代码文件 | 类型 | 一句话定位 |
 | --- | --- | --- |
-| `page.tsx`（模块 03 主页） | 页面组件 | 模块 03 首页：搜索筛选 + 灵感合辑 + 官方评级 + 收藏列表四大区块的布局与编排 |
+| `layout.tsx`（模块 03 布局） | 布局组件 | Module 03 路由段共享壳：全局挂载收藏夹浮层（悬浮按钮+抽屉），跨页面可用 |
+| `page.tsx`（模块 03 主页） | 页面组件 | 模块 03 首页：搜索筛选 + 灵感合辑 + 官方评级三大区块的布局与编排（收藏夹浮层由布局提供） |
 | `search/page.tsx` | 页面组件 | 搜索结果页：Geoapify 真实搜索结果 + 多维筛选 + 地点卡片与收藏 |
-| `place/[placeId]/page.tsx` | 页面组件 | 地点详情页：详情 + 图片 + 附近灵感 + 收藏/加入行程操作 |
+| `place/[placeId]/page.tsx` | 页面组件 | 地点详情页：详情 + 图片 + 收藏（星标与文字按钮） + 附近灵感 |
 | `collections/[collectionId]/page.tsx` | 页面组件 | 灵感合辑详情页：合辑成员列表 + 附近灵感 |
-| `hooks.ts` | 数据 hooks | 模块 03 数据 hooks 集合：封装对 BL 层服务的异步调用与本地交互状态 |
+| `hooks.ts` | 数据 hooks | 模块 03 数据 hooks 集合：封装对 BL 层服务的异步调用与本地交互状态（含收藏变更事件广播） |
 | `routes.ts` | 路径常量 | 模块 03 各页面路由路径与链接构造函数 |
 | `searchAndFilter.tsx` | 客户端组件 | 搜索框 + 多维筛选面板（体验类型/州属/场景标签页） |
 | `curatedInspirations.tsx` | 客户端组件 | 灵感合辑卡片列表（含 "Generate more"） |
-| `favouriteList.tsx` | 客户端组件 | 收藏列表（含加入行程、移除、详情跳转） |
+| `favouriteList.tsx` | 客户端组件 | 收藏夹组件（悬浮按钮 + 抽屉 + 背景遮罩）：含加入行程、移除、详情跳转、点击遮罩关闭 |
 | `officalQualityRate.tsx` | 客户端组件 | Recommended Places 官方品质评级卡片列表 |
 | `placeImageAttribution.tsx` | 客户端组件 | 图片署名条（开源协议展示合规） |
 | `safeUrl.ts` | 工具 | 外部 URL 协议白名单过滤（防存储型 XSS，安全审计修复） |
@@ -49,21 +50,22 @@
 
 ### 文件介绍
 
-- **`page.tsx`（模块 03 主页）** — 模块 03 首页布局与编排：组合搜索筛选面板（`SearchAndFilter`）、灵感合辑区（`CuratedInspirations`，含节日活动流）、官方品质评级区（`UpcomingFestivalsEvent`/`officalQualityRate`）与收藏入口（`FavouriteList`），数据全部经 `hooks.ts` 从 BL 层服务获取；搜索框为空时展示 Recommended Places 官方评级（与搜索栏解绑），输入关键词后切换为实时搜索结果。
+- **`layout.tsx`（模块 03 布局）** — Module 03 路由段（`/03_Destination_Discovery_&_Inspiration/**`）共享布局壳：持有抽屉开关 `isDrawerOpen` 并**全局挂载收藏夹浮层**（`FavouriteList`：悬浮按钮 + 抽屉 + 背景遮罩），主页 / 搜索结果页 / 地点详情页 / 合辑详情页任一页面都可随时打开收藏夹（路由切换时抽屉状态保持）；收藏数据一致性由 hooks 事件广播保证（见 `hooks.ts`）。
+- **`page.tsx`（模块 03 主页）** — 模块 03 首页布局与编排：组合搜索筛选面板（`SearchAndFilter`）、灵感合辑区（`CuratedInspirations`，含节日活动流）与官方品质评级区（`officalQualityRate`），数据全部经 `hooks.ts` 从 BL 层服务获取；搜索框为空时展示 Recommended Places 官方评级（与搜索栏解绑），输入关键词后切换为实时搜索结果跳转提示。收藏夹浮层不在本页挂载（由布局 `layout.tsx` 全局提供）。
 - **`search/page.tsx`** — 搜索结果页：从 URL 参数恢复筛选初始状态，经 `discoveryService.searchPlaceDetails` 获取 Geoapify 真实搜索结果（带品质徽章合并与"名称+地址"去重），支持多维筛选（场景/体验类型/州属）、收藏切换、图片懒加载（`usePlaceImages` 分批并发保护免费配额）与地点详情跳转。
-- **`place/[placeId]/page.tsx`** — 地点详情页：按 placeId 与搜索词经 `discoveryService.getPlaceDetail` 加载详情（官方评级地点 D1 直查 + 其余搜索兜底），展示地址/分类/评分徽章等字段、地点图片（含署名条）、收藏与"加入行程"操作，以及经 `useNearbyInspirations` 的附近灵感推荐。
+- **`place/[placeId]/page.tsx`** — 地点详情页：按 placeId 与搜索词经 `discoveryService.getPlaceDetail` 加载详情（官方评级地点 D1 直查 + 其余搜索兜底），展示地址/分类/评分徽章等字段、地点图片（含署名条）、收藏操作（图片角落星标 + 详情区**文字按钮**「Add to Favourites / Remove from Favourites」）与"加入行程"操作，以及经 `useNearbyInspirations` 的附近灵感推荐。
 - **`collections/[collectionId]/page.tsx`** — 灵感合辑详情页：经 `useCollectionDetail` 加载合辑成员列表（Wikivoyage 文章聚合，含导语/缩略图/Star 徽章/外链），成员带坐标时经 `useNearbyInspirations` 展示附近灵感区，路由切换期间展示加载过渡态。
-- **`hooks.ts`** — 模块 03 Presentation 数据 hooks 中枢（8 个导出）：`useSearchAndFilter`（搜索/筛选/联想防抖 300ms/收藏切换）、`useCollections`（合辑列表 + sessionStorage 状态恢复 + Generate more）、`useCollectionDetail`、`useNearbyInspirations`、`useEventFeed`、`useFavorites`（收藏列表 + 体验类型过滤 + 加入行程）、`usePlaceImages`（按 `IMAGE_FETCH_CONCURRENCY = 4` 分批取图）、`SearchAndFilterInitial` 等；全部带 `cancelled` 防竞态与静默降级，是 UI 与 BL 层之间的唯一数据通道。
+- **`hooks.ts`** — 模块 03 Presentation 数据 hooks 中枢（8 个导出）：`useSearchAndFilter`（搜索/筛选/联想防抖 300ms/收藏切换）、`useCollections`（合辑列表 + sessionStorage 状态恢复 + Generate more）、`useCollectionDetail`、`useNearbyInspirations`、`useEventFeed`、`useFavorites`（收藏列表 + 体验类型过滤 + 加入行程；**写操作成功后广播 `module03:favourites-changed` 事件，所有 useFavorites 实例监听并自动刷新**，保证 Recommended Places / 搜索结果 / 地点详情 / 收藏夹抽屉跨实例即时一致）、`usePlaceImages`（按 `IMAGE_FETCH_CONCURRENCY = 4` 分批取图）、`SearchAndFilterInitial` 等；全部带 `cancelled` 防竞态与静默降级，是 UI 与 BL 层之间的唯一数据通道。
 - **`routes.ts`** — 模块 03 路由路径常量与链接构造函数：`MODULE_03_HOME`、`SEARCH_PAGE`、`searchPagePath`（携带筛选参数）、`placeDetailPath`、`collectionDetailPath`、`WIKIVOYAGE_HOME`（外部指南外链）与 `googleMapsUrl`（官方评级地点地图外链），供各页面/组件统一生成导航链接。
 - **`searchAndFilter.tsx`** — 搜索与多维筛选面板（受控组件）：搜索框（输入联想下拉）、场景标签页（室内/室外/全部，`activeType`）、体验类型与马来西亚州属下拉筛选，交互状态由 `useSearchAndFilter` 提供；主页与搜索结果页复用。
 - **`curatedInspirations.tsx`** — 灵感合辑与节日活动区域：合辑卡片列表（封面/标题/副标题/成员数与 Star 数徽章）+"Generate more"（达到 `MAX_COLLECTIONS_DISPLAYED` 后切换为 Wikivoyage 外链按钮），下方展示节日活动流卡片（标题/分类/日期/地点/官方外链）；空态与降级文案齐全。
-- **`favouriteList.tsx`** — 收藏夹组件（抽屉 + 悬浮按钮）：展示收藏条目（缩略图/名称/体验类型）、按体验类型过滤、移除收藏、跳转详情与"加入行程"（经 `favoritesService.addToTrip` 桥接模块 02）；同时导出 `StarIcon` 星星图标供其他组件复用收藏标记。
+- **`favouriteList.tsx`** — 收藏夹组件（由 Module 03 布局 `layout.tsx` 全局挂载，模块内任意页面可用）：悬浮按钮（含实时计数）+ 右侧抽屉。抽屉展示收藏条目（缩略图/名称/体验类型）、按体验类型过滤（状态组件内部自管）、移除收藏、跳转详情与"加入行程"（经 `favoritesService.addToTrip` 桥接模块 02）；**打开时渲染背景遮罩（`bg-gray-900/40 backdrop-blur-sm`），点击列表以外区域（遮罩）自动关闭**；收藏变更经 hooks 事件广播自动刷新列表与计数。同时导出 `StarIcon` 星星图标供其他组件复用收藏标记。
 - **`officalQualityRate.tsx`** — Recommended Places 兴趣点决策视图：展示官方品质评级地点卡片（公司名/地址/电话/品质徽章/评级有效期/图片），数据来自 `discoveryService.getQualityRatedPois`（D1），卡片图片走统一图片链路 `usePlaceImages`，提供 Google Maps 外链与详情跳转。
 - **`placeImageAttribution.tsx`** — 图片署名展示组件：按图片结果渲染作者/许可信息条（如 "CC BY-SA 4.0" 与许可链接），确保开源协议署名合规；无署名信息时不渲染。
 - **`api/favourites/route.ts`** — 收藏 Route API：GET（列当前登录用户收藏，未登录返回空列表）/ POST（添加）/ DELETE（按 id 删除），当前用户 ID 一律由服务端会话（`Authorization: Bearer <token>`）解析、不再信任前端参数，服务端以 D1 binding + 会话 userId 实例化 `D1FavoritesRepository` 完成持久化，是浏览器端 `RemoteFavoritesRepository` 的传输通道（统一路径见 guideline §5）。
 - **`api/geocode/route.ts`** — Geoapify 代理 Route API：白名单校验参数（type/text/limit），服务端注入 `GEOAPIFY_API_KEY`（非 NEXT_PUBLIC，密钥不进前端 bundle），强制 `filter=countrycode:my`（前端无法绕过），转发 api.geoapify.com 并透传 GeoJSON，解析仍由 API Layer 客户端完成（薄传输）。
-- **`api/events/route.ts`** — 活动 Route API：GET（全部活动，公开读）/ POST（批量 upsert，管理员会话）/ DELETE（清空，管理员会话），服务端经 `D1EventRepository` 读写 D1 events 表；活动展示与 DEV 同步均经此端点。
-- **`api/official-quality-ratings/route.ts`** — 官方评级 Route API：GET（全部评级条目，公开读）/ POST（批量 upsert，管理员会话）/ DELETE（清空，管理员会话），服务端经 `D1QualityRatingRepository` 读写 D1 official_quality_ratings 表；Recommended Places 展示与同步链路均经此端点。
+- **`api/events/route.ts`** — 活动 Route API：GET（全部活动，公开读）/ POST（批量 upsert，无会话授权，DEV 同步入口）/ DELETE（清空，无会话授权，DEV 清空入口），服务端经 `D1EventRepository` 读写 D1 events 表；活动展示与 DEV 同步均经此端点。
+- **`api/official-quality-ratings/route.ts`** — 官方评级 Route API：GET（全部评级条目，公开读）/ POST（批量 upsert，无会话授权，DEV 同步入口）/ DELETE（清空，无会话授权，DEV 清空入口），服务端经 `D1QualityRatingRepository` 读写 D1 official_quality_ratings 表；Recommended Places 展示与同步链路均经此端点。
 - **`api/place-image/route.ts`** — 地点图片 KV 缓存代理 Route API：GET（按 placeId 读缓存条目）/ PUT（写入，登录会话）/ DELETE（清空，管理员会话，仅本模块键前缀范围），服务端经 `CloudflareKvPlaceImageCacheRepository` 操作 Cloudflare KV，是统一图片链路跨会话持久缓存的通道；写成功返回 `{ success: true }`（结果标志遵循 guideline §5）。
 - **`api/mapillary/route.ts`** — Mapillary 代理 Route API：白名单校验参数（action=search/image、bbox、imageId），服务端强制 bbox 完全落在马来西亚边界框内（`MALAYSIA_BBOX`），注入 `MAPILLARY_ACCESS_TOKEN`（非 NEXT_PUBLIC），转发 graph.mapillary.com 并透传 JSON；解析由 API Layer `MapillaryApi` 完成。
 
@@ -71,7 +73,8 @@
 
 ```mermaid
 graph TD
-    subgraph 页面
+    subgraph 布局与页面
+        layout["layout.tsx 模块布局（全局收藏夹浮层）"]
         page["page.tsx 主页"]
         search_page["search/page.tsx"]
         place_page["place/[placeId]/page.tsx"]
@@ -97,11 +100,12 @@ graph TD
         map_route["api/mapillary/route.ts"]
     end
 
-    page --> searchAndFilter & curated & favourite & officialRate
+    layout --> favourite
+    page --> searchAndFilter & officialRate
     page --> hooks & routes
-    search_page --> searchAndFilter & favourite
+    search_page --> searchAndFilter
     search_page --> hooks & routes
-    place_page --> favourite & attribution
+    place_page --> attribution
     place_page --> hooks & routes
     collections_page --> hooks & routes
     searchAndFilter --> routes
@@ -109,6 +113,9 @@ graph TD
     favourite --> hooks & routes
     officialRate --> hooks & routes & attribution
     attribution -.->|类型| types["BL: types.ts"]
+    page -.->|StarIcon| favourite
+    search_page -.->|StarIcon| favourite
+    place_page -.->|StarIcon| favourite
 
     fav_route --> data_D1Fav["DataAccess: D1FavoritesRepository"]
     evt_route --> data_D1Evt["DataAccess: D1EventRepository"]
@@ -236,14 +243,14 @@ graph TD
 
 - **`EventRepository.ts`** — 节日/活动数据的仓储接口，同时定义贯穿全模块的实体类型 `EventEntity`（id/title/categories/date/location/url/syncedAt）。契约含 `listAll`（全部条目）、`upsertAll`（批量按 id 幂等写入）、`clearAll`（清空）；按运行环境拆分为三个实现：Hardcoded（JSON 硬编码）、Remote（浏览器端经 Route API）、D1（服务端直接实现）。
 - **`HardcodedEventRepository.ts`** — 活动数据的硬编码 JSON 仓储实现（浏览器端可读）：直接 `import` parsed_events.json 并映射为 `EventEntity[]`，无任何网络请求，供 EventSyncService 同步与（数据源不可用时的）读取使用。
-- **`RemoteEventRepository.ts`** — 活动仓储的浏览器端远程实现：通过 HTTP 调用 Route API（`/03_Destination_Discovery_&_Inspiration/api/events`）实现 `EventRepository` 接口（GET 读取 / POST upsert / DELETE 清空，写操作携带管理员会话凭证），自身不含 D1 逻辑，参数序列化与响应解析之外无业务判断。
+- **`RemoteEventRepository.ts`** — 活动仓储的浏览器端远程实现：通过 HTTP 调用 Route API（`/03_Destination_Discovery_&_Inspiration/api/events`）实现 `EventRepository` 接口（GET 读取 / POST upsert / DELETE 清空，写操作携带会话凭证仅为兼容保留，服务端不再校验——原 requireAdmin 已移除），自身不含 D1 逻辑，参数序列化与响应解析之外无业务判断。
 - **`D1EventRepository.ts`** — 活动仓储的 Cloudflare D1 直接实现（服务端 Route API 内部使用）：以 D1 binding 构造，懒建表（`CREATE TABLE IF NOT EXISTS events`，id 主键天然幂等），SQL 完成 listAll/upsertAll/clearAll；浏览器端永不直接使用。
-- **`FavoritesRepository.ts`** — 收藏夹数据的仓储接口，同时定义实体 `FavoriteItemEntity`（id/placeId/name/thumbnailUrl/experienceType）与 `SavedItem` 领域形态同构。契约：`listItems(userId)`、`addItem(userId, item)`、`removeItem(userId, id)`；每个用户一个收藏夹，条目按 user_id 归属。
+- **`FavoritesRepository.ts`** — 收藏夹数据的仓储接口，同时定义实体 `FavoriteItemEntity`（id/placeId/name/thumbnailUrl/experienceType）与 `SavedItem` 领域形态同构。契约：`listItems()`、`addItem(item)`、`removeItem(id)`（接口签名已移除 userId 参数，安全审计修复后的最终形态——服务端一律以会话解析用户 ID）；每个用户一个收藏夹，条目按 user_id 归属。
 - **`RemoteFavoritesRepository.ts`** — 收藏仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/favourites`）以 GET/POST/DELETE 对应三个契约方法，实现 `FavoritesRepository` 接口（userId 以会话凭证为准，不传前端参数）；是 BL 层 `sharedFavoritesRepository` 单例的默认实现，并导出 `remoteFavoritesRepository` 单例。
 - **`D1FavoritesRepository.ts`** — 收藏仓储的 Cloudflare D1 直接实现（服务端）：懒建表 `favorite_items`（id 主键），SQL 全部以 user_id 过滤/写入（防越权），`created_at` 由服务端注入并按下楼序返回（最新收藏在前）；Route API 内部使用。
 - **`OfficialQualityRatingRepository.ts`** — 官方品质评级数据的仓储接口，同时定义实体 `OfficialQualityRatingEntity`（JSON 原始字段：公司名/地址/电话/评级有效期/品质档位 + 同步时 Nominatim/Geoapify 补全字段：placeId/坐标/结构化地址等）。契约：`listAll`、`upsertAll`（json_id 主键幂等）、`clearAll`。
 - **`HardcodedQualityRatingRepository.ts`** — 官方评级数据的硬编码 JSON 仓储实现：直接 `import` officalQualityRating_hardcode.json 映射为实体数组，无网络请求，供 QualityRatingSyncService 同步使用。
-- **`RemoteQualityRatingRepository.ts`** — 官方评级仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`）以 GET/POST/DELETE 对应契约方法（写操作携带管理员会话凭证），供 BL 层读取 D1 评级数据与 DEV 同步链路写入。
+- **`RemoteQualityRatingRepository.ts`** — 官方评级仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`）以 GET/POST/DELETE 对应契约方法（写操作携带会话凭证仅为兼容保留，服务端不再校验——原 requireAdmin 已移除），供 BL 层读取 D1 评级数据与 DEV 同步链路写入。
 - **`D1QualityRatingRepository.ts`** — 官方评级仓储的 Cloudflare D1 直接实现（服务端）：懒建表 `official_quality_ratings`（json_id 主键幂等 upsert），Route API 内部使用；浏览器端永不直接使用。
 - **`PlaceImageCacheRepository.ts`** — 地点图片缓存仓储的接口 + Cloudflare KV 直接实现（服务端单文件）：键设计 `module03:place-image:v5:{placeId}`（v5 升键使旧缓存整体失效）；提供 `PlaceImageCacheEntry` 三种来源条目（wikimedia url+署名 / mapillary imageId+署名 / none 确定无图）与 `parse/serializePlaceImageEntry` 序列化工具（浏览器 sessionStorage 与 KV 共用同一格式）。
 - **`RemotePlaceImageCacheRepository.ts`** — 地点图片缓存仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/place-image`）以 GET/PUT/DELETE 对应 `get/put/clearAll` 三个方法（PUT 携带登录会话凭证，DELETE 携带管理员会话凭证），自身不含 KV 逻辑；是 BL 层统一图片链路跨会话持久缓存的通道。

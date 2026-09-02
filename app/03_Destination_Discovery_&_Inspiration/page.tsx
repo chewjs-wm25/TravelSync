@@ -6,7 +6,6 @@ import React, { useMemo, useState } from "react";
 import SearchAndFilter from "./searchAndFilter";
 import CuratedInspirations from "./curatedInspirations";
 import UpcomingFestivalsEvent from "./officalQualityRate";
-import FavouriteList from "./favouriteList";
 
 // Presentation hooks
 import { useFavorites, useSearchAndFilter } from "./hooks";
@@ -18,7 +17,6 @@ import type {
 } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 
 export default function TravelInspirationPage() {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const {
     activeTab,
     setActiveTab,
@@ -35,8 +33,7 @@ export default function TravelInspirationPage() {
     pois,
     isLoading,
   } = useSearchAndFilter();
-  const { typeOptions, activeType, setActiveType, addToTrip, toggleItem, savedItems } =
-    useFavorites();
+  const { addToTrip, toggleItem, savedItems } = useFavorites();
   /** 已收藏地点 id 集合（Recommended Places 卡片星标状态；toggleItem 后随 savedItems 即时更新） */
   const favouriteIds = useMemo(
     () => new Set(savedItems.map((item) => item.id)),
@@ -143,18 +140,8 @@ export default function TravelInspirationPage() {
         )}
       </div>
 
-      {/* =========================================
-          4. 愿望清单与收藏夹区域
-          ========================================= */}
-      <FavouriteList
-        isDrawerOpen={isDrawerOpen}
-        setIsDrawerOpen={setIsDrawerOpen}
-        typeOptions={typeOptions}
-        activeType={activeType}
-        setActiveType={setActiveType}
-      />
-
-      {/* 加入行程反馈 toast（POI 卡片触发） */}
+      {/* 收藏夹浮层（悬浮按钮 + 抽屉）由 Module 03 布局 layout.tsx 全局提供，
+          任意页面可打开；本页不再单独挂载 */}
       {tripToast && (
         <div
           className={`fixed bottom-8 left-1/2 z-[60] -translate-x-1/2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-lg ${

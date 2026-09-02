@@ -60,7 +60,7 @@ CuratedInspirations（本组件）
        ├─ 标题行：h2「Upcoming Festivals & Events」+ events.length>0 时 Prev/Next
        ├─ 加载/空态文案
        └─ 横向滚动列表（ref=eventsScrollerRef, snap-x scroll-smooth）：
-            <a href=event.url target=_blank> 卡片（min-w-[300px]）
+            <a href={safeHttpUrl(event.url)} target=_blank> 卡片（min-w-[300px]）
             ├─ 日期徽章 + 标题
             ├─ 地点
             └─ categories.length>0 时分类标签组
@@ -72,6 +72,7 @@ CuratedInspirations（本组件）
 | --- | --- |
 | `./hooks`（`useCollections`、`useEventFeed`） | 合辑列表（含 `generateMore`）与活动流的 BL 数据封装 |
 | `./routes`（`collectionDetailPath`、`WIKIVOYAGE_HOME`） | 合辑详情路径与 Wikivoyage 外链 |
+| `./safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，合辑封面 `<img src>` 与活动卡 `<a href>` 渲染前过滤，防存储型 XSS） |
 | 外部库：`react`（`useRef`）、`next/link`、`lucide-react`（`Compass`/`Star`） | 滚动容器引用、路由链接与图标 |
 
 ## 导出与函数明细
@@ -94,4 +95,4 @@ CuratedInspirations（本组件）
   - 调用 `useCollections()` 得 `{ collections, isLoading: collectionsLoading, isGenerating, hasMore, generateMore }`；`useEventFeed()` 得 `{ events, isLoading: eventsLoading }`；`eventsScrollerRef = useRef<HTMLDivElement>(null)` 指向横向滚动容器。
   - `scrollEvents(direction: 1 | -1)`：读容器 `firstElementChild`（首张卡片）的 `offsetWidth` 与 `getComputedStyle(container).columnGap`（列间隙，解析失败取 0）计算 `step`；`container.scrollTo({ left: container.scrollLeft + direction * step, behavior: "smooth" })`。
   - 合辑卡片：`Link` 到 `collectionDetailPath(item.id)`；封面（真实图或占位色块）+ `from-gray-800/70` 渐变遮罩 + 标题、`line-clamp-2` 副标题、成员数徽章（`memberCount` 带单复数）、`starCount > 0` 时 Star 徽章（`Star` 实心 + 数量）。
-  - 活动卡片：`<a href={event.url} target="_blank" rel="noopener noreferrer">`，`min-w-[300px]`；日期徽章（`bg-primary-500/10 text-primary-500`）、标题、地点；`event.categories.length > 0` 时渲染分类标签组（灰色小圆角标签）。
+  - 活动卡片：`<a href={safeHttpUrl(event.url)} target="_blank" rel="noopener noreferrer">`，`min-w-[300px]`；日期徽章（`bg-primary-500/10 text-primary-500`）、标题、地点；`event.categories.length > 0` 时渲染分类标签组（灰色小圆角标签）。

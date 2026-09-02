@@ -173,7 +173,8 @@ function SearchResults() {
   const images = usePlaceImages(places);
 
   return (
-    <div className="space-y-6">
+    // pb-24：为全局收藏夹悬浮按钮（Module 03 布局）预留底部空间，避免遮挡内容
+    <div className="space-y-6 pb-24">
       {/* 页头 */}
       <div className="flex items-end justify-between gap-4">
         <div>

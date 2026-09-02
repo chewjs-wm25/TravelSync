@@ -39,7 +39,7 @@ officalQualityRate（本组件）
 | Prev / Next 点击 | `setPage(±1)`，边界禁用（`safePage <= 1` / `>= totalPages`） |
 | 数字页码点击 | `setPage(n)`；当前页高亮 |
 | 卡片点击 | 整卡 `<a>` 新标签页打开 Google Maps（`target="_blank"` + `rel="noopener noreferrer"`） |
-| 收藏按钮点击 | `preventDefault` + `stopPropagation` + `onToggleFavourite(poi)`（星标实心/空心由 `favouriteIds.has(poi.id)` 驱动） |
+| 收藏按钮点击 | `preventDefault` + `stopPropagation` + `onToggleFavourite(poi)`（星标实心/空心由 `favouriteIds.has(poi.id)` 驱动；写操作成功后 hooks 广播收藏变更事件，全局收藏夹浮层自动刷新） |
 | Add to Trip 点击 | `preventDefault` + `stopPropagation` + `onAddToTrip(poi)`（`addingToTripId === poi.id` 时禁用） |
 
 ## 边界与降级
@@ -64,6 +64,7 @@ officalQualityRate（本组件）
 | `./hooks`（`usePlaceImages`） | 当前页地点图片懒加载 |
 | `./favouriteList`（`StarIcon`） | 收藏星标图标（与搜索结果页、收藏夹同源复用） |
 | `./placeImageAttribution` | 图片作者与许可署名展示 |
+| `./safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，卡片图片 `<img src>` 渲染前过滤，防存储型 XSS） |
 | `../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types`（仅类型） | `PoiItem`（仅记录 import，未打开源文件） |
 | 外部库：`react`（`useEffect`/`useState`）、`lucide-react`（`ImageOff`） | 分页状态与无图图标 |
 

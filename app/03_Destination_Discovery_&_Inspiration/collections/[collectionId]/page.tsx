@@ -66,7 +66,8 @@ function CollectionDetailView() {
   );
 
   return (
-    <div className="space-y-6">
+    // pb-24：为全局收藏夹悬浮按钮（Module 03 布局）预留底部空间，避免遮挡内容
+    <div className="space-y-6 pb-24">
       {/* 返回导航 */}
       <div className="flex flex-wrap items-center gap-3">
         <Link

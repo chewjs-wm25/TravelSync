@@ -92,10 +92,12 @@
 - 传入：无
 - 传出：`{ savedItems, visibleItems, typeOptions, activeType, setActiveType, savedItemsCount, removeItem, toggleItem, addToTrip, refresh }`。
 - 用处：
-  - 挂载时 `favoritesService.getSavedItems()` 填充 `savedItems`（失败保持空列表）；`refresh`（`useCallback`）重新拉取列表供删除/切换后调用。
+  - 文件内常量 `FAVOURITES_CHANGED_EVENT = "module03:favourites-changed"` 与函数 `notifyFavouritesChanged()`：收藏写操作成功后经 `window.dispatchEvent` 广播事件（SSR 安全跳过），**跨 useFavorites 实例同步**——同页多个实例（如页面卡片星标状态实例与布局收藏夹抽屉实例）或不同页面任一实例写操作后，全部已挂载实例统一重新拉取 D1，保证 Recommended Places / 搜索结果 / 地点详情 / 收藏夹抽屉的收藏状态即时一致。
+  - 挂载 effect：先 `favoritesService.getSavedItems()` 填充 `savedItems`（失败保持空列表），随后 `window.addEventListener(FAVOURITES_CHANGED_EVENT, loadItems)` 订阅收藏变更（同一 `cancelled` 防竞态；卸载时 `removeEventListener`）。
+  - `refresh`（`useCallback`）：对外保留的重新拉取入口（组件内部刷新统一由事件驱动，避免一次操作重复拉取）。
   - `typeOptions`：`useMemo` 从收藏条目体验类型去重生成（过滤空值），驱动类型过滤按钮。
-  - `removeItem(id)`：调 `favoritesService.removeSavedItem(id)` 后 `refresh()`。
-  - `toggleItem(poi)`：调 `favoritesService.togglePoiFavourite(poi)`（收藏/取消收藏）后 `refresh()`。
+  - `removeItem(id)`：调 `favoritesService.removeSavedItem(id)`，成功后 `notifyFavouritesChanged()` 广播变更（不再本地手动 refresh，由事件驱动所有实例统一刷新）。
+  - `toggleItem(poi)`：调 `favoritesService.togglePoiFavourite(poi)`（收藏/取消收藏），成功后 `notifyFavouritesChanged()` 广播变更；未登录（401）时 `window.alert` 提示，不广播。
   - `addToTrip(item)`：委托 `favoritesService.addToTrip(item)`（经 RoutePlannerBridge 调用模块 02 真实导入接口），返回结果供 UI 反馈。
   - `visibleItems`：`activeType === "All"` 时返回全部，否则按 `experienceType` 过滤。
 
