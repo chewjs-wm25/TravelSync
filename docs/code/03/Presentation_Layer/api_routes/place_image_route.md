@@ -15,7 +15,7 @@
 - `GET` 返回 `{ entry }`：`entry: null` = 未缓存；`{source:"none"}` = 确定无图（负缓存，避免反复查）；`{source:"wikimedia", url}` = 永久 URL（可直接缓存 URL）；`{source:"mapillary", imageId}` = 图片 id（**URL 有时效，用 id 换取新 URL，不得缓存 URL**）。
 - `PUT` 写入 `{ placeId, entry }`，`entry.source` 枚举校验（`isValidEntry` 类型守卫：`none` / `wikimedia`+url / `mapillary`+imageId）。
 
-端点提供三个操作：`GET`（读缓存）、`PUT`（写缓存）、`DELETE`（清空全部缓存）。
+端点提供三个操作：`GET`（读缓存，公开）、`PUT`（写缓存，登录用户）、`DELETE`（清空全部缓存，管理员）。
 
 ## 请求 / 响应示例
 
@@ -39,14 +39,17 @@ DELETE /03_Destination_Discovery_&_Inspiration/api/place-image
 | 状态码 | 场景 | 响应体 |
 | --- | --- | --- |
 | 400 | GET 缺 `placeId` | `{ "message": "placeId is required" }` |
+| 401 | PUT 未登录 | `requireUser` 返回的 401 响应 |
 | 400 | PUT 缺 `placeId` | `{ "message": "placeId is required" }` |
-| 400 | PUT `entry` 结构非法 | `{ "message": "entry must be {source:'none'} \| {source:'wikimedia',url} \| {source:'mapillary',imageId}" }` |
+| 400 | PUT `entry` 结构非法 | `{ "message": "entry must be {source:'none'} \| {source:'wikimedia',url(http/https)} \| {source:'mapillary',imageId}" }` |
 | 400 | body 非合法 JSON | 同 placeId / entry 校验错误（按空 body 处理） |
+| 401 / 403 | DELETE 未登录 / 非管理员 | `requireAdmin` 返回的响应 |
 | 500（默认） | KV 绑定缺失 / KV 异常 | 框架默认错误页（未捕获异常） |
 
 ## 安全与分层要点
 
 - **薄传输**：文件内无 KV 读写逻辑，全部委托 Data Access 层仓储，符合分层约束；
+- **授权（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）**：`GET` 公开读缓存（匿名可访问）；`PUT` 写入缓存为正常用户流程，要求登录会话（`requireUser`，未登录 401）；`DELETE` 清空全部缓存为危险操作，要求管理员会话（`requireAdmin`，未登录 401 / 非 admin 403）；
 - **binding 获取**：`getCloudflareContext({ async: true })` 在 Cloudflare Workers 环境异步解析 `PLACE_IMAGE_CACHE` KV binding；
 - **结构校验**：`isValidEntry` 类型守卫做来源枚举 + 对应引用字段（`url` / `imageId`）校验，防止写入非法缓存条目；
 - **URL 时效策略**：Mapillary 的 URL 有时效，只缓存 `imageId` 不缓存 URL；Wikimedia URL 为永久 URL 可直存——值语义由 Data Access 层与 BL 层共同维护，本端点负责透传；
@@ -73,7 +76,7 @@ DELETE /03_Destination_Discovery_&_Inspiration/api/place-image
 - 传出：`entry is PlaceImageCacheEntry` —— 校验规则：
   - 非对象返回 false；
   - `source === "none"` 恒合法；
-  - `source === "wikimedia"` 须 `url` 为非空 string；
+  - `source === "wikimedia"` 须 `url` 为非空 string 且匹配 http/https 协议（`HTTP_URL_PATTERN`，防 `javascript:`/`data:` 等异常协议注入，纵深防御见 docs/fix/module03-security-audit.md §3.2）；
   - `source === "mapillary"` 须 `imageId` 为非空 string；
   - 未知 source 返回 false。
 - 用处：`PUT` 写入前校验缓存条目结构，非法则返回 400 并提示合法结构。
@@ -88,9 +91,9 @@ DELETE /03_Destination_Discovery_&_Inspiration/api/place-image
 ### `PUT`
 - 类型：函数（Route API handler）
 - HTTP 方法：`PUT /03_Destination_Discovery_&_Inspiration/api/place-image`
-- 请求参数：body `{ placeId: string, entry: PlaceImageCacheEntry }`；`request.json()` 解析失败（`.catch(() => null)`）视为空 body。校验：
+- 请求参数：body `{ placeId: string, entry: PlaceImageCacheEntry }`；`request.json()` 解析失败（`.catch(() => null)`）视为空 body。鉴权：`requireUser(request)`，未登录返回 401。校验：
   - `placeId`：须为非空 string（`trim` 后），否则 400 `{ message: "placeId is required" }`；
-  - `entry`：须通过 `isValidEntry`，否则 400 `{ message: "entry must be {source:'none'} | {source:'wikimedia',url} | {source:'mapillary',imageId}" }`。
+  - `entry`：须通过 `isValidEntry`（wikimedia 的 url 还须匹配 http/https 协议），否则 400 `{ message: "entry must be {source:'none'} | {source:'wikimedia',url(http/https)} | {source:'mapillary',imageId}" }`。
 - 响应体：`Response.json({ success: true })`（结果标志遵循 guideline §5，禁止 `ok`）。
 - 用处：`repo.put(placeId, entry)` 委托 Data Access 层写 KV；BL 层在确定图片查询链结果（含确定无图 `none`）后回写缓存。
 
@@ -98,8 +101,9 @@ DELETE /03_Destination_Discovery_&_Inspiration/api/place-image
 - 类型：函数（Route API handler）
 - HTTP 方法：`DELETE /03_Destination_Discovery_&_Inspiration/api/place-image`
 - 请求参数：无
+- 鉴权：`requireAdmin(request)`，未登录返回 401 / 非管理员返回 403。
 - 响应体：`Response.json({ cleared })` —— 清除操作结果。
-- 用处：`repo.clearAll()` 委托 Data Access 层清空全部地点图片缓存（如数据源更新后需强制刷新缓存时使用）。
+- 用处：`repo.clearAll()` 委托 Data Access 层清空全部地点图片缓存（管理员专用，如数据源更新后需强制刷新缓存时使用）。
 
 ### 错误处理汇总
 - `GET` 缺 `placeId`：400；`PUT` 缺 `placeId` 或 `entry` 非法：400 + 对应 `message`；JSON body 解析失败按空 body 处理 → 校验后 400。

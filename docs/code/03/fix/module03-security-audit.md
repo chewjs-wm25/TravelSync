@@ -10,6 +10,18 @@
 
 ---
 
+## 后续状态更新（审计后，当前实现）
+
+> 本报告正文为**审计时点**的快照记录（其中 Route API 路径均为迁移前的 `app/api/discovery/*` 形态）。以下为审计后到当前实现的修复/演进状态，正文描述如与下列状态冲突，以本段为准。
+
+- **路径迁移**：模块 03 的 Route API 已从 `app/api/discovery/*` 迁移至 `app/03_Destination_Discovery_&_Inspiration/api/*`（events / official-quality-ratings / place-image / favourites / geocode / mapillary），路径遵循 guideline §5。
+- **收藏（favorites）——已修复**：userId 一律由服务端会话（`Authorization: Bearer <token>`，`getAuthSession`）解析，接口签名已完全移除 userId 参数（含 `FavoritesRepository` 接口与 `RemoteFavoritesRepository` 实现）；GET 未登录返回 `[]`，POST / DELETE 未登录返回 401。
+- **图片缓存（place-image）——已修复**：PUT 要求登录会话（`requireUser`，401）；DELETE 要求管理员会话（`requireAdmin`，401/403）；PUT 的 wikimedia `url` 额外校验 http/https 协议（防存储型 XSS 的纵深防御）。
+- **事件/评级同步（events / official-quality-ratings）——按 DEV 工具链路权衡**：POST（批量 upsert）/ DELETE（清空）为 DEV 同步/清空入口，原 `requireAdmin` 限制已移除、服务端不再校验会话（仅保留 `items` 非空校验）；`RemoteEventRepository` / `RemoteQualityRatingRepository` 写方法仍携带会话凭证头仅为兼容保留，不影响匿名调用。安全权衡说明：该两写入口为 DEV 工具链路（`EventSyncService` / `QualityRatingSyncService`），部署环境需注意其公网可调用性。
+- **存储型 XSS——已修复**：新增 `app/03_Destination_Discovery_&_Inspiration/safeUrl.ts`（`safeHttpUrl` 协议白名单），所有渲染外部 URL（活动外链、收藏缩略图、合辑封面/外链、成员卡、附近卡、详情大图、结果卡图片）的 `<a href>` / `<img src>` 均经其过滤。
+
+---
+
 ## 1. API Keys 安全性
 
 **结论：未发现 API Key 泄露。**

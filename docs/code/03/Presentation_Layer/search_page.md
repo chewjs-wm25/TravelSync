@@ -60,6 +60,7 @@ URL 状态流：`URL → 本地状态`（挂载/前进后退/从详情页返回�
 | `../favouriteList`（`StarIcon`） | 收藏星星图标（heroicons outline star） |
 | `../hooks`（`useFavorites`、`usePlaceImages`、`useSearchAndFilter`） | 收藏状态、图片懒加载、搜索筛选状态 |
 | `../placeImageAttribution` | 图片作者与许可署名展示（开源协议合规） |
+| `../safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，渲染结果卡 `<img src>` 前过滤，防存储型 XSS） |
 | `../../../business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService` | `discoveryService.searchPlaceDetails` / `filterPlaceDetails`（仅记录 import，未打开源文件） |
 | `../../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types`（仅类型） | `PlaceDetail`、`SearchFilters`、`activeType`（仅记录 import） |
 | 外部库：`react`、`next/navigation`（`useRouter`/`useSearchParams`）、`next/link`、`lucide-react`（`ImageOff`） | UI 与路由能力 |

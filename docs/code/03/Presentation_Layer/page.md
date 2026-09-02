@@ -26,7 +26,7 @@ TravelInspirationPage（本页面，纯组装）
        ├─ SearchAndFilter      ← 筛选/搜索状态
        ├─ CuratedInspirations  ← 无 props（内部消费 hooks）
        ├─ officalQualityRate   ← pois / isLoading / onAddToTrip / addingToTripId / favouriteIds / onToggleFavourite
-       └─ FavouriteList        ← isDrawerOpen / typeOptions / activeType
+       └─ FavouriteList        ← isDrawerOpen / setIsDrawerOpen / typeOptions / activeType / setActiveType
 ```
 本文件只做状态协调与布局组装，不含任何业务计算与直接 BL 调用。
 

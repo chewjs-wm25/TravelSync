@@ -9,9 +9,8 @@
 
 ## 2. 依赖项 (需要其他模块/环境支持)
 - **依赖接口/组件：**
-  - **模块 01 会话**：`useAuthStore`（`app/DEV-ACCOUNT-STATE/authUser.ts`，zustand persist）——`currentUserId()` 动态读取登录用户；服务端授权 `getAuthSession` / `requireUser` / `requireAdmin`（`app/DEV-ACCOUNT-STATE/api/session.ts`）——收藏写、图片缓存写、事件/评级同步等受限操作依赖会话凭证（`Authorization: Bearer <token>`）。
+  - **模块 01 会话**：`useAuthStore`（`app/DEV-ACCOUNT-STATE/authUser.ts`，zustand persist）——`currentUserId()` 动态读取登录用户；服务端授权 `getAuthSession` / `requireUser` / `requireAdmin`（`app/DEV-ACCOUNT-STATE/api/session.ts`）——**收藏写**（favourites 的 POST/DELETE）与**图片缓存写**（place-image 的 PUT）依赖会话凭证（`Authorization: Bearer <token>`）；**事件/评级同步**（events / official-quality-ratings 的 POST/DELETE）为 DEV 同步/清空入口，原 requireAdmin 限制已移除、服务端不再校验会话（Remote 仓储仍携带凭证头仅为兼容保留，不影响匿名调用）。
   - **模块 02 行程导入**：`RoutePlannerBridge.pushItem(item)`——收藏地点"加入行程"的跨模块调用（BL 层编排）。已接入真实接口：调用模块 02 的 `importPlaces` 的 HTTP 通道（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；目标行程日期（itineraryId）经 `routePlannerBridge.setTargetItinerary()` 注入（未注入时返回 `success: false`），上层签名与返回结构保持不变。
-  - **模块 04 交通物流与地图路线规划**：将选中地点（`PoiItem`/`PlaceDetail`）转换为模块 04 的 `Stop`（`id`/`name`/`lat`/`lon`）后传入路线接口（`generateRoute` / `importCoordinates`），供路线生成与地图轨迹绘制。
   - **模块 01 侧 DEV 页面**（`app/DEV-ACCOUNT-STATE/`）会反向调用本模块的同步服务与清缓存接口（见 §3 暴露项）。
 - **环境与 Context 依赖：**
   - `.env`（服务端 `process.env`，非 `NEXT_PUBLIC`）：`GEOAPIFY_API_KEY`（Geoapify 代理）、`MAPILLARY_ACCESS_TOKEN`（Mapillary 代理）；缺失时对应 Route API 返回 500，图片链路自动降级。
@@ -34,7 +33,7 @@
     - `GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete|search&text&limit` —— Geoapify 代理，服务端注入密钥并强制 `filter=countrycode:my`
     - `GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=search|image&bbox|imageId` —— Mapillary 代理，服务端注入 token 并强制 bbox 落在马来西亚边界框内
   - **类型出口**：`business_logic_layer/03_Destination_Discovery_&_Inspiration/types.ts`（Presentation 层唯一类型来源，含下层类型 re-export）。
-  - **供模块 02 消费的地点/州省数据**：`PoiItem` / `PlaceDetail` 的地点字段（`placeId` / `name` / `lat` / `lon` / `imageUrl`）可直接映射为模块 02 的 `PlaceInfo`；`StateInfo`（见 §4）供模块 02 创建旅行时选择州/省，经 `discoveryService.getStateInfo(): Promise<StateInfo[]>` 获取（BL 层，数据源当前为 api_layer 静态候选占位，未来替换真实 API 时签名不变）。
+  - **供模块 02 消费的地点/州省数据**：`PoiItem` / `PlaceDetail` 的地点字段（`placeId` / `name` / `lat` / `lon` / `imageUrl`）可直接映射为模块 02 的 `PlaceInfo`；`StateInfo`（见 §4）供模块 02 创建旅行时选择州/省，经 `discoveryService.getStateInfo(): Promise<StateInfo[]>` 获取（BL 层，数据源当前为 api_layer 静态候选占位，未来替换真实 API 时签名不变）。模块 02 亦直接调用 `discoveryService.getPlaceDetail(placeId, queryText): Promise<PlaceDetail | null>` 解析地点详情（官方评级地点 D1 直查 + 其余搜索兜底）。
 - **回调与触发事件：**
   - `onProgress?: (done: number, total: number) => void` —— `syncQualityRatings` 每处理一条调用一次（进度/超时提示）。
   - `favoritesService.togglePoiFavourite(poi: PoiItem): Promise<boolean>` —— 切换收藏，返回切换后的收藏状态；未登录抛 `Error("Please log in first")`。

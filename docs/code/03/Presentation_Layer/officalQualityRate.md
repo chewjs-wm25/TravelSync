@@ -64,6 +64,7 @@ officalQualityRate（本组件）
 | `./hooks`（`usePlaceImages`） | 当前页地点图片懒加载 |
 | `./favouriteList`（`StarIcon`） | 收藏星标图标（与搜索结果页、收藏夹同源复用） |
 | `./placeImageAttribution` | 图片作者与许可署名展示 |
+| `./safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，卡片图片 `<img src>` 渲染前过滤，防存储型 XSS） |
 | `../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types`（仅类型） | `PoiItem`（仅记录 import，未打开源文件） |
 | 外部库：`react`（`useEffect`/`useState`）、`lucide-react`（`ImageOff`） | 分页状态与无图图标 |
 

@@ -9,12 +9,13 @@
 
 `placeImageAttribution.tsx` 是模块 03 的图片署名展示组件，职责单一：展示地点图片的作者与许可声明（开源协议合规——如 CC BY-SA 4.0 的署名要求：保留原作者 + 许可名称，许可名可点击打开许可链接）。组件本身不发起任何数据请求，仅接收 BL 层 `getPlaceImage` 返回的 `attribution` 数据做纯展示，是所有图片展示场景共用的署名单元。
 
-使用场景（3 处调用方）：
+使用场景（4 处调用方）：
 | 调用方 | 展示位置 | 数据来源 |
 | --- | --- | --- |
 | `officalQualityRate.tsx` | Recommended Places 卡片图片底部 | `usePlaceImages(visiblePois)` 的 `attribution` |
 | `search/page.tsx` | 搜索结果卡图片底部 | `usePlaceImages(places)` 的 `attribution` |
 | `place/[placeId]/page.tsx` | 地点详情大图底部 | `usePlaceImages([place])` 的 `attribution` |
+| `favouriteList.tsx` | 收藏夹条目缩略图底部 | `usePlaceImages(visibleItems)` 的 `attribution` |
 
 关键设计：
 - **使用方式**：叠加在图片容器底部（`absolute` 定位，调用方保证容器 `position: relative` 且有足够内边距）；

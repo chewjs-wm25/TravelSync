@@ -64,3 +64,9 @@
   1. 过滤掉缺失 `place_id` 或 `lat`/`lon` 非数值的 feature；
   2. `name` 缺失时回退 `formatted`，再缺失用 `"Unnamed place"`；
   3. 映射为 `GeoapifyPlaceDto`（snake_case → camelCase）。
+
+### `geoapifyGeocodingApi`
+- 类型：常量（模块级单例）
+- 传入：无
+- 传出：`GeoapifyGeocodingApi` 单例实例
+- 用处：模块导出的共享单例，供上层（BL 层服务）直接引入使用，避免重复实例化（与本模块其他客户端 `wikidataApi`、`mapillaryApi` 等惯例一致）。

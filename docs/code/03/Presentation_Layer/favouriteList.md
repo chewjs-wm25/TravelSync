@@ -66,6 +66,7 @@ FavouriteList（本组件）
 | `./hooks`（`useFavorites`、`usePlaceImages`） | 收藏夹数据：`visibleItems`、`savedItemsCount`、`removeItem`、`addToTrip`；条目图片统一链路懒加载 |
 | `./placeImageAttribution` | 条目图片的作者与许可署名展示（开源协议合规） |
 | `./routes`（`placeDetailPath`） | 条目点击跳转地点详情页路径 |
+| `./safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，统一链路图片与旧 `thumbnailUrl` 兜底均过滤，防存储型 XSS） |
 | `../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types`（仅类型） | `SavedItem`（仅记录 import，未打开源文件） |
 | 外部库：`react`（`useState`）、`next/navigation`（`useRouter`）、`lucide-react`（`ImageOff`） | 本地状态、路由与无图图标 |
 
