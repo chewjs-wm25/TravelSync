@@ -19,7 +19,7 @@
 | `upsertAll` | POST | JSON `{ items }` | `{ synced?: number }` | `data.synced ?? 0` |
 | `clearAll` | DELETE | 无 | `{ cleared?: number }` | `data.cleared ?? 0` |
 
-**写操作鉴权**：`upsertAll` / `clearAll` 为危险写操作，请求携带当前会话凭证（Authorization 头），服务端要求管理员会话（未登录 401 / 非 admin 403）。
+**写操作鉴权**：`upsertAll` / `clearAll` 请求携带当前会话凭证（Authorization 头）仅为兼容保留（未登录时为空头），服务端 Route API 不再做管理员会话校验（原 requireAdmin 限制已移除），凭证头不影响匿名调用。
 
 请求/响应示例（示意，非代码内固定值）：
 
@@ -37,6 +37,7 @@
 | 依赖文件 | 用途 |
 | --- | --- |
 | `./EventRepository` | 仅导入 `EventEntity`、`EventRepository` 类型，用于实现接口签名 |
+| `./sessionAuth` | `sessionAuthHeaders()`（携带当前会话 `Authorization` 凭证；未登录时为空头，仅为兼容保留） |
 
 外部库：无（使用 Web 标准 `fetch`，无额外依赖）。
 

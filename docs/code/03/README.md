@@ -62,8 +62,8 @@
 - **`placeImageAttribution.tsx`** — 图片署名展示组件：按图片结果渲染作者/许可信息条（如 "CC BY-SA 4.0" 与许可链接），确保开源协议署名合规；无署名信息时不渲染。
 - **`api/favourites/route.ts`** — 收藏 Route API：GET（列当前登录用户收藏，未登录返回空列表）/ POST（添加）/ DELETE（按 id 删除），当前用户 ID 一律由服务端会话（`Authorization: Bearer <token>`）解析、不再信任前端参数，服务端以 D1 binding + 会话 userId 实例化 `D1FavoritesRepository` 完成持久化，是浏览器端 `RemoteFavoritesRepository` 的传输通道（统一路径见 guideline §5）。
 - **`api/geocode/route.ts`** — Geoapify 代理 Route API：白名单校验参数（type/text/limit），服务端注入 `GEOAPIFY_API_KEY`（非 NEXT_PUBLIC，密钥不进前端 bundle），强制 `filter=countrycode:my`（前端无法绕过），转发 api.geoapify.com 并透传 GeoJSON，解析仍由 API Layer 客户端完成（薄传输）。
-- **`api/events/route.ts`** — 活动 Route API：GET（全部活动，公开读）/ POST（批量 upsert，管理员会话）/ DELETE（清空，管理员会话），服务端经 `D1EventRepository` 读写 D1 events 表；活动展示与 DEV 同步均经此端点。
-- **`api/official-quality-ratings/route.ts`** — 官方评级 Route API：GET（全部评级条目，公开读）/ POST（批量 upsert，管理员会话）/ DELETE（清空，管理员会话），服务端经 `D1QualityRatingRepository` 读写 D1 official_quality_ratings 表；Recommended Places 展示与同步链路均经此端点。
+- **`api/events/route.ts`** — 活动 Route API：GET（全部活动，公开读）/ POST（批量 upsert，无会话授权，DEV 同步入口）/ DELETE（清空，无会话授权，DEV 清空入口），服务端经 `D1EventRepository` 读写 D1 events 表；活动展示与 DEV 同步均经此端点。
+- **`api/official-quality-ratings/route.ts`** — 官方评级 Route API：GET（全部评级条目，公开读）/ POST（批量 upsert，无会话授权，DEV 同步入口）/ DELETE（清空，无会话授权，DEV 清空入口），服务端经 `D1QualityRatingRepository` 读写 D1 official_quality_ratings 表；Recommended Places 展示与同步链路均经此端点。
 - **`api/place-image/route.ts`** — 地点图片 KV 缓存代理 Route API：GET（按 placeId 读缓存条目）/ PUT（写入，登录会话）/ DELETE（清空，管理员会话，仅本模块键前缀范围），服务端经 `CloudflareKvPlaceImageCacheRepository` 操作 Cloudflare KV，是统一图片链路跨会话持久缓存的通道；写成功返回 `{ success: true }`（结果标志遵循 guideline §5）。
 - **`api/mapillary/route.ts`** — Mapillary 代理 Route API：白名单校验参数（action=search/image、bbox、imageId），服务端强制 bbox 完全落在马来西亚边界框内（`MALAYSIA_BBOX`），注入 `MAPILLARY_ACCESS_TOKEN`（非 NEXT_PUBLIC），转发 graph.mapillary.com 并透传 JSON；解析由 API Layer `MapillaryApi` 完成。
 
@@ -236,14 +236,14 @@ graph TD
 
 - **`EventRepository.ts`** — 节日/活动数据的仓储接口，同时定义贯穿全模块的实体类型 `EventEntity`（id/title/categories/date/location/url/syncedAt）。契约含 `listAll`（全部条目）、`upsertAll`（批量按 id 幂等写入）、`clearAll`（清空）；按运行环境拆分为三个实现：Hardcoded（JSON 硬编码）、Remote（浏览器端经 Route API）、D1（服务端直接实现）。
 - **`HardcodedEventRepository.ts`** — 活动数据的硬编码 JSON 仓储实现（浏览器端可读）：直接 `import` parsed_events.json 并映射为 `EventEntity[]`，无任何网络请求，供 EventSyncService 同步与（数据源不可用时的）读取使用。
-- **`RemoteEventRepository.ts`** — 活动仓储的浏览器端远程实现：通过 HTTP 调用 Route API（`/03_Destination_Discovery_&_Inspiration/api/events`）实现 `EventRepository` 接口（GET 读取 / POST upsert / DELETE 清空，写操作携带管理员会话凭证），自身不含 D1 逻辑，参数序列化与响应解析之外无业务判断。
+- **`RemoteEventRepository.ts`** — 活动仓储的浏览器端远程实现：通过 HTTP 调用 Route API（`/03_Destination_Discovery_&_Inspiration/api/events`）实现 `EventRepository` 接口（GET 读取 / POST upsert / DELETE 清空，写操作携带会话凭证仅为兼容保留，服务端不再校验——原 requireAdmin 已移除），自身不含 D1 逻辑，参数序列化与响应解析之外无业务判断。
 - **`D1EventRepository.ts`** — 活动仓储的 Cloudflare D1 直接实现（服务端 Route API 内部使用）：以 D1 binding 构造，懒建表（`CREATE TABLE IF NOT EXISTS events`，id 主键天然幂等），SQL 完成 listAll/upsertAll/clearAll；浏览器端永不直接使用。
-- **`FavoritesRepository.ts`** — 收藏夹数据的仓储接口，同时定义实体 `FavoriteItemEntity`（id/placeId/name/thumbnailUrl/experienceType）与 `SavedItem` 领域形态同构。契约：`listItems(userId)`、`addItem(userId, item)`、`removeItem(userId, id)`；每个用户一个收藏夹，条目按 user_id 归属。
+- **`FavoritesRepository.ts`** — 收藏夹数据的仓储接口，同时定义实体 `FavoriteItemEntity`（id/placeId/name/thumbnailUrl/experienceType）与 `SavedItem` 领域形态同构。契约：`listItems()`、`addItem(item)`、`removeItem(id)`（接口签名已移除 userId 参数，安全审计修复后的最终形态——服务端一律以会话解析用户 ID）；每个用户一个收藏夹，条目按 user_id 归属。
 - **`RemoteFavoritesRepository.ts`** — 收藏仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/favourites`）以 GET/POST/DELETE 对应三个契约方法，实现 `FavoritesRepository` 接口（userId 以会话凭证为准，不传前端参数）；是 BL 层 `sharedFavoritesRepository` 单例的默认实现，并导出 `remoteFavoritesRepository` 单例。
 - **`D1FavoritesRepository.ts`** — 收藏仓储的 Cloudflare D1 直接实现（服务端）：懒建表 `favorite_items`（id 主键），SQL 全部以 user_id 过滤/写入（防越权），`created_at` 由服务端注入并按下楼序返回（最新收藏在前）；Route API 内部使用。
 - **`OfficialQualityRatingRepository.ts`** — 官方品质评级数据的仓储接口，同时定义实体 `OfficialQualityRatingEntity`（JSON 原始字段：公司名/地址/电话/评级有效期/品质档位 + 同步时 Nominatim/Geoapify 补全字段：placeId/坐标/结构化地址等）。契约：`listAll`、`upsertAll`（json_id 主键幂等）、`clearAll`。
 - **`HardcodedQualityRatingRepository.ts`** — 官方评级数据的硬编码 JSON 仓储实现：直接 `import` officalQualityRating_hardcode.json 映射为实体数组，无网络请求，供 QualityRatingSyncService 同步使用。
-- **`RemoteQualityRatingRepository.ts`** — 官方评级仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`）以 GET/POST/DELETE 对应契约方法（写操作携带管理员会话凭证），供 BL 层读取 D1 评级数据与 DEV 同步链路写入。
+- **`RemoteQualityRatingRepository.ts`** — 官方评级仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`）以 GET/POST/DELETE 对应契约方法（写操作携带会话凭证仅为兼容保留，服务端不再校验——原 requireAdmin 已移除），供 BL 层读取 D1 评级数据与 DEV 同步链路写入。
 - **`D1QualityRatingRepository.ts`** — 官方评级仓储的 Cloudflare D1 直接实现（服务端）：懒建表 `official_quality_ratings`（json_id 主键幂等 upsert），Route API 内部使用；浏览器端永不直接使用。
 - **`PlaceImageCacheRepository.ts`** — 地点图片缓存仓储的接口 + Cloudflare KV 直接实现（服务端单文件）：键设计 `module03:place-image:v5:{placeId}`（v5 升键使旧缓存整体失效）；提供 `PlaceImageCacheEntry` 三种来源条目（wikimedia url+署名 / mapillary imageId+署名 / none 确定无图）与 `parse/serializePlaceImageEntry` 序列化工具（浏览器 sessionStorage 与 KV 共用同一格式）。
 - **`RemotePlaceImageCacheRepository.ts`** — 地点图片缓存仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/place-image`）以 GET/PUT/DELETE 对应 `get/put/clearAll` 三个方法（PUT 携带登录会话凭证，DELETE 携带管理员会话凭证），自身不含 KV 逻辑；是 BL 层统一图片链路跨会话持久缓存的通道。

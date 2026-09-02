@@ -11,7 +11,7 @@
 
 依赖方向为：浏览器端 BL → 本类 → Route API → `D1FavoritesRepository` → Cloudflare D1。
 
-**授权（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）**：请求携带当前会话凭证（`Authorization: Bearer <token>`，经 `sessionAuthHeaders()`），服务端以会话解析当前用户 ID——本类不再向服务端传递 userId 参数（接口签名保留 userId 参数仅为兼容接口契约，实现中忽略），杜绝"前端指定任意 userId"的越权路径。未登录（无 token）时：GET 返回空列表（服务端按匿名返回 `[]`），POST / DELETE 服务端返回 401 并在此抛出 `Error`。
+**授权（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）**：请求携带当前会话凭证（`Authorization: Bearer <token>`，经 `sessionAuthHeaders()`），服务端以会话解析当前用户 ID——接口签名已完全移除 userId 参数（安全审计修复后的最终形态），本类不向服务端传递任何 userId，杜绝"前端指定任意 userId"的越权路径。未登录（无 token）时：GET 返回空列表（服务端按匿名返回 `[]`），POST / DELETE 服务端返回 401 并在此抛出 `Error`。
 
 ### 请求/响应契约
 
@@ -56,7 +56,7 @@
 
 - 类型：类（`implements FavoritesRepository`）
 - 传入：无（无构造参数）。
-- 传出：三个接口方法的实现（接口签名中的 `userId` 参数在本实现中省略——服务端以会话凭证解析用户 ID，不信任前端传入的 userId）：
+- 传出：三个接口方法的实现（接口签名不含 userId 参数——服务端以会话凭证解析用户 ID，不信任前端传入的 userId）：
   - `listItems(): Promise<FavoriteItemEntity[]>` —— `fetch(FAVORITES_API)`（GET，携带会话凭证）；非 2xx 抛 `` `Failed to load favourites (HTTP ${res.status})` ``；成功时 `res.json()` 反序列化为 `FavoriteItemEntity[]`（Route API 响应体即数组）。
   - `addItem(item: FavoriteItemEntity): Promise<FavoriteItemEntity>` —— POST，请求头 `Content-Type: application/json` + 会话凭证，请求体 `JSON.stringify({ item })`；非 2xx 抛 `` `Failed to add favourite (HTTP ${res.status})` ``；成功时 `res.json()` 返回服务端确认后的条目（`FavoriteItemEntity`）。
   - `removeItem(id: string): Promise<void>` —— DELETE，URL 形如 `` `${FAVORITES_API}?id=${encodeURIComponent(id)}` ``（携带会话凭证）；非 2xx 抛 `` `Failed to remove favourite (HTTP ${res.status})` ``；成功时无返回体（204）。

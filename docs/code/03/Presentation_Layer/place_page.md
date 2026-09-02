@@ -52,6 +52,7 @@ PlaceDetailView（本页核心组件）
 | `../../favouriteList`（`StarIcon`） | 收藏星星图标 |
 | `../../hooks`（`useFavorites`、`usePlaceImages`） | 收藏状态与图片懒加载 |
 | `../../placeImageAttribution` | 图片作者与许可署名展示 |
+| `../../safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，渲染详情大图 `<img src>` 前过滤，防存储型 XSS） |
 | `../../../../business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService` | `discoveryService.getPlaceDetail`（仅记录 import，未打开源文件） |
 | `../../../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types`（仅类型） | `PlaceDetail`（仅记录 import） |
 | 外部库：`react`、`next/navigation`（`useParams`/`useSearchParams`）、`next/link`、`lucide-react`（`ImageOff`） | UI 与路由能力 |

@@ -43,7 +43,7 @@
   - `states: string[]`——马来西亚州/联邦直辖区候选（Geoapify `state` 字段的显示名，如 "Penang"）。
 
 ### `MOCK_FILTER_OPTIONS`
-- 类型：常量
+- 类型：常量（模块私有，非导出）
 - 传入：无
 - 传出：`FilterOptionsDto` 硬编码静态候选数据
 - 用处：占位数据源，未来替换为真实第三方 API 响应。`experienceTypes` 含 7 项（Cities & Towns、Attractions & Landmarks、Museums & Culture、Food & Dining、Shopping、Nature & Adventure、Discover Malaysia），与 BL 层 Geoapify 结果推断映射取值一致；`states` 含马来西亚 13 州 + 3 联邦直辖区共 16 项（Johor、Kedah、Kelantan、Kuala Lumpur、Labuan、Melaka、Negeri Sembilan、Pahang、Penang、Perak、Perlis、Putrajaya、Sabah、Sarawak、Selangor、Terengganu）。注意 Geoapify `state` 字段实际取值与显示名存在差异（如 "Pulau Pinang" ↔ Penang），匹配逻辑在 BL 层别名表处理。
@@ -61,7 +61,7 @@
 - 用处：供模块 02 创建旅行时选择州/省（BL 层 `discoveryService.getStateInfo` 经此获取）。
 
 ### `MOCK_STATE_INFO`
-- 类型：常量
+- 类型：常量（模块私有，非导出）
 - 传入：无
 - 传出：`StateInfoDto[]` 硬编码静态候选数据（16 项：13 州 + 3 联邦直辖区）
 - 用处：占位数据源，未来替换为真实第三方 API 响应。坐标为州首府/主要城市静态地理事实（如 Penang → George Town 5.4141, 100.3288）；`imageUrl` 全部为空串（前端渐变占位）。
