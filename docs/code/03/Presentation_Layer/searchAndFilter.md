@@ -79,7 +79,7 @@ SearchAndFilter（本组件，受控纯展示）
 ### `SearchAndFilter`（默认导出）
 - 类型：React 组件（受控组件）
 - 传入：`SearchAndFilterProps`（见上）
-- 传出：渲染 Bento 卡片（`<section className="relative z-50 rounded-3xl border border-gray-200 bg-white p-6 ...">`）：
+- 传出：渲染 Bento 卡片（`<section className="relative z-30 rounded-3xl border border-gray-200 bg-white p-6 ...">`，`z-30`：高于页面普通内容（联想下拉在卡内 `isolate z-50` 覆盖兄弟区块），但低于收藏夹抽屉遮罩 `z-40`——收藏夹打开时本卡片随背景一起模糊，不会浮现在遮罩前）：
   - 搜索栏行：放大镜 SVG 图标 + 输入框（`placeholder="Search destinations, landmarks, or themes..."`，`onFocus`/`onBlur`/`onKeyDown`/`onChange` 绑定）+ 联想下拉（`showDropdown` 时渲染 `<ul>`：isSuggesting 时显示「Searching…」，否则渲染建议项列表，每项含高亮指示条、名称、`line-clamp-1` 的格式化地址）；
   - 筛选面板行：两个 `<select>`（Experience Type / State / Region，选项来自 `filterOptions`，首项为空占位）；
   - 场景标签页行：Indoor Venues / Outdoor Scenes / All 三个胶囊按钮（激活态 `bg-primary-500 text-white`）。

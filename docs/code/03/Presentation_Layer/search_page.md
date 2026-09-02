@@ -49,7 +49,7 @@ URL 状态流：`URL → 本地状态`（挂载/前进后退/从详情页返回�
 | 搜索结果本身为空 | 空态文案「No results found for “{q}”」+ 建议换关键词（如 “Batu Caves” / “Penang”） |
 | 图片加载中/无图 | 卡片图片区显示 `ImageOff` 图标（加载中先显示占位渐变底） |
 | 联想请求失败 | hooks 清空建议（不打扰用户），搜索仍可正常提交 |
-| 收藏切换 | 星星按钮 `preventDefault` + `stopPropagation`，不触发卡片跳转 |
+| 收藏切换 | 星星按钮 `preventDefault` + `stopPropagation`，不触发卡片跳转；成功后 hooks 广播收藏变更事件（`module03:favourites-changed`），页面星标与全局收藏夹浮层（布局）自动刷新 |
 
 ## 依赖
 

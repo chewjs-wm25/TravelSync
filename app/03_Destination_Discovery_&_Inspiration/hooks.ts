@@ -391,28 +391,47 @@ export function useEventFeed() {
   return { events, isLoading };
 }
 
+/** 收藏变更事件名：跨 useFavorites 实例同步——任一实例写操作（添加/移除收藏）成功后广播，
+ *  所有已挂载实例（页面卡片星标状态、收藏夹抽屉等）监听后统一重新拉取，保证
+ *  Recommended Places / 搜索结果 / 地点详情 / 收藏夹抽屉之间的收藏状态即时一致。 */
+const FAVOURITES_CHANGED_EVENT = "module03:favourites-changed";
+
+/** 广播收藏变更事件（浏览器端；SSR 环境安全跳过） */
+function notifyFavouritesChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(FAVOURITES_CHANGED_EVENT));
+}
+
 /** 收藏夹（Favourite List）：列表、计数、类型过滤、删除、切换收藏与加入行程 */
 export function useFavorites() {
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [activeType, setActiveType] = useState<string>("All");
 
+  /** 重新拉取当前用户收藏夹（对外暴露；组件内部由收藏变更事件驱动刷新） */
   const refresh = useCallback(async () => {
     setSavedItems(await favoritesService.getSavedItems());
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    favoritesService
-      .getSavedItems()
-      .then((items) => {
-        if (!cancelled) setSavedItems(items);
-      })
-      .catch(() => {
-        // 收藏加载失败不打断页面：保持空列表即可
-        if (!cancelled) setSavedItems([]);
-      });
+    const loadItems = () => {
+      favoritesService
+        .getSavedItems()
+        .then((items) => {
+          if (!cancelled) setSavedItems(items);
+        })
+        .catch(() => {
+          // 收藏加载失败不打断页面：保持空列表即可
+          if (!cancelled) setSavedItems([]);
+        });
+    };
+    // 挂载时加载一次；此后任一实例发生收藏变更（事件广播）即自动刷新，
+    // 保证收藏夹抽屉与本页面收藏标记（favouriteIds）始终与 D1 一致。
+    loadItems();
+    window.addEventListener(FAVOURITES_CHANGED_EVENT, loadItems);
     return () => {
       cancelled = true;
+      window.removeEventListener(FAVOURITES_CHANGED_EVENT, loadItems);
     };
   }, []);
 
@@ -425,34 +444,36 @@ export function useFavorites() {
     [savedItems]
   );
 
-  /** 删除一条收藏（未登录/会话失效时提示用户，不中断页面） */
+  /** 删除一条收藏（未登录/会话失效时提示用户，不中断页面）；
+   *  成功后广播收藏变更事件，所有收藏夹实例自动刷新 */
   const removeItem = useCallback(
     async (id: string) => {
       try {
         await favoritesService.removeSavedItem(id);
-        await refresh();
+        notifyFavouritesChanged();
       } catch (err) {
         window.alert(
           err instanceof Error ? err.message : "Failed to remove favourite"
         );
       }
     },
-    [refresh]
+    []
   );
 
-  /** 切换地点收藏状态（收藏/取消收藏）并刷新列表（未登录时提示用户） */
+  /** 切换地点收藏状态（收藏/取消收藏）；成功后广播收藏变更事件，
+   *  收藏夹抽屉与各处星标状态自动刷新（未登录时提示用户） */
   const toggleItem = useCallback(
     async (poi: PoiItem) => {
       try {
         await favoritesService.togglePoiFavourite(poi);
-        await refresh();
+        notifyFavouritesChanged();
       } catch (err) {
         window.alert(
           err instanceof Error ? err.message : "Failed to toggle favourite"
         );
       }
     },
-    [refresh]
+    []
   );
 
   /** 将单个地点加入行程（经 RoutePlannerBridge 调用模块 02 导入接口，返回结果供 UI 反馈） */

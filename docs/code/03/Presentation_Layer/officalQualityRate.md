@@ -39,7 +39,7 @@ officalQualityRate（本组件）
 | Prev / Next 点击 | `setPage(±1)`，边界禁用（`safePage <= 1` / `>= totalPages`） |
 | 数字页码点击 | `setPage(n)`；当前页高亮 |
 | 卡片点击 | 整卡 `<a>` 新标签页打开 Google Maps（`target="_blank"` + `rel="noopener noreferrer"`） |
-| 收藏按钮点击 | `preventDefault` + `stopPropagation` + `onToggleFavourite(poi)`（星标实心/空心由 `favouriteIds.has(poi.id)` 驱动） |
+| 收藏按钮点击 | `preventDefault` + `stopPropagation` + `onToggleFavourite(poi)`（星标实心/空心由 `favouriteIds.has(poi.id)` 驱动；写操作成功后 hooks 广播收藏变更事件，全局收藏夹浮层自动刷新） |
 | Add to Trip 点击 | `preventDefault` + `stopPropagation` + `onAddToTrip(poi)`（`addingToTripId === poi.id` 时禁用） |
 
 ## 边界与降级

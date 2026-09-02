@@ -60,7 +60,8 @@ function PlaceDetailView() {
   }, [placeId, q]);
 
   return (
-    <div className="space-y-6">
+    // pb-24：为全局收藏夹悬浮按钮（Module 03 布局）预留底部空间，避免遮挡内容
+    <div className="space-y-6 pb-24">
       {/* 返回导航 */}
       <div className="flex flex-wrap items-center gap-3">
         <Link
@@ -155,6 +156,30 @@ function PlaceDetailView() {
             {/* 详情信息 */}
             <div className="flex-1 p-6 md:p-8">
               <h1 className="text-4xl font-bold text-gray-800">{place.name}</h1>
+              {/* 添加至收藏夹（显眼文字按钮）：收藏状态随 favouriteIds 即时切换；
+                  点击收藏/取消收藏，变更经 hooks 事件广播自动同步到全局收藏夹
+                  （Module 03 布局浮层即时刷新列表与计数） */}
+              <button
+                onClick={() => toggleItem(place)}
+                aria-label={
+                  favouriteIds.has(place.id)
+                    ? `Remove ${place.name} from favourites`
+                    : `Add ${place.name} to favourites`
+                }
+                className={`mt-4 inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-150 active:scale-[0.95] ${
+                  favouriteIds.has(place.id)
+                    ? "bg-primary-500/10 text-primary-500 hover:bg-primary-500 hover:text-white"
+                    : "bg-primary-500 text-white shadow-md hover:bg-primary-500/90 hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
+                }`}
+              >
+                <StarIcon
+                  filled={favouriteIds.has(place.id)}
+                  className="h-5 w-5"
+                />
+                {favouriteIds.has(place.id)
+                  ? "Remove from Favourites"
+                  : "Add to Favourites"}
+              </button>
               <p className="mt-2 text-base text-gray-500">{place.formatted}</p>
 
               {/* 分类标签 */}

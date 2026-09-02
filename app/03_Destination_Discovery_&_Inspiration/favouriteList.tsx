@@ -14,9 +14,6 @@ import { ImageOff } from "lucide-react";
 interface ChildProbs {
   isDrawerOpen: boolean;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  typeOptions: string[];
-  activeType: string;
-  setActiveType: React.Dispatch<React.SetStateAction<string>>;
 }
 
 /** 星星图标（heroicons outline star） */
@@ -47,14 +44,14 @@ export function StarIcon({
 export default function FavouriteList({
   isDrawerOpen,
   setIsDrawerOpen,
-  typeOptions,
-  activeType,
-  setActiveType,
 }: ChildProbs) {
   const router = useRouter();
   const {
     visibleItems,
     savedItemsCount,
+    typeOptions,
+    activeType,
+    setActiveType,
     removeItem,
     addToTrip,
   } = useFavorites();
@@ -106,13 +103,25 @@ export default function FavouriteList({
     await removeItem(id);
   };
 
-  /** 点击条目 → 跳转地点详情页（以收藏名称作为搜索词重查） */
+  /** 点击条目 → 跳转地点详情页（以收藏名称作为搜索词重查）；
+   *  跳转前关闭抽屉（布局级抽屉跨页面保持，避免遮挡新页面内容） */
   const handleOpenPlace = (item: SavedItem) => {
+    setIsDrawerOpen(false);
     router.push(placeDetailPath(item.placeId, item.name));
   };
 
   return (
     <>
+      {/* 背景遮罩：抽屉打开时覆盖全屏并将背景模糊；点击遮罩
+          （即抽屉列表以外的任意区域）自动关闭收藏夹列表 */}
+      {isDrawerOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setIsDrawerOpen(false)}
+          className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-sm"
+        />
+      )}
+
       {/* 悬浮切换按钮 */}
       {!isDrawerOpen && (
         <button

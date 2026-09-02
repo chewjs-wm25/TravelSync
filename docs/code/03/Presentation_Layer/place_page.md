@@ -9,7 +9,7 @@
 
 地点详情页：按动态路由参数 `placeId` 重查 Geoapify（携带搜索词 `q`，保证详情与来源搜索结果一致），展示地点的完整详情。数据获取全部委托 BL 层 `discoveryService.getPlaceDetail(placeId, q)`，本文件不触碰 BL 以下任何模块。
 
-页面同时承担三块展示增强：①`useFavorites` 提供收藏切换（星星按钮，`favouriteIds` 派生填充态与 aria-label）；②`usePlaceImages` 懒加载地点大图（统一链路 Wikivoyage → Wikipedia 条目配图 → Commons Geosearch → Mapillary 兜底，马来西亚限定）；③有 `place.qualityBadge` 时展示官方品质徽章（Platinum/Gold/Silver），图片底部叠加 `PlaceImageAttribution` 满足开源协议署名要求。
+页面同时承担三块展示增强：①`useFavorites` 提供收藏切换——图片角落的星标图标按钮 + 详情信息区的**显眼文字按钮**（「Add to Favourites」/「Remove from Favourites」随收藏状态切换，`favouriteIds` 派生填充态与 aria-label）；②`usePlaceImages` 懒加载地点大图（统一链路 Wikivoyage → Wikipedia 条目配图 → Commons Geosearch → Mapillary 兜底，马来西亚限定）；③有 `place.qualityBadge` 时展示官方品质徽章（Platinum/Gold/Silver），图片底部叠加 `PlaceImageAttribution` 满足开源协议署名要求。收藏写操作成功后经 hooks 收藏变更事件广播（见 hooks.md），本页收藏状态与 Module 03 布局的全局收藏夹浮层即时同步刷新。
 
 页面状态机清晰：加载中（`isLoading`）→ 成功（渲染详情卡）/ 失败（错误提示「Failed to load place details. Please try again.」）/ 无数据（「未找到」提示，提示可能被移除或链接过期）。返回导航提供「Back to Search Results」（`q.trim()` 非空时回 `searchPagePath(q)` 保留搜索上下文，否则回 `SEARCH_PAGE`）与「Back to Explore」两个入口。`useSearchParams` 的使用要求页面用 `Suspense` 包裹内部组件。
 
@@ -42,6 +42,8 @@ PlaceDetailView（本页核心组件）
 | 图片加载中/无图 | 图片区显示 `ImageOff` 图标（加载中先显示渐变占位底） |
 | 品质徽章缺失 | 徽章条件渲染（仅 `place.qualityBadge` 存在时显示） |
 | 无 `q` 参数 | 返回按钮回 `SEARCH_PAGE`（不带搜索词）；有 `q` 则回 `searchPagePath(q)` |
+| 未登录点收藏 | `toggleItem` 抛「Please log in first」→ `window.alert` 提示，页面不崩溃、不广播事件 |
+| 收藏成功 | 文字按钮与角落星标即时切换；全局收藏夹浮层（布局）经事件广播自动刷新列表与计数 |
 | 路由切换竞态 | `useEffect` 内 `cancelled` 标志阻止过期结果覆盖 |
 
 ## 依赖
@@ -71,13 +73,13 @@ PlaceDetailView（本页核心组件）
   - 加载态：`Loading place…`；
   - 错误态：错误卡（灰底圆角白卡 + 错误文案）；
   - 未找到态：「This place could not be found.」+ 提示可能被移除或链接过期；
-  - 详情卡：左右分栏（`md:flex-row`）——左：图片区（`md:w-2/5`，含品质徽章、收藏按钮、真实图片或 `ImageOff` 图标、`PlaceImageAttribution` 署名）；右：详情信息（名称、格式化地址、体验类型/分类/结果类型标签、详情字段网格、数据来源说明）。
+  - 详情卡：左右分栏（`md:flex-row`）——左：图片区（`md:w-2/5`，含品质徽章、收藏星标按钮、真实图片或 `ImageOff` 图标、`PlaceImageAttribution` 署名）；右：详情信息（名称、**收藏文字按钮**「Add to Favourites」/「Remove from Favourites」、格式化地址、体验类型/分类/结果类型标签、详情字段网格、数据来源说明）。
 - 用处（状态与数据流）：
   - `placeId = params.placeId ?? ""`、`q = searchParams.get("q") ?? ""`。
   - `useEffect` 依赖 `[placeId, q]` 调 `discoveryService.getPlaceDetail(placeId, q)`：成功 `setPlace(result)`；失败 `setError("Failed to load place details. Please try again.")`；`finally` 置 `isLoading = false`；`cancelled` 标志防止路由切换竞态。
   - `useFavorites()` 取 `savedItems`/`toggleItem`；`favouriteIds = useMemo(new Set(savedItems.map(i => i.id)))`。
   - `images = usePlaceImages(place ? [place] : [])`——仅详情加载完成后取单地点大图。
-  - 收藏按钮：`onClick={() => toggleItem(place)}`（此处无嵌套链接，无需阻止冒泡），`aria-label` 随收藏态切换「Add/Remove {name} from/to favourites」。
+  - 收藏按钮（两处，状态同源、行为一致，均 `onClick={() => toggleItem(place)}`）：①图片区角落星标图标（`StarIcon`，`filled = favouriteIds.has(place.id)`）；②详情信息区文字按钮（`StarIcon` + 「Add to Favourites」（未收藏，主色实心）/「Remove from Favourites」（已收藏，主色浅底描边））——此处无嵌套链接，无需阻止冒泡；`aria-label` 随收藏态切换「Add/Remove {name} from/to favourites」。收藏成功后经 hooks 收藏变更事件广播，全局收藏夹浮层即时刷新。
   - 详情字段经内部组件 `DetailField` 渲染 10 项：`addressLine1`（Address）、`addressLine2`（Area）、`city`（City）、`state`（State）、`country`（Country）、坐标（`lat.toFixed(5), lon.toFixed(5)`）、场景（`scene === "indoor" ? "Indoor" : "Outdoor"`）、`suggestedDuration`（Suggested Duration，标注 estimated）、`ticketPrice`（Ticket Price，标注 estimated）、`isOpenNow`（Opening Status：Open Now / Closed）。仅字段存在时才渲染对应卡片（坐标、场景、时长、票价、营业状态为必渲染项）。
   - 底部来源说明：「Details sourced from Geoapify Geocoding API. Duration, ticket price and opening status are estimates.」。
 

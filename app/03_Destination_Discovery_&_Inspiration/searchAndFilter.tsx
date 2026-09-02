@@ -108,7 +108,10 @@ export default function SearchAndFilter({
   };
 
   return (
-    <section className="relative z-50 rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+    // z-30：让卡片高于页面普通内容（联想下拉在卡内 isolate z-50 覆盖兄弟区块），
+    // 但低于收藏夹抽屉的背景遮罩（z-40）——收藏夹打开时本卡片随背景一起模糊，
+    // 不会浮现在模糊遮罩前面
+    <section className="relative z-30 rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
       <div className="mb-6 flex flex-col gap-4 md:flex-row">
         {/* 搜索栏（带 Geoapify 自动联想下拉） */}
         <div className="relative flex-1">
