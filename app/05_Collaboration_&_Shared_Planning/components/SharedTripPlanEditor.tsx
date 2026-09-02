@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   CalendarDays,
   Plus,
@@ -158,6 +158,19 @@ export default function SharedTripPlanEditor() {
 
   const targetTripId = activeTripId || activeTrip?.tripId;
 
+  // 记录是否首次加载，用于保证只有初次无数据时显示菊花图，后续静默刷新不闪烁
+  const isFirstLoadRef = useRef(true);
+  const isSyncingRef = useRef(false);
+  const activeTripRef = useRef(activeTrip);
+
+  useEffect(() => {
+    activeTripRef.current = activeTrip;
+  }, [activeTrip]);
+
+  useEffect(() => {
+    isFirstLoadRef.current = true;
+  }, [targetTripId]);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -180,11 +193,11 @@ export default function SharedTripPlanEditor() {
     []
   );
 
-  // Load itinerary data from Module 02 API
+  // Load itinerary data from Module 02 API (SWR 模式：初次加载有菊花图，后续自动刷新为静态静默刷新)
   useEffect(() => {
     let isMounted = true;
 
-    const loadData = async () => {
+    const loadData = async (silent = false) => {
       if (!targetTripId) {
         if (isMounted) {
           setTrip(null);
@@ -195,31 +208,27 @@ export default function SharedTripPlanEditor() {
         return;
       }
 
-      setIsLoading(true);
+      if (silent && isSyncingRef.current) return;
+      isSyncingRef.current = true;
+
+      // 仅在首次加载且界面暂无数据时显示 Loading 菊花图；后续静默同步保持界面稳定，彻底避免闪烁
+      if (!silent && isFirstLoadRef.current) {
+        setIsLoading(true);
+      }
 
       try {
-        // Fetch trip record
-        const tripRes = await fetch(
-          `/02_Trip_Planning_&_Itinerary_Management/api/trips/${encodeURIComponent(targetTripId)}`
-        );
-        let tripData: TripRecord | null = null;
-        if (tripRes.ok) {
-          const data = (await tripRes.json()) as { trip?: TripRecord } & TripRecord;
-          tripData = data.trip ?? (data.trip_id ? data : null);
-        }
-
-        // Fallback trip record using activeTrip if needed
-        if (!tripData && activeTrip) {
-          tripData = {
-            trip_id: activeTrip.tripId,
-            user_id: user?.id || currentUserId || "dev-user-001",
-            trip_name: activeTrip.tripName,
-            start_date: activeTrip.startDate ?? null,
-            end_date: activeTrip.endDate ?? null,
-            trip_note: null,
-            image_url: null,
-          };
-        }
+        const currentActive = activeTripRef.current;
+        const tripData: TripRecord | null = currentActive
+          ? {
+              trip_id: currentActive.tripId,
+              user_id: user?.id || currentUserId || "dev-user-001",
+              trip_name: currentActive.tripName,
+              start_date: currentActive.startDate ?? null,
+              end_date: currentActive.endDate ?? null,
+              trip_note: null,
+              image_url: null,
+            }
+          : null;
 
         const tripItineraries = await listItinerariesAction(targetTripId);
         const persistedItems = await Promise.all(
@@ -230,29 +239,62 @@ export default function SharedTripPlanEditor() {
 
         setTrip(tripData);
         setItineraries(tripItineraries);
-        setDayCards(
-          tripItineraries.map((itinerary, index) =>
-            createDayState(itinerary, index, persistedItems[index])
-          )
+        // 就地平滑更新，同时保留当前卡片的折叠状态和条目编辑状态
+        setDayCards((prevCards) =>
+          tripItineraries.map((itinerary, index) => {
+            const nextDay = createDayState(itinerary, index, persistedItems[index]);
+            const prevDay = prevCards.find((d) => d.id === itinerary.itinerary_id);
+            if (!prevDay) return nextDay;
+            return {
+              ...nextDay,
+              isCollapsed: prevDay.isCollapsed,
+              items: nextDay.items.map((nextItem) => {
+                const prevItem = prevDay.items.find((i) => i.id === nextItem.id);
+                return {
+                  ...nextItem,
+                  isEditingItem: prevItem?.isEditingItem ?? false,
+                };
+              }),
+            };
+          })
         );
+        isFirstLoadRef.current = false;
       } catch {
-        if (isMounted) {
+        if (isMounted && isFirstLoadRef.current) {
           setItineraries([]);
           setDayCards([]);
         }
       } finally {
+        isSyncingRef.current = false;
         if (isMounted) {
           setIsLoading(false);
         }
       }
     };
 
-    void loadData();
+    // 首次或显式刷新执行（首次显示 loading，完成后置为 false）
+    void loadData(false);
+
+    // 静态静默同步定时器：每 1.5 秒在后台静默同步一次数据，完全不触发展示态 Loading，杜绝 UI 闪烁
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void loadData(true);
+      }
+    }, 1500);
+
+    const handleFocus = () => {
+      if (document.visibilityState === "visible") {
+        void loadData(true);
+      }
+    };
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       isMounted = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", handleFocus);
     };
-  }, [targetTripId, refreshCounter, activeTrip, user?.id, currentUserId]);
+  }, [targetTripId, refreshCounter, user?.id, currentUserId]);
 
   const handleAddItem = async (dayId: string) => {
     if (!canEdit) {

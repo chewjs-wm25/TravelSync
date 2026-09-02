@@ -10,7 +10,22 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html>
+    <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__cfBeacon = { spa: "false" };
+              window.addEventListener('error', function(e) {
+                if (e && e.message && (e.message.includes('startTime') || e.message.includes('reportAllChanges'))) {
+                  e.stopImmediatePropagation();
+                  e.preventDefault();
+                }
+              }, true);
+            `,
+          }}
+        />
+      </head>
       <body>
         {/* 最外层改为 flex-col 垂直排列 */}
         <div className="flex h-screen flex-col overflow-hidden bg-gray-100">

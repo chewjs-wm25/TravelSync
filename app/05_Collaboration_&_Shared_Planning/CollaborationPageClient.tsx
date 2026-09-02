@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
-  Share2,
   UserPlus,
   FileText,
   Download,
@@ -16,6 +15,8 @@ import {
   MapPin,
   X,
   Check,
+  CheckCheck,
+  Send,
   ShieldCheck,
   Loader2,
   RefreshCw,
@@ -24,6 +25,8 @@ import {
   UserRound,
   Upload,
   FileCode,
+  Key,
+  AlertCircle,
 } from "lucide-react";
 import {
   can,
@@ -46,6 +49,8 @@ import LikePlanButton from "./components/LikePlanButton";
 import ActivityFeed from "./components/ActivityFeed";
 import ControlCenter from "./components/ControlCenter";
 import ImportTripModal from "./components/ImportTripModal";
+import ExportTripModal from "./components/ExportTripModal";
+import GoogleCalendarSyncModal from "./components/GoogleCalendarSyncModal";
 
 function formatTripDates(start?: string | null, end?: string | null): string {
   if (!start) return "";
@@ -69,19 +74,20 @@ export default function CollaborationPageClient({
   initialMeId?: string | null;
 }) {
   const searchParams = useSearchParams();
-  const searchTrip = searchParams.get("trip");
-  const searchInvite = searchParams.get("invite");
-
-  const tripParam = searchTrip !== null ? searchTrip : (initialTripId ?? null);
-  const inviteParam = searchInvite !== null ? searchInvite : (initialInvite ?? null);
+  const tripParam = searchParams.get("trip") || null;
+  const inviteParam = searchParams.get("invite") || null;
+  const importKeyParam = searchParams.get("importKey") || null;
 
   // React state hooks strictly at the top level
   const [commentText, setCommentText] = useState("");
   const [chatOpen, setChatOpen] = useState(true);
-  const [inviteToken, setInviteToken] = useState<string | null>(initialInvite ?? null);
+  const commentsEndRef = useRef<HTMLDivElement>(null);
+  const [inviteToken, setInviteToken] = useState<string | null>(inviteParam);
   const [toast, setToast] = useState<string | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(Boolean(importKeyParam));
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isGoogleCalendarModalOpen, setIsGoogleCalendarModalOpen] = useState(false);
 
   // Store hooks
   const storeTrip = useCollabStore(
@@ -94,17 +100,18 @@ export default function CollaborationPageClient({
   const rejectInvite = useCollabStore((s) => s.rejectInvite);
   const error = useCollabStore((s) => s.error);
   const load = useCollabStore((s) => s.load);
+  const startPolling = useCollabStore((s) => s.startPolling);
+  const stopPolling = useCollabStore((s) => s.stopPolling);
+  const silentRefresh = useCollabStore((s) => s.silentRefresh);
+  const syncStatus = useCollabStore((s) => s.syncStatus);
+  const lastSyncedAt = useCollabStore((s) => s.lastSyncedAt);
+  const triggerManualSync = useCollabStore((s) => s.triggerManualSync);
   const { isLoggedIn, user } = useAuthStore();
 
   useEffect(() => {
-    setHasMounted(true);
+    const timer = setTimeout(() => setHasMounted(true), 0);
+    return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (inviteParam) {
-      setInviteToken(inviteParam);
-    }
-  }, [inviteParam]);
 
   useEffect(() => {
     if (!tripParam) return;
@@ -117,13 +124,30 @@ export default function CollaborationPageClient({
         error: null,
         currentUserId: prev.currentUserId || initialMeId || "",
       }));
-      return;
-    }
-
-    if (isLoggedIn) {
+      startPolling();
+    } else {
       void load(tripParam);
     }
-  }, [tripParam, initialTrip, initialMeId, isLoggedIn, load]);
+
+    // 页面可见性与焦点监听：切换标签页回来时立即触发静默刷新
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        startPolling();
+        void silentRefresh();
+      } else {
+        stopPolling();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    return () => {
+      stopPolling();
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+    };
+  }, [tripParam, initialTrip, initialMeId, load, startPolling, stopPolling, silentRefresh]);
 
   useEffect(() => {
     if (!tripParam) return;
@@ -162,6 +186,12 @@ export default function CollaborationPageClient({
   const loading = !trip && storeLoading;
   const comments = trip?.comments ?? [];
   const me = trip?.members.find((m) => m.id === currentUserId) ?? trip?.members[0];
+
+  useEffect(() => {
+    if (chatOpen) {
+      commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatOpen, comments.length]);
 
   const exportPDF = () => {
     if (!trip) return;
@@ -347,18 +377,6 @@ END:VCALENDAR`;
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const handleShareLink = async () => {
-    if (!trip) return;
-    const tripId = trip.tripId;
-    const url = `${window.location.origin}/05_Collaboration_&_Shared_Planning?trip=${tripId}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast("Trip share link copied!");
-    } catch {
-      showToast(url);
-    }
-  };
-
   if (!hasMounted) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-gray-400">
@@ -405,11 +423,33 @@ END:VCALENDAR`;
   }
 
   // ─── 3. 单行程详情模式（?trip=xxx） ───
-  if (loading || !trip) {
+  if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-gray-400">
         <Loader2 size={24} className="mr-2 animate-spin" />
         Loading collaboration data...
+      </div>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-center p-6">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+          <AlertCircle size={32} />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-base font-bold text-gray-800">Trip Plan Not Found</h3>
+          <p className="text-xs text-gray-500 max-w-sm">
+            This trip plan does not exist or has been deleted from Trip Planning.
+          </p>
+        </div>
+        <Link
+          href="/05_Collaboration_&_Shared_Planning"
+          className="rounded-xl bg-primary-500 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-primary-600 active:scale-[0.98]"
+        >
+          Return to Control Center
+        </Link>
       </div>
     );
   }
@@ -467,17 +507,41 @@ END:VCALENDAR`;
             {/* Like Plan Button */}
             <LikePlanButton tripId={trip.tripId} size="md" showLikersPopover={true} />
 
-            {/* 同步状态指示器 */}
-            <div className="flex items-center gap-1.5 rounded-xl bg-green-50 px-3.5 py-2.5 text-xs font-medium text-green-600 border border-green-200/60">
-              <RefreshCw size={14} />
-              <span>Synced</span>
-            </div>
+            {/* 真实同步状态指示器 & 点击手动即时同步 */}
             <button
-              onClick={handleShareLink}
-              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-100 px-5 py-2.5 font-medium text-gray-700 transition hover:bg-gray-200 active:scale-[0.97]"
+              onClick={() => void triggerManualSync()}
+              disabled={syncStatus === "syncing"}
+              title={
+                syncStatus === "syncing"
+                  ? "Syncing latest changes with server..."
+                  : syncStatus === "error"
+                  ? "Sync failed. Click to retry."
+                  : `Synced with cloud${lastSyncedAt ? ` at ${lastSyncedAt.toLocaleTimeString()}` : ""}. Click to refresh.`
+              }
+              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-medium border transition active:scale-[0.97] cursor-pointer ${
+                syncStatus === "syncing"
+                  ? "bg-blue-50 text-blue-700 border-blue-200 shadow-2xs"
+                  : syncStatus === "error"
+                  ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                  : "bg-green-50 text-green-700 border-green-200/80 hover:bg-green-100/60"
+              }`}
             >
-              <Share2 size={18} />
-              Share Link
+              {syncStatus === "syncing" ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin text-blue-600" />
+                  <span>Syncing...</span>
+                </>
+              ) : syncStatus === "error" ? (
+                <>
+                  <AlertCircle size={14} className="text-red-500" />
+                  <span>Sync Failed</span>
+                </>
+              ) : (
+                <>
+                  <Check size={14} className="text-green-600" />
+                  <span>Synced</span>
+                </>
+              )}
             </button>
             <button
               onClick={() => setIsImportModalOpen(true)}
@@ -529,6 +593,25 @@ END:VCALENDAR`;
               </p>
               <div className="space-y-3">
                 <button
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="flex w-full items-center gap-3 rounded-lg border border-primary-200 bg-gradient-to-r from-primary-50/70 to-white px-4 py-3 text-left transition hover:from-primary-50 hover:to-primary-50/40 active:scale-[0.98]"
+                >
+                  <Key size={20} className="shrink-0 text-primary-600" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-gray-800">
+                        Share via Plan Key
+                      </span>
+                      <span className="rounded-full bg-primary-100 px-1.5 py-0.2 text-[9px] font-extrabold text-primary-700">
+                        No File
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-gray-500 block">
+                      Get a share code or link to import without downloading files
+                    </span>
+                  </div>
+                </button>
+                <button
                   onClick={exportJSON}
                   className="flex w-full items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/30 px-4 py-3 text-left transition hover:bg-amber-50 active:scale-[0.98]"
                 >
@@ -561,13 +644,23 @@ END:VCALENDAR`;
                   </span>
                 </button>
                 <button
-                  onClick={exportICS}
-                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]"
+                  onClick={() => setIsGoogleCalendarModalOpen(true)}
+                  className="flex w-full items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/30 px-4 py-3 text-left transition hover:bg-blue-50 active:scale-[0.98]"
                 >
-                  <CalendarDays size={20} className="shrink-0 text-primary-500" />
-                  <span className="text-sm font-medium text-gray-800">
-                    Sync to ICS
-                  </span>
+                  <CalendarDays size={20} className="shrink-0 text-blue-600" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-gray-800">
+                        Sync to Google Calendar
+                      </span>
+                      <span className="rounded-full bg-blue-100 px-1.5 py-0.2 text-[9px] font-bold text-blue-700">
+                        API
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-gray-500 block">
+                      Directly sync all itinerary items to your Google Calendar
+                    </span>
+                  </div>
                 </button>
               </div>
             </div>
@@ -593,13 +686,20 @@ END:VCALENDAR`;
       )}
 
       {chatOpen && (
-        <div className="fixed bottom-6 right-6 z-40 flex w-80 flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl" style={{ maxHeight: "min(520px, calc(100vh - 120px))" }}>
-          <div className="flex items-center gap-2 border-b border-gray-200 px-5 py-3">
-            <MessageSquare size={18} className="text-primary-500" />
-            <h3 className="text-sm font-semibold text-gray-800">Live Comments</h3>
-            <span className="ml-1 rounded-full bg-primary-500/10 px-2 py-0.5 text-[10px] font-bold text-primary-500">
-              {comments.length}
-            </span>
+        <div
+          className="fixed bottom-6 right-6 z-40 flex w-80 sm:w-96 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+          style={{ maxHeight: "min(540px, calc(100vh - 100px))" }}
+        >
+          <div className="flex items-center gap-2.5 border-b border-gray-200 bg-white px-4 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <MessageSquare size={16} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800">Live Comments</h3>
+              <p className="text-[10px] text-gray-400">
+                {comments.length} {comments.length === 1 ? "message" : "messages"}
+              </p>
+            </div>
             <button
               onClick={() => setChatOpen(false)}
               className="ml-auto rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
@@ -609,51 +709,112 @@ END:VCALENDAR`;
             </button>
           </div>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-            {comments.map((c, i) => (
-              <div key={c.id ?? i} className="flex gap-2.5">
-                {c.avatar ? (
-                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                    <Image
-                      src={c.avatar}
-                      alt={c.authorName}
-                      width={32}
-                      height={32}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-semibold text-white">
-                    {c.authorName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div
-                  className={`max-w-[220px] rounded-xl px-3 py-2 ${
-                    c.own
-                      ? "border border-red-100 bg-red-50"
-                      : "border border-gray-100 bg-[#FAF8FF]"
-                  }`}
-                >
-                  <div className="mb-0.5 flex items-baseline justify-between gap-3">
-                    <span
-                      className={`text-[11px] font-semibold ${
-                        c.own ? "text-primary-500" : "text-gray-800"
-                      }`}
-                    >
-                      {c.authorName}
-                    </span>
-                    <span className="text-[9px] text-gray-400">{c.time}</span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-gray-700">{c.text}</p>
-                </div>
+          <div className="flex-1 space-y-3 overflow-y-auto bg-[#efeae2]/35 px-3.5 py-3.5">
+            {comments.length === 0 ? (
+              <div className="flex h-full min-h-[160px] flex-col items-center justify-center py-8 text-center text-gray-400">
+                <MessageSquare size={28} className="mb-2 text-gray-300" />
+                <p className="text-xs font-medium text-gray-500">No comments yet</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">Be the first to leave a comment!</p>
               </div>
-            ))}
+            ) : (
+              comments.map((c, i) => {
+                const isMe = Boolean(
+                  (currentUserId && c.authorId === currentUserId) ||
+                  (me?.id && c.authorId === me.id) ||
+                  (!currentUserId && !me?.id && c.own)
+                );
+                const authorMember = trip?.members.find((m) => m.id === c.authorId);
+                const avatarUrl = c.avatar || (isMe ? me?.avatar : authorMember?.avatar);
+                const displayName = isMe
+                  ? (me?.name ? `${me.name.split(" ")[0]} (You)` : "You")
+                  : (c.authorName || authorMember?.name || "Member");
+                const initial = (
+                  isMe
+                    ? (me?.name?.charAt(0) || "Y")
+                    : (c.authorName?.charAt(0) || authorMember?.name?.charAt(0) || "M")
+                ).toUpperCase();
+
+                if (isMe) {
+                  return (
+                    <div key={c.id ?? i} className="flex items-end justify-end gap-2">
+                      {/* Outgoing WhatsApp bubble (Right) */}
+                      <div className="relative max-w-[78%] rounded-2xl rounded-br-xs border border-[#c4ebb8] bg-[#DCF8C6] px-3.5 py-2 shadow-xs">
+                        <div className="mb-0.5 flex items-baseline justify-between gap-3">
+                          <span className="text-[11px] font-semibold text-emerald-800">
+                            {displayName}
+                          </span>
+                          <span className="flex items-center gap-1 text-[9px] text-emerald-700/80">
+                            {c.time}
+                            <CheckCheck size={12} className="text-emerald-600" />
+                          </span>
+                        </div>
+                        <p className="text-xs leading-relaxed text-gray-900 break-words whitespace-pre-wrap">
+                          {c.text}
+                        </p>
+                      </div>
+
+                      {/* Right Avatar (Myself) */}
+                      {avatarUrl ? (
+                        <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full ring-2 ring-emerald-500/40">
+                          <Image
+                            src={avatarUrl}
+                            alt={displayName}
+                            width={28}
+                            height={28}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-semibold text-white shadow-xs">
+                          {initial}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={c.id ?? i} className="flex items-end justify-start gap-2">
+                    {/* Left Avatar (Other Users) */}
+                    {avatarUrl ? (
+                      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-gray-200">
+                        <Image
+                          src={avatarUrl}
+                          alt={displayName}
+                          width={28}
+                          height={28}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-500 text-[11px] font-semibold text-white shadow-xs">
+                        {initial}
+                      </div>
+                    )}
+
+                    {/* Incoming WhatsApp bubble (Left) */}
+                    <div className="relative max-w-[78%] rounded-2xl rounded-bl-xs border border-gray-200/90 bg-white px-3.5 py-2 shadow-xs">
+                      <div className="mb-0.5 flex items-baseline justify-between gap-3">
+                        <span className="text-[11px] font-semibold text-emerald-700">
+                          {displayName}
+                        </span>
+                        <span className="text-[9px] text-gray-400">{c.time}</span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-gray-800 break-words whitespace-pre-wrap">
+                        {c.text}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <div ref={commentsEndRef} />
           </div>
 
-          <div className="border-t border-gray-200 px-4 py-3">
+          <div className="border-t border-gray-200 bg-white px-3.5 py-2.5">
             {canComment ? (
-              <>
-                <div className="rounded-lg border border-gray-200 bg-[#FAF8FF] p-2.5">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 transition focus-within:border-emerald-500 focus-within:bg-white focus-within:ring-1 focus-within:ring-emerald-500">
                   <textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
@@ -664,22 +825,23 @@ END:VCALENDAR`;
                       }
                     }}
                     placeholder="Write a comment..."
-                    rows={2}
+                    rows={1}
                     className="w-full resize-none bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-400"
                   />
                 </div>
-                <div className="mt-2 flex items-center justify-end">
-                  <button
-                    onClick={handleSendComment}
-                    className="rounded-lg bg-primary-500 px-4 py-1.5 text-[11px] font-bold text-white transition hover:bg-primary-500/80 active:scale-95"
-                  >
-                    Send
-                  </button>
-                </div>
-              </>
+                <button
+                  onClick={handleSendComment}
+                  disabled={!commentText.trim()}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs transition hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Send comment"
+                  aria-label="Send comment"
+                >
+                  <Send size={14} />
+                </button>
+              </div>
             ) : (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-center text-[11px] text-gray-500">
-                <b>{me.role}</b> role cannot post comments.
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-center text-[11px] text-gray-500">
+                <b>{me?.role || "Viewer"}</b> role cannot post comments.
               </div>
             )}
           </div>
@@ -692,15 +854,44 @@ END:VCALENDAR`;
         </div>
       )}
 
+      {/* ─── Export & Share Plan Modal ─── */}
+      {trip && (
+        <ExportTripModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          tripId={trip.tripId}
+          tripName={trip.tripName}
+          onDownloadJSON={() => void exportJSON()}
+        />
+      )}
+
       {/* ─── Import Trip Plan Modal ─── */}
       <ImportTripModal
         isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
+        initialKey={importKeyParam || undefined}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          if (typeof window !== "undefined" && window.location.search.includes("importKey")) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("importKey");
+            window.history.replaceState({}, "", url.toString());
+          }
+        }}
         onSuccess={(newTripId) => {
           setIsImportModalOpen(false);
           window.location.href = `/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(newTripId)}`;
         }}
       />
+
+      {/* ─── Google Calendar Direct Sync Modal ─── */}
+      {trip && (
+        <GoogleCalendarSyncModal
+          isOpen={isGoogleCalendarModalOpen}
+          onClose={() => setIsGoogleCalendarModalOpen(false)}
+          trip={trip}
+          onDownloadICS={exportICS}
+        />
+      )}
     </div>
   );
 }

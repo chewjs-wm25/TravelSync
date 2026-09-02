@@ -106,7 +106,7 @@ export async function buildControlCenterData(
     })
   );
 
-  // joined: 在 Collaborators 中但不在 owned 中的行程
+  // joined: 在 Collaborators 中但不在 owned 中的行程（且绝不能是 viewer 本人已删除的 owned 行程）
   const joinedTripIds = await CollaboratorRepo.findTripIdsByUserId(viewerId).catch(() => [] as string[]);
   const ownedIds = new Set(owned.map((o) => o.tripId));
   const joinedOnlyIds = joinedTripIds.filter((id) => !ownedIds.has(id));
@@ -114,10 +114,13 @@ export async function buildControlCenterData(
   const joined: TripShareSummary[] = (
     await Promise.all(
       joinedOnlyIds.map(async (tripId) => {
-        // 优先读 05 Trip，再回退读 02 trips
+        // 优先验证 trips 是否真实存在（已在 findTripById 中校验）
         let row: TripShareSummary | null = null;
         const trip = await TripRepo.findTripById(tripId).catch(() => null);
         if (trip) {
+          // 若行程的拥有者是当前 viewer，但不在 owned 列表中，说明该行程已被删除，坚决不放入 joined
+          if (trip.UserID === viewerId) return null;
+
           const [members, invites] = await Promise.all([
             CollaboratorRepo.findByTrip(tripId).catch(() => []),
             InviteRepo.findByTrip(tripId).catch(() => []),
@@ -143,7 +146,7 @@ export async function buildControlCenterData(
               .prepare("SELECT * FROM trips WHERE trip_id = ? LIMIT 1")
               .bind(tripId)
               .first<{ trip_id: string; user_id: string; trip_name: string; start_date: string | null; end_date: string | null }>();
-            if (src) {
+            if (src && src.user_id !== viewerId) {
               const [members, invites] = await Promise.all([
                 CollaboratorRepo.findByTrip(tripId).catch(() => []),
                 InviteRepo.findByTrip(tripId).catch(() => []),
@@ -169,7 +172,7 @@ export async function buildControlCenterData(
         return row;
       })
     )
-  ).filter(Boolean) as TripShareSummary[];
+  ).filter((r): r is TripShareSummary => r !== null && r.ownerId !== viewerId);
 
   return { owned, joined };
 }
@@ -182,7 +185,6 @@ export async function setTripShareStatus(
 ): Promise<{ isShared: boolean; removedMembers: number; expiredInvites: number }> {
   if (!tripId) throw new Error("tripId required");
   // 鉴权：仅 Owner 可切换（存在性检查：若 Collaborators 无 Owner 行，则以 Trip.UserID / trips.user_id 为 Owner）
-  let ownerId = actorId;
   let tripOwner: string | null = null;
   const trip = await TripRepo.findTripById(tripId).catch(() => null);
   if (trip) tripOwner = trip.UserID;

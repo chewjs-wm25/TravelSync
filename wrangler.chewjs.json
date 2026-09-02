@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "travel-sync",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "TEST_DB",
+      "database_name": "travel-sync-db",
+      "database_id": "b8a7cfde-c66a-486e-90bb-faa54f601422"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "TEST_KV",
+      "id": "e33eb7cf0a3d4e29a057608a4e440a3d"
+    },
+    {
+      "binding": "PLACE_IMAGE_CACHE",
+      "id": "f99dacc70ac04f1084099f9ce746bd7c"
+    }
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+}

@@ -109,7 +109,7 @@ async function main() {
   const clientId = inputId || DEFAULT_CLIENT_ID;
 
   const clientSecret = await askQuestion(
-    `👉 请输入 Google Client Secret (输入内容将自动打码遮蔽):\n> `,
+    `👉 请输入 Google Client Secret (输入内容将自动打码遮掩):\n> `,
     true
   );
 

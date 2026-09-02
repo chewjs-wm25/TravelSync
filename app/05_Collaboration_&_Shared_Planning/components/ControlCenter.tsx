@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2,
   MapPin,
@@ -12,8 +13,6 @@ import {
   RefreshCw,
   CalendarDays,
   Upload,
-  Download,
-  FileCode,
 } from "lucide-react";
 import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
@@ -21,6 +20,7 @@ import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab
 import type { TripShareSummary } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/TripShareService";
 import LikePlanButton from "./LikePlanButton";
 import ImportTripModal from "./ImportTripModal";
+import ExportTripModal from "./ExportTripModal";
 
 function formatDates(start?: string | null, end?: string | null): string {
   if (!start) return "No dates";
@@ -36,12 +36,12 @@ function TripCard({
   summary,
   onToggle,
   onOpen,
-  onExportJSON,
+  onExport,
 }: {
   summary: TripShareSummary;
   onToggle?: (tripId: string, next: boolean) => void;
   onOpen: (tripId: string) => void;
-  onExportJSON: (tripId: string, tripName: string) => void;
+  onExport: (tripId: string, tripName: string) => void;
 }) {
   const isOwner = summary.myRole === "Owner";
   const [confirmPrivate, setConfirmPrivate] = useState(false);
@@ -126,12 +126,12 @@ function TripCard({
           <span>Open</span>
         </button>
         <button
-          onClick={() => onExportJSON(summary.tripId, summary.tripName)}
+          onClick={() => onExport(summary.tripId, summary.tripName)}
           className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-primary-500"
-          title="Export as JSON"
-          aria-label="Export as JSON"
+          title="Share via Key or Export Plan"
+          aria-label="Share via Key or Export Plan"
         >
-          <Download size={14} />
+          <Share2 size={14} />
         </button>
       </div>
 
@@ -202,9 +202,12 @@ export default function ControlCenter() {
   const loadControlCenter = useCollabStore((s) => s.loadControlCenter);
   const toggleShare = useCollabStore((s) => s.toggleShare);
   const { isLoggedIn, user } = useAuthStore();
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const importKeyParam = searchParams.get("importKey");
+
   const [refreshing, setRefreshing] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(Boolean(importKeyParam));
+  const [exportModalTrip, setExportModalTrip] = useState<{ tripId: string; tripName: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -215,6 +218,10 @@ export default function ControlCenter() {
   useEffect(() => {
     void loadControlCenter();
   }, [loadControlCenter, user?.id]);
+
+  const handleOpenExportModal = (tripId: string, tripName: string) => {
+    setExportModalTrip({ tripId, tripName });
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -233,7 +240,7 @@ export default function ControlCenter() {
   };
 
   const handleOpenSameTab = (tripId: string) => {
-    router.push(`/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(tripId)}`);
+    window.location.href = `/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(tripId)}`;
   };
 
   const handleExportJSON = async (tripId: string, tripName: string) => {
@@ -350,12 +357,12 @@ export default function ControlCenter() {
                 <Upload size={13} />
                 <span>Import Trip Plan</span>
               </button>
-              <a
+              <Link
                 href="/02_Trip_Planning_&_Itinerary_Management"
                 className="inline-flex rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Go to Trip Planning
-              </a>
+              </Link>
             </div>
           </div>
         ) : (
@@ -366,7 +373,7 @@ export default function ControlCenter() {
                 summary={s}
                 onToggle={handleToggle}
                 onOpen={handleOpenSameTab}
-                onExportJSON={handleExportJSON}
+                onExport={handleOpenExportModal}
               />
             ))}
           </div>
@@ -394,7 +401,7 @@ export default function ControlCenter() {
                 key={s.tripId}
                 summary={s}
                 onOpen={handleOpenSameTab}
-                onExportJSON={handleExportJSON}
+                onExport={handleOpenExportModal}
               />
             ))}
           </div>
@@ -403,15 +410,34 @@ export default function ControlCenter() {
 
       {/* Tips footer */}
       <div className="rounded-2xl border border-gray-100 bg-[#FFFBF0] p-4 text-xs leading-relaxed text-gray-500">
-        <b className="text-gray-700">Tip:</b> You can export any trip plan as a standard{" "}
+        <b className="text-gray-700">Tip:</b> You can share any trip with friends via <b>Share Key / Token</b> (no file download needed) or export as a standard{" "}
         <code className="text-[11px] font-semibold text-amber-700 bg-amber-100/50 px-1 py-0.5 rounded">.json</code> file
-        using the download button on any card, or import plans from other users into your own workspace using <b>Import Plan</b>.
+        using the share button on any card. Anyone can import your plan into their own workspace with 1 click.
       </div>
+
+      {/* Export & Share Modal */}
+      {exportModalTrip && (
+        <ExportTripModal
+          isOpen={!!exportModalTrip}
+          onClose={() => setExportModalTrip(null)}
+          tripId={exportModalTrip.tripId}
+          tripName={exportModalTrip.tripName}
+          onDownloadJSON={handleExportJSON}
+        />
+      )}
 
       {/* Import Modal */}
       <ImportTripModal
         isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
+        initialKey={importKeyParam || undefined}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          if (typeof window !== "undefined" && window.location.search.includes("importKey")) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("importKey");
+            window.history.replaceState({}, "", url.toString());
+          }
+        }}
         onSuccess={() => {
           void loadControlCenter();
         }}

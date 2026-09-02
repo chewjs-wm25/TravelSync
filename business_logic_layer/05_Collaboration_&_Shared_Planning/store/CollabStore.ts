@@ -30,7 +30,7 @@ export type {
   TripShareSummary,
 };
 
-const POLL_INTERVAL_MS = 1000;
+const POLL_INTERVAL_MS = 1500;
 
 /** 从 module 01 登录状态获取当前用户 ID，未登录时返回空串 */
 function getAuthUserId(): string {
@@ -61,6 +61,13 @@ interface CollabState {
   setActiveTrip: (id: string) => void;
   toggleShare: (tripId: string, isShared: boolean) => Promise<{ success: boolean; message?: string }>;
 
+  startPolling: () => void;
+  stopPolling: () => void;
+  silentRefresh: (showSyncing?: boolean) => Promise<void>;
+  syncStatus: "synced" | "syncing" | "error";
+  lastSyncedAt: Date | null;
+  triggerManualSync: () => Promise<void>;
+
   inviteCollaborator: (email: string, role: InviteRole) => Promise<InviteResult>;
   cancelInvite: (inviteId: string) => Promise<void>;
   acceptInvite: (inviteId: string) => Promise<void>;
@@ -84,16 +91,17 @@ interface CollabState {
  *
  * 同步策略：乐观更新 + 轮询。
  * - 写操作后立即本地更新 UI（乐观更新）
- * - 后台每 1 秒轮询 bootstrap 获取最新状态（带 activeTripId）
+ * - 后台每 1.5 秒轮询 bootstrap 获取最新状态（带 activeTripId）
  */
 export const useCollabStore = create<CollabState>()((set, get) => {
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let isWriting = false;
+  let isRefreshing = false;
 
   const startPolling = () => {
     if (pollTimer) return;
     pollTimer = setInterval(() => {
-      if (isWriting) return;
+      if (isWriting || isRefreshing) return;
       void silentRefresh();
     }, POLL_INTERVAL_MS);
   };
@@ -106,34 +114,31 @@ export const useCollabStore = create<CollabState>()((set, get) => {
   };
 
   /** 静默刷新：不显示 loading 状态，不显示错误，带 activeTripId */
-  const silentRefresh = async () => {
+  const silentRefresh = async (showSyncing = false) => {
+    if (isRefreshing) return;
+    isRefreshing = true;
+    if (showSyncing) {
+      set({ syncStatus: "syncing" });
+    }
     try {
       const { currentUserId, activeTripId } = get();
+      const uid = currentUserId || getAuthUserId();
       if (!activeTripId) return;
-      const data = await collabApi.bootstrap(currentUserId, activeTripId);
+      const data = await collabApi.bootstrap(uid, activeTripId);
       const trip = data.trip;
       if (!trip) return;
 
       set((state) => {
-        const currentTrip = state.trips[0];
+        const currentTrip = state.trips.find((t) => t.tripId === activeTripId) || state.trips[0];
         if (!currentTrip) {
-          return { trips: [trip] };
+          return {
+            trips: [trip],
+            syncStatus: "synced",
+            lastSyncedAt: new Date(),
+          };
         }
 
-        const memberMap = new Map<string, CollabMember>();
-        for (const m of trip.members) memberMap.set(m.id, m);
-        for (const m of currentTrip.members) {
-          if (!memberMap.has(m.id)) memberMap.set(m.id, m);
-        }
-
-        const inviteMap = new Map<string, CollabInvite>();
-        for (const i of trip.invites) inviteMap.set(i.id, i);
-        for (const i of currentTrip.invites) {
-          if (!inviteMap.has(i.id)) inviteMap.set(i.id, i);
-        }
-
-        const mergedItems = trip.items;
-
+        // 评论合并：保留本地正在发送中的 temp- 临时评论
         const commentMap = new Map<string, CollabComment>();
         for (const c of trip.comments) commentMap.set(c.id, c);
         for (const c of currentTrip.comments) {
@@ -142,25 +147,32 @@ export const useCollabStore = create<CollabState>()((set, get) => {
               (sc) => sc.text === c.text && sc.authorId === c.authorId,
             );
             if (!hasReal) commentMap.set(c.id, c);
-          } else if (!commentMap.has(c.id)) {
-            commentMap.set(c.id, c);
           }
         }
 
         const mergedTrip: CollabTrip = {
           ...trip,
-          members: Array.from(memberMap.values()),
-          invites: Array.from(inviteMap.values()),
-          items: mergedItems,
+          members: trip.members,
+          invites: trip.invites,
+          items: trip.items,
           comments: Array.from(commentMap.values()),
-          activity: trip.activity.length > 0 ? trip.activity : currentTrip.activity,
+          activity: trip.activity,
           likes: trip.likes ?? currentTrip.likes,
         };
 
-        return { trips: [mergedTrip] };
+        const otherTrips = state.trips.filter((t) => t.tripId !== activeTripId);
+        return {
+          trips: [mergedTrip, ...otherTrips],
+          syncStatus: "synced",
+          lastSyncedAt: new Date(),
+        };
       });
     } catch {
-      // 静默失败
+      if (showSyncing) {
+        set({ syncStatus: "error" });
+      }
+    } finally {
+      isRefreshing = false;
     }
   };
 
@@ -173,26 +185,45 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     controlCenter: null,
     controlLoading: true,
     controlError: null,
+    syncStatus: "synced",
+    lastSyncedAt: null,
+
+    startPolling,
+    stopPolling,
+    silentRefresh,
+
+    triggerManualSync: async () => {
+      set({ syncStatus: "syncing" });
+      await silentRefresh(true);
+    },
 
     load: async (tripId?: string) => {
       const effectiveTripId = tripId ?? get().activeTripId ?? "";
       const uid = getAuthUserId();
       // 若既无指定也无 active，则仍走旧逻辑：尝试加载默认（bootstrap 无 tripId 回退到 trip_langkawi）
-      set({ loading: true, error: null, currentUserId: uid });
+      set({ loading: true, syncStatus: "syncing", error: null, currentUserId: uid });
       try {
         const data = await collabApi.bootstrap(uid, effectiveTripId || undefined);
         const trips = [data.trip];
         const nextActive = effectiveTripId || data.trip.tripId;
-        set({ trips, activeTripId: nextActive, loading: false });
+        set({
+          trips,
+          activeTripId: nextActive,
+          loading: false,
+          syncStatus: "synced",
+          lastSyncedAt: new Date(),
+        });
         startPolling();
       } catch {
         set({
           loading: false,
+          syncStatus: "error",
           trips: [buildFallbackTrip(uid)],
           activeTripId: effectiveTripId || "trip_langkawi",
           error:
             "演示模式：本地数据库无数据，已加载内置演示数据（写入功能不可用）。运行 npm run dev 会自动初始化真实数据库。",
         });
+        startPolling();
       }
     },
 
@@ -452,11 +483,14 @@ export const useCollabStore = create<CollabState>()((set, get) => {
         await collabApi.addComment(get().currentUserId, text, tripId);
         const { trips, currentUserId } = get();
         if (trips.length > 0) {
+          const targetTripIndex = trips.findIndex((t) => t.tripId === tripId);
+          const currentTrip = targetTripIndex >= 0 ? trips[targetTripIndex] : trips[0];
+          const currentMember = currentTrip?.members.find((m) => m.id === currentUserId);
           const tempComment: CollabComment = {
             id: `temp-${Date.now()}`,
             authorId: currentUserId,
-            authorName: "You",
-            avatar: "",
+            authorName: currentMember?.name || "You",
+            avatar: currentMember?.avatar || "",
             time: new Date().toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -465,12 +499,11 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             own: true,
           };
           set({
-            trips: [
-              {
-                ...trips[0],
-                comments: [...trips[0].comments, tempComment],
-              },
-            ],
+            trips: trips.map((t, idx) =>
+              (targetTripIndex >= 0 ? idx === targetTripIndex : idx === 0)
+                ? { ...t, comments: [...t.comments, tempComment] }
+                : t
+            ),
           });
         }
       } finally {

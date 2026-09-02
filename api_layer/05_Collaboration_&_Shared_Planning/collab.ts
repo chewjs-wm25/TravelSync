@@ -9,6 +9,8 @@ import type {
   ImportTripPayload,
   ImportTripResult,
   ExportedTripPlan,
+  CreatePlanShareKeyResult,
+  GetPlanByShareKeyResult,
 } from "./types";
 
 const BASE = "/05_Collaboration_&_Shared_Planning/api/collab";
@@ -212,28 +214,30 @@ export const collabApi = {
     );
   },
 
-  /** 订阅 SSE 实时事件 */
-  subscribeToEvents(userId: string, onEvent: (event: SSEEvent) => void, tripId?: string): Unsubscribe {
-    const params = new URLSearchParams();
-    if (userId) params.set("userId", userId);
-    if (tripId) params.set("tripId", tripId);
-    const eventSource = new EventSource(`${BASE}/events?${params.toString()}`);
-
-    eventSource.onmessage = (e) => {
-      try {
-        const event = JSON.parse(e.data) as SSEEvent;
-        onEvent(event);
-      } catch {
-        // 忽略解析错误
+  /** 生成或获取行程专属免文件分享码 (Share Key / Token) */
+  createPlanShareKey(tripId: string, userId?: string): Promise<CreatePlanShareKeyResult> {
+    return request<CreatePlanShareKeyResult>(
+      `${BASE}/trips/${encodeURIComponent(tripId)}/share-key`,
+      {
+        method: "POST",
+        headers: headers(userId, tripId),
       }
-    };
+    );
+  },
 
-    eventSource.onerror = () => {
-      // EventSource 内部会自动重连
-    };
+  /** 通过分享码解析并获取待导入的行程结构 */
+  getPlanByShareKey(shareKey: string, userId?: string): Promise<GetPlanByShareKeyResult> {
+    return request<GetPlanByShareKeyResult>(
+      `${BASE}/share-key/${encodeURIComponent(shareKey.trim())}`,
+      {
+        method: "GET",
+        headers: headers(userId),
+      }
+    );
+  },
 
-    return () => {
-      eventSource.close();
-    };
+  /** 订阅 SSE 实时事件（Cloudflare Workers Serverless 环境下已由静默轮询接管，返回空清理函数） */
+  subscribeToEvents(_userId: string, _onEvent: (event: SSEEvent) => void, _tripId?: string): Unsubscribe {
+    return () => {};
   },
 };

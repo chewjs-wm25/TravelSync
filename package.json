@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "deploy": "opennextjs-cloudflare && wrangler deploy",
+    "deploy": "opennextjs-cloudflare build && wrangler deploy",
     "build:worker": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "preview:secure": "node app/01_User_&_Account_Management/scripts/run-temp-auth.mjs"

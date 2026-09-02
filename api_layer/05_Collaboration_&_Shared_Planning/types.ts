@@ -69,6 +69,7 @@ export interface CollabTrip {
   startDate?: string | null;
   endDate?: string | null;
   region?: string;
+  tripNote?: string | null;
   members: CollabMember[];
   invites: CollabInvite[];
   items: ItineraryItem[];
@@ -151,3 +152,33 @@ export interface ImportTripResult {
   tripName?: string;
   message?: string;
 }
+
+/** 行程分享码信息 */
+export interface PlanShareKeyInfo {
+  shareKey: string;
+  tripId: string;
+  tripName: string;
+  createdAt: string;
+  expiresAt?: string | null;
+  useCount?: number;
+}
+
+/** 生成/获取行程分享码响应 */
+export interface CreatePlanShareKeyResult {
+  success: boolean;
+  shareKey?: string;
+  tripName?: string;
+  createdAt?: string;
+  expiresAt?: string | null;
+  message?: string;
+}
+
+/** 通过分享码获取行程计划响应 */
+export interface GetPlanByShareKeyResult {
+  success: boolean;
+  shareKey?: string;
+  tripName?: string;
+  plan?: ImportTripPayload;
+  exportedAt?: string;
+  message?: string;
+}

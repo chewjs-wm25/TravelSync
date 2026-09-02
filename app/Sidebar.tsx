@@ -79,6 +79,19 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={(e) => {
+                if (isActive) {
+                  e.preventDefault();
+                  return;
+                }
+                const target = item.href;
+                const current = window.location.pathname;
+                setTimeout(() => {
+                  if (window.location.pathname === current && !window.location.pathname.startsWith(target)) {
+                    window.location.href = target;
+                  }
+                }, 150);
+              }}
               className={`group flex items-center gap-4 rounded-2xl transition-all duration-200 ease-out active:scale-[0.98] ${
                 isOpen ? "px-5 py-4" : "justify-center p-4"
               } ${

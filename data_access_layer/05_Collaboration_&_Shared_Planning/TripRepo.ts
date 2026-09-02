@@ -11,15 +11,76 @@ export interface TripRow {
   UserID: string;
 }
 
+/**
+ * 彻底清理已被删除的行程在 Module 05 中的所有关联记录（级联清理）
+ */
+export async function purgeDeletedTrip(tripId: string): Promise<void> {
+  const db = await getDB();
+  try {
+    await db.batch([
+      db.prepare("DELETE FROM Trip WHERE TripID = ?").bind(tripId),
+      db.prepare("DELETE FROM Collaborators WHERE trip_id = ?").bind(tripId),
+      db.prepare("DELETE FROM Collaboration_Invitations WHERE trip_id = ?").bind(tripId),
+      db.prepare(
+        "DELETE FROM Itinerary_Item WHERE ItineraryID IN (SELECT ItineraryID FROM Itinerary WHERE TripID = ?)"
+      ).bind(tripId),
+      db.prepare("DELETE FROM Itinerary WHERE TripID = ?").bind(tripId),
+      db.prepare("DELETE FROM chats WHERE trip_id = ?").bind(tripId),
+      db.prepare("DELETE FROM activity_logs WHERE trip_id = ?").bind(tripId),
+      db.prepare("DELETE FROM trip_likes WHERE trip_id = ?").bind(tripId),
+      db.prepare("DELETE FROM plan_share_keys WHERE trip_id = ?").bind(tripId),
+    ]);
+  } catch (e) {
+    console.error(`[purgeDeletedTrip] Failed to cascade delete trip ${tripId}:`, e);
+  }
+}
+
+/**
+ * 全量比对 05 与 02 的行程，自动同步清理已被 02 删除的所有孤儿数据
+ */
+export async function syncAndCleanDeletedTrips(): Promise<void> {
+  const db = await getDB();
+  try {
+    // 1. 查找在 05 Trip 表中存在，但 02 trips 表中已经被删除的所有 TripID
+    const orphanedTrips = await db
+      .prepare(`
+        SELECT TripID as tripId 
+        FROM Trip 
+        WHERE TripID NOT IN (SELECT trip_id FROM trips)
+      `)
+      .all<{ tripId: string }>();
+
+    const ids = (orphanedTrips.results ?? []).map((r) => r.tripId);
+    for (const id of ids) {
+      await purgeDeletedTrip(id);
+    }
+
+    // 2. 清理在 Collaborators 中存在，但 trips 表中已删除的孤儿协作行
+    await db
+      .prepare(`
+        DELETE FROM Collaborators 
+        WHERE trip_id NOT IN (SELECT trip_id FROM trips)
+      `)
+      .run()
+      .catch(() => {});
+
+    // 3. 清理在 Collaboration_Invitations 中存在，但 trips 表中已删除的孤儿邀请行
+    await db
+      .prepare(`
+        DELETE FROM Collaboration_Invitations 
+        WHERE trip_id NOT IN (SELECT trip_id FROM trips)
+      `)
+      .run()
+      .catch(() => {});
+  } catch {
+    // ignore if trips table doesn't exist
+  }
+}
+
 export async function findTripById(id: string): Promise<TripRow | null> {
   const db = await getDB();
-  const direct = await db
-    .prepare("SELECT * FROM Trip WHERE TripID = ? LIMIT 1")
-    .bind(id)
-    .first<TripRow>();
-  if (direct) return direct;
 
-  // 兜底查 module 02 的 trips 表并自动同步到 Trip 表
+  // 1. 先验证 module 02 的 trips 表（trips 表是全站行程真实存在的基准 Source of Truth）
   try {
     const m2 = await db
       .prepare(
@@ -36,32 +97,40 @@ export async function findTripById(id: string): Promise<TripRow | null> {
         image_url: string | null;
       }>();
 
-    if (m2) {
-      await db
-        .prepare(
-          `INSERT OR IGNORE INTO Trip (TripID, TripName, StartDate, EndDate, Region, Status, TripNote, UserID)
-           VALUES (?, ?, ?, ?, '', 'planning', ?, ?)`
-        )
-        .bind(
-          m2.trip_id,
-          m2.trip_name || "My Trip",
-          m2.start_date ?? null,
-          m2.end_date ?? null,
-          m2.trip_note ?? null,
-          m2.user_id
-        )
-        .run();
-
-      return db
-        .prepare("SELECT * FROM Trip WHERE TripID = ? LIMIT 1")
-        .bind(id)
-        .first<TripRow>();
+    if (!m2) {
+      // 02 的 trips 表中已经不存在该行程（说明已被用户在 Trip Planning 模块删除）
+      // 彻底清理 05 中的孤儿遗留数据并返回 null
+      await purgeDeletedTrip(id);
+      return null;
     }
-  } catch {
-    // ignore
-  }
 
-  return null;
+    // 存在于 02 trips，保证 05 Trip 表同步存在
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO Trip (TripID, TripName, StartDate, EndDate, Region, Status, TripNote, UserID)
+         VALUES (?, ?, ?, ?, '', 'planning', ?, ?)`
+      )
+      .bind(
+        m2.trip_id,
+        m2.trip_name || "My Trip",
+        m2.start_date ?? null,
+        m2.end_date ?? null,
+        m2.trip_note ?? null,
+        m2.user_id
+      )
+      .run();
+
+    return db
+      .prepare("SELECT * FROM Trip WHERE TripID = ? LIMIT 1")
+      .bind(id)
+      .first<TripRow>();
+  } catch {
+    // 若 trips 表异常或尚未初始化，回退读 05 的 Trip 表
+    return db
+      .prepare("SELECT * FROM Trip WHERE TripID = ? LIMIT 1")
+      .bind(id)
+      .first<TripRow>();
+  }
 }
 
 export async function ensureTripExists(id: string, fallbackUserId?: string): Promise<void> {

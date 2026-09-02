@@ -9,6 +9,7 @@ import * as TripRepo from "@/data_access_layer/05_Collaboration_&_Shared_Plannin
 import * as ItineraryRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItineraryRepo";
 import * as ItemRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItemRepo";
 import type { ItemRow } from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ItemRepo";
+import * as ShareKeyRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/ShareKeyRepo";
 import { getDB } from "@/data_access_layer/05_Collaboration_&_Shared_Planning/db";
 
 /**
@@ -91,12 +92,12 @@ export async function getFullTripExportData(
   _userId?: string
 ): Promise<ExportedTripPlan> {
   const db = await getDB();
-  let trip = await TripRepo.findTripById(tripId);
+  const trip = await TripRepo.findTripById(tripId);
 
   let tripName = trip?.TripName || "Trip Plan";
   let startDate = trip?.StartDate || null;
   let endDate = trip?.EndDate || null;
-  let region = trip?.Region || null;
+  const region = trip?.Region || null;
   let tripNote = trip?.TripNote || null;
   let imageUrl: string | null = null;
 
@@ -435,3 +436,170 @@ function addDays(baseDate: string, days: number): string {
   }
   return baseDate;
 }
+
+/**
+ * 生成易读且不易混淆的专属分享 Key (格式: PLAN-XXXX-XXXX)
+ */
+function generateReadableKey(): string {
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // 去除易混淆的 0, O, 1, I
+  let p1 = "";
+  let p2 = "";
+  for (let i = 0; i < 4; i++) {
+    p1 += chars.charAt(Math.floor(Math.random() * chars.length));
+    p2 += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `PLAN-${p1}-${p2}`;
+}
+
+/**
+ * 净化用户输入的 Share Key（支持直接粘贴带 ?importKey= 的完整链接，或去除空格/引号并转大写）
+ */
+export function cleanShareKeyInput(rawInput: string): string {
+  if (!rawInput || typeof rawInput !== "string") return "";
+  let trimmed = rawInput.trim();
+
+  // 若用户直接粘贴了完整 URL，如 http://.../05_Collaboration_&_Shared_Planning?importKey=PLAN-XXXX-XXXX
+  if (trimmed.includes("importKey=")) {
+    try {
+      const u = new URL(trimmed.startsWith("http") ? trimmed : `https://example.com/${trimmed}`);
+      const val = u.searchParams.get("importKey");
+      if (val) trimmed = val.trim();
+    } catch {
+      const match = trimmed.match(/importKey=([A-Za-z0-9-_]+)/i);
+      if (match && match[1]) trimmed = match[1];
+    }
+  }
+
+  trimmed = trimmed.replace(/["'<>]/g, "");
+  return trimmed.toUpperCase();
+}
+
+/**
+ * 为指定行程生成或返回最新行程免文件分享码 (Share Key / Token)
+ */
+export async function createPlanShareKey(
+  tripId: string,
+  userId: string,
+  expiresDays?: number
+): Promise<{
+  success: boolean;
+  shareKey?: string;
+  tripName?: string;
+  createdAt?: string;
+  expiresAt?: string | null;
+  message?: string;
+}> {
+  if (!tripId) {
+    return { success: false, message: "Missing tripId" };
+  }
+
+  try {
+    // 1. 抓取该行程目前的完整标准化导出数据作为快照
+    const exportData = await getFullTripExportData(tripId, userId);
+    const tripName = exportData.trip.tripName || "Trip Plan";
+    const planJson = JSON.stringify(exportData, null, 2);
+
+    // 2. 检查是否已有活跃 Key（如果有，更新快照并复用，避免频繁生成多个碎片 Key）
+    const existing = await ShareKeyRepo.findLatestByTrip(tripId, userId);
+    let key = existing?.share_key;
+
+    if (!key) {
+      key = generateReadableKey();
+    }
+
+    let expiresAt: string | null = null;
+    if (expiresDays && expiresDays > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + expiresDays);
+      expiresAt = d.toISOString();
+    }
+
+    const saved = await ShareKeyRepo.insertShareKey({
+      share_key: key,
+      trip_id: tripId,
+      trip_name: tripName,
+      plan_json: planJson,
+      created_by: userId,
+      expires_at: expiresAt,
+    });
+
+    return {
+      success: true,
+      shareKey: saved.share_key,
+      tripName: saved.trip_name,
+      createdAt: saved.created_at,
+      expiresAt: saved.expires_at,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to create share key",
+    };
+  }
+}
+
+/**
+ * 根据分享码提取并校验行程数据，供导入前预览或一键导入
+ */
+export async function getPlanByShareKey(
+  keyOrUrl: string
+): Promise<{
+  success: boolean;
+  shareKey?: string;
+  tripName?: string;
+  plan?: ImportTripPayload;
+  exportedAt?: string;
+  message?: string;
+}> {
+  const cleaned = cleanShareKeyInput(keyOrUrl);
+  if (!cleaned) {
+    return { success: false, message: "Please provide a valid Share Key or Link." };
+  }
+
+  try {
+    const row = await ShareKeyRepo.findByKey(cleaned);
+    if (!row) {
+      return {
+        success: false,
+        message: `Share Key "${cleaned}" not found. Please verify the code.`,
+      };
+    }
+
+    // 校验过期时间
+    if (row.expires_at) {
+      const exp = new Date(row.expires_at).getTime();
+      if (Date.now() > exp) {
+        return {
+          success: false,
+          message: `This Share Key has expired on ${row.expires_at.slice(0, 10)}.`,
+        };
+      }
+    }
+
+    // 解析 snapshot JSON
+    const parsed = parseAndValidateTripPlan(row.plan_json);
+    if (!parsed.success || !parsed.plan) {
+      return {
+        success: false,
+        message: parsed.error || "Failed to parse trip plan for this key.",
+      };
+    }
+
+    // 记录访问次数
+    await ShareKeyRepo.incrementUsage(cleaned).catch(() => {});
+
+    return {
+      success: true,
+      shareKey: row.share_key,
+      tripName: row.trip_name,
+      plan: parsed.plan,
+      exportedAt: row.created_at,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to resolve share key",
+    };
+  }
+}
+

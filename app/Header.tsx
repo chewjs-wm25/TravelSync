@@ -20,6 +20,15 @@ export default function Header() {
     <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b-2 border-gray-200 bg-white px-4 md:px-8">
       <Link
         href="/"
+        onClick={() => {
+          if (window.location.pathname === "/") return;
+          const current = window.location.pathname;
+          setTimeout(() => {
+            if (window.location.pathname === current) {
+              window.location.href = "/";
+            }
+          }, 150);
+        }}
         className="flex items-center gap-3 transition-opacity duration-150 hover:opacity-80"
       >
         <div className="bg-primary-500 shadow-base flex h-10 w-10 items-center justify-center rounded-2xl text-white">
@@ -37,6 +46,15 @@ export default function Header() {
           <div className="flex items-center gap-4">
             <Link
               href="/01_User_&_Account_Management"
+              onClick={() => {
+                if (window.location.pathname.startsWith("/01_User_&_Account_Management")) return;
+                const current = window.location.pathname;
+                setTimeout(() => {
+                  if (window.location.pathname === current) {
+                    window.location.href = "/01_User_&_Account_Management";
+                  }
+                }, 150);
+              }}
               title="Account Settings"
               className="flex cursor-pointer items-center gap-3 transition-opacity duration-150 hover:opacity-80"
             >
@@ -70,6 +88,15 @@ export default function Header() {
         ) : (
           <Link
             href="/01_User_&_Account_Management"
+            onClick={() => {
+              if (window.location.pathname.startsWith("/01_User_&_Account_Management")) return;
+              const current = window.location.pathname;
+              setTimeout(() => {
+                if (window.location.pathname === current) {
+                  window.location.href = "/01_User_&_Account_Management";
+                }
+              }, 150);
+            }}
             className="bg-primary-500 hover:shadow-hover rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
           >
             Login

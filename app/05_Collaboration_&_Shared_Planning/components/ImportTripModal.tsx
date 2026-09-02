@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Upload,
   FileCode,
@@ -10,27 +10,33 @@ import {
   X,
   Calendar,
   MapPin,
-  FileText,
   Share2,
   ArrowRight,
   Sparkles,
+  Key,
 } from "lucide-react";
 import { parseAndValidateTripPlan } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/PlanImportExportService";
 import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
+import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab";
 import type { ImportTripPayload } from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
 
 interface ImportTripModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (newTripId: string) => void;
+  initialKey?: string;
 }
 
 export default function ImportTripModal({
   isOpen,
   onClose,
   onSuccess,
+  initialKey,
 }: ImportTripModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeTab, setActiveTab] = useState<"key" | "file">("key");
+  const [inputKey, setInputKey] = useState(initialKey ?? "");
+  const [isFetchingKey, setIsFetchingKey] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -51,6 +57,78 @@ export default function ImportTripModal({
 
   const importTripPlan = useCollabStore((s) => s.importTripPlan);
 
+  const handleFetchByKey = async (targetKey?: string) => {
+    const raw = (targetKey ?? inputKey).trim();
+    if (!raw) {
+      setErrorMsg("Please enter a valid Share Key or Link.");
+      return;
+    }
+
+    setErrorMsg(null);
+    setSuccessResult(null);
+    setIsFetchingKey(true);
+
+    try {
+      const res = await collabApi.getPlanByShareKey(raw);
+      if (!res.success || !res.plan) {
+        setErrorMsg(res.message || "Failed to find plan for this key. Please check the code.");
+        setParsedPlan(null);
+        return;
+      }
+
+      const plan = res.plan;
+      setParsedPlan(plan);
+      setFileName(`Key: ${res.shareKey || raw}`);
+      setEditTripName(plan.tripName);
+      setEditRegion(plan.region || "");
+      setEditStartDate(plan.startDate || "");
+      setEditEndDate(plan.endDate || "");
+      setEditTripNote(plan.tripNote || "");
+      setEditIsShared(plan.isShared || false);
+    } catch (err) {
+      setErrorMsg("Failed to retrieve plan: " + (err instanceof Error ? err.message : "Unknown error"));
+      setParsedPlan(null);
+    } finally {
+      setIsFetchingKey(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!initialKey || !isOpen) return;
+    let active = true;
+    void (async () => {
+      setIsFetchingKey(true);
+      setErrorMsg(null);
+      try {
+        const res = await collabApi.getPlanByShareKey(initialKey);
+        if (!active) return;
+        if (res.success && res.plan) {
+          setParsedPlan(res.plan);
+          setFileName(`Key: ${res.shareKey || initialKey}`);
+          setEditTripName(res.plan.tripName);
+          setEditRegion(res.plan.region || "");
+          setEditStartDate(res.plan.startDate || "");
+          setEditEndDate(res.plan.endDate || "");
+          setEditTripNote(res.plan.tripNote || "");
+          setEditIsShared(res.plan.isShared || false);
+        } else {
+          setErrorMsg(res.message || "Failed to find plan for this key. Please check the code.");
+        }
+      } catch (err) {
+        if (active) {
+          setErrorMsg("Failed to retrieve plan: " + (err instanceof Error ? err.message : "Unknown error"));
+        }
+      } finally {
+        if (active) {
+          setIsFetchingKey(false);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [initialKey, isOpen]);
+
   if (!isOpen) return null;
 
   const handleReset = () => {
@@ -58,6 +136,7 @@ export default function ImportTripModal({
     setErrorMsg(null);
     setParsedPlan(null);
     setSuccessResult(null);
+    setInputKey("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -172,7 +251,7 @@ export default function ImportTripModal({
             <div>
               <h2 className="text-base font-bold text-gray-800">Import Trip Plan</h2>
               <p className="text-xs text-gray-500">
-                Upload a JSON plan to create a brand new trip in your workspace
+                Import with Share Key or upload a JSON file to create a brand new trip in your workspace
               </p>
             </div>
           </div>
@@ -221,43 +300,131 @@ export default function ImportTripModal({
             </div>
           ) : (
             <>
-              {/* File Upload / Drag Drop Area */}
-              {!parsedPlan ? (
-                <div
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition cursor-pointer ${
-                    dragActive
-                      ? "border-primary-500 bg-primary-50/40"
-                      : "border-gray-200 bg-gray-50/60 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm text-primary-500 mb-3">
-                    <FileCode size={24} />
-                  </div>
-                  <p className="text-sm font-semibold text-gray-800">
-                    Click to browse or drag and drop your trip JSON file
-                  </p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    Supports standard TravelSync trip export format (.json)
-                  </p>
+              {/* Tab Selector (only shown if plan not yet loaded) */}
+              {!parsedPlan && (
+                <div className="flex border border-gray-100 bg-gray-50/80 p-1.5 rounded-2xl gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("key");
+                      setErrorMsg(null);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition ${
+                      activeTab === "key"
+                        ? "bg-white text-primary-600 shadow-xs border border-gray-200/60"
+                        : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                    }`}
+                  >
+                    <Key size={14} />
+                    <span>Import via Share Key</span>
+                    <span className="rounded-full bg-primary-100 px-1.5 py-0.2 text-[9px] font-bold text-primary-700">
+                      No File
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("file");
+                      setErrorMsg(null);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition ${
+                      activeTab === "file"
+                        ? "bg-white text-primary-600 shadow-xs border border-gray-200/60"
+                        : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                    }`}
+                  >
+                    <FileCode size={14} />
+                    <span>Upload JSON File</span>
+                  </button>
                 </div>
+              )}
+
+              {/* Input or Upload Area */}
+              {!parsedPlan ? (
+                activeTab === "key" ? (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-6 text-center space-y-3">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-primary-500 shadow-sm border border-gray-100">
+                      <Key size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800">
+                        Enter Trip Share Key or Link
+                      </h3>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Paste the Key (e.g. <code className="text-primary-600 font-semibold bg-primary-50 px-1 py-0.5 rounded">PLAN-XXXX-XXXX</code>) or the direct share link
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 max-w-md mx-auto pt-2">
+                      <input
+                        type="text"
+                        value={inputKey}
+                        onChange={(e) => setInputKey(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void handleFetchByKey();
+                          }
+                        }}
+                        placeholder="e.g. PLAN-7K8M-2N9P"
+                        className="flex-1 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-800 font-mono tracking-wide placeholder:font-sans focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 shadow-2xs"
+                      />
+                      <button
+                        type="button"
+                        disabled={isFetchingKey || !inputKey.trim()}
+                        onClick={() => void handleFetchByKey()}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-primary-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isFetchingKey ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Sparkles size={14} />
+                        )}
+                        <span>{isFetchingKey ? "Loading..." : "Load Plan"}</span>
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-gray-400 pt-1">
+                      No need to download or handle files. Directly import the complete itinerary into your workspace.
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition cursor-pointer ${
+                      dragActive
+                        ? "border-primary-500 bg-primary-50/40"
+                        : "border-gray-200 bg-gray-50/60 hover:border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json,application/json"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm text-primary-500 mb-3">
+                      <FileCode size={24} />
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800">
+                      Click to browse or drag and drop your trip JSON file
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Supports standard TravelSync trip export format (.json)
+                    </p>
+                  </div>
+                )
               ) : (
-                /* Selected File Badge */
+                /* Selected / Loaded Plan Badge */
                 <div className="flex items-center justify-between rounded-2xl border border-primary-500/20 bg-primary-50/40 p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary-500 shadow-sm">
-                      <FileCode size={20} />
+                      {activeTab === "key" ? <Key size={20} /> : <FileCode size={20} />}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -278,7 +445,7 @@ export default function ImportTripModal({
                     onClick={handleReset}
                     className="rounded-lg px-2.5 py-1 text-xs font-semibold text-gray-500 hover:bg-white/80 hover:text-gray-700"
                   >
-                    Change File
+                    Change Plan
                   </button>
                 </div>
               )}

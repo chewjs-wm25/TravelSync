@@ -1,7 +1,10 @@
 import { resolveDemoUser, extractUserId } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/DemoSession";
 import { json, error } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/collab-route";
 import * as TripRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/TripRepo";
-import { parseAndValidateTripPlan } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/PlanImportExportService";
+import {
+  parseAndValidateTripPlan,
+  getPlanByShareKey,
+} from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/PlanImportExportService";
 import type { ImportTripPayload } from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
 
 /**
@@ -19,8 +22,15 @@ export async function POST(req: Request) {
 
     let planPayload: ImportTripPayload;
 
-    // 如果传入的是原始/导出 JSON 文本或嵌套的原始结构，先使用 BLL 校验解析
-    if ("rawJson" in (rawBody as Record<string, unknown>)) {
+    // 支持通过 shareKey / key 直接导入
+    if ("shareKey" in (rawBody as Record<string, unknown>)) {
+      const shareKey = String((rawBody as Record<string, unknown>).shareKey);
+      const keyResult = await getPlanByShareKey(shareKey);
+      if (!keyResult.success || !keyResult.plan) {
+        return error(keyResult.message || "Failed to resolve share key.");
+      }
+      planPayload = keyResult.plan;
+    } else if ("rawJson" in (rawBody as Record<string, unknown>)) {
       const rawText = String((rawBody as Record<string, unknown>).rawJson);
       const parsed = parseAndValidateTripPlan(rawText);
       if (!parsed.success || !parsed.plan) {

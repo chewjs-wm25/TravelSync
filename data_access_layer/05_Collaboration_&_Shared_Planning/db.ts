@@ -95,6 +95,16 @@ const SCHEMA_STATEMENTS = [
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     UNIQUE(trip_id, user_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS plan_share_keys (
+    share_key TEXT PRIMARY KEY,
+    trip_id TEXT NOT NULL,
+    trip_name TEXT NOT NULL,
+    plan_json TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    expires_at TEXT,
+    use_count INTEGER NOT NULL DEFAULT 0
+  )`,
   `INSERT INTO Trip (TripID, TripName, StartDate, EndDate, Region, Status, TripNote, UserID)
    VALUES ('trip_langkawi','Langkawi Island Escape','2026-12-20','2026-12-27','Langkawi, Kedah, Malaysia','planning',NULL,'dev-user-001')
    ON CONFLICT(TripID) DO NOTHING`,
