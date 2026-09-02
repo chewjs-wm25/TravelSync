@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Share2,
   UserPlus,
@@ -66,8 +68,12 @@ export default function CollaborationPageClient({
   initialTrip?: CollabTrip | null;
   initialMeId?: string | null;
 }) {
-  const tripParam = initialTripId ?? null;
-  const inviteParam = initialInvite ?? null;
+  const searchParams = useSearchParams();
+  const searchTrip = searchParams.get("trip");
+  const searchInvite = searchParams.get("invite");
+
+  const tripParam = searchTrip !== null ? searchTrip : (initialTripId ?? null);
+  const inviteParam = searchInvite !== null ? searchInvite : (initialInvite ?? null);
 
   // React state hooks strictly at the top level
   const [commentText, setCommentText] = useState("");
@@ -441,12 +447,12 @@ END:VCALENDAR`;
     <div className="flex gap-6">
       {/* ─── Main Content Area ─── */}
       <div className="flex-1 space-y-6">
-        <a
+        <Link
           href="/05_Collaboration_&_Shared_Planning"
           className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
         >
           ← Back to Control Center
-        </a>
+        </Link>
         {/* ─── Page Header ─── */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Loader2,
   MapPin,
@@ -201,6 +202,7 @@ export default function ControlCenter() {
   const loadControlCenter = useCollabStore((s) => s.loadControlCenter);
   const toggleShare = useCollabStore((s) => s.toggleShare);
   const { isLoggedIn, user } = useAuthStore();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -231,9 +233,7 @@ export default function ControlCenter() {
   };
 
   const handleOpenSameTab = (tripId: string) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("trip", tripId);
-    window.location.href = url.toString();
+    router.push(`/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(tripId)}`);
   };
 
   const handleExportJSON = async (tripId: string, tripName: string) => {

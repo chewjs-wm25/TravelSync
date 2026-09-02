@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import CollaborationPageClient from "./CollaborationPageClient";
 import { loadBootstrap } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/CollabBootstrap";
 
@@ -23,11 +24,19 @@ export default async function Page({
   }
 
   return (
-    <CollaborationPageClient
-      initialTripId={trip ?? null}
-      initialInvite={invite ?? null}
-      initialTrip={initialTrip}
-      initialMeId={initialMeId}
-    />
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center text-gray-400">
+          Loading collaboration...
+        </div>
+      }
+    >
+      <CollaborationPageClient
+        initialTripId={trip ?? null}
+        initialInvite={invite ?? null}
+        initialTrip={initialTrip}
+        initialMeId={initialMeId}
+      />
+    </Suspense>
   );
 }
