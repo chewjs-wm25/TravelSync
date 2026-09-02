@@ -51,7 +51,10 @@ const ACCOUNT_SCHEMA = [
   )`,
 ];
 
-const DEFAULT_PASSWORD_HASH = "travelsyncsalt1234567890abcdef12.bx7fGP2LsHhlJe7ejDq4D0YYQaEqPAmdVW4l3SI0StQ"; // Demo123!
+// Demo123! 的 PBKDF2 预计算哈希（salt: travelsyncsalt1234567890abcdef12，100000 次迭代，SHA-256）。
+// 迭代次数必须与 AuthService 的 PBKDF2_ITERATIONS 保持一致，且不能超过
+// Cloudflare Workers（workerd）crypto.subtle 的 100000 上限。
+const DEFAULT_PASSWORD_HASH = "travelsyncsalt1234567890abcdef12.VMv0RTD0pkj2oNF6wFBjQmyTHjsSiYKc_lQY9QfA2O4"; // Demo123!
 
 const SEED_USERS = [
   { id: "dev-user-001", username: "flandre", email: "flandre@travelsync.com", fullName: "Flandre Scarlet", role: "admin", picture: "/images.jpg" },

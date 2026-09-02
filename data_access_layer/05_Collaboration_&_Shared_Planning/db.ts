@@ -25,7 +25,9 @@ function randomSalt(): string {
 async function hashPassword(password: string, salt?: string): Promise<string> {
   const s = salt ?? randomSalt();
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: new TextEncoder().encode(s), iterations: 120000, hash: "SHA-256" }, key, 256);
+  // 注意：迭代次数不能超过 Cloudflare Workers（workerd）crypto.subtle 的 100000 上限，
+  // 且需与 AuthService 的 PBKDF2_ITERATIONS 保持一致。
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: new TextEncoder().encode(s), iterations: 100000, hash: "SHA-256" }, key, 256);
   let binary = "";
   for (const byte of new Uint8Array(bits)) binary += String.fromCharCode(byte);
   return `${s}.${base64Url(binary)}`;

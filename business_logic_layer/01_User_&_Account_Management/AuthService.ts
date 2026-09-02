@@ -13,6 +13,10 @@ const LOCK_TTL = 15 * 60 * 1000;
 const RATE_WINDOW = 60 * 1000;
 const MAX_REQUESTS = 10;
 const requestLog = new Map<string, number[]>();
+// Cloudflare Workers（workerd）的 crypto.subtle 将 PBKDF2 迭代次数上限限制为 100000，
+// 超过会抛出 "Pbkdf2 failed: iteration counts above 100000 are not supported"。
+// 此值必须与 data_access_layer 中 AccountSchema 的 DEFAULT_PASSWORD_HASH 保持一致。
+const PBKDF2_ITERATIONS = 100000;
 
 export interface PublicUser {
   id: string;
@@ -114,7 +118,7 @@ async function derivePassword(password: string, salt: string): Promise<string> {
     ["deriveBits"]
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: new TextEncoder().encode(salt), iterations: 120000, hash: "SHA-256" },
+    { name: "PBKDF2", salt: new TextEncoder().encode(salt), iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
     key,
     256
   );
@@ -130,7 +134,13 @@ async function hashPassword(password: string): Promise<string> {
 async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [salt, expected] = stored.split(".");
   if (!salt || !expected) return false;
-  return (await derivePassword(password, salt)).split(".")[1] === expected;
+  try {
+    return (await derivePassword(password, salt)).split(".")[1] === expected;
+  } catch {
+    // 派生失败（例如历史数据使用超出 workerd 上限的迭代次数生成的哈希）时，
+    // 统一按密码错误处理，避免把 WebCrypto 原始异常暴露给前端。
+    return false;
+  }
 }
 
 export class AuthService {
@@ -375,8 +385,10 @@ export class AuthService {
       throw new Error(`Confirmation failed. Enter your password or username (${user.username}) to confirm.`);
     }
 
-    await this.users.delete(user.id);
+    // 先写审计日志再删除用户：D1 外键约束开启时，若先删用户，
+    // 随后 INSERT audit_logs(user_id) 引用已删除用户会触发 FOREIGN KEY constraint failed。
     await this.audit.write(user.id, "delete_account", null, "Account deleted");
+    await this.users.delete(user.id);
   }
 
   async deleteTestAccount(identifier: string, password: string): Promise<void> {
