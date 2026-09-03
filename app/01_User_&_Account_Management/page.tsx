@@ -1,6 +1,20 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Compass,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  User as UserIcon,
+  AlertCircle,
+  CheckCircle2,
+  Phone,
+  CreditCard,
+} from "lucide-react";
 import DashboardPage, { DashboardUser } from "./presentation/DashboardPage";
 import { useAuthStore, mapAccountUser } from "@/app/DEV-ACCOUNT-STATE/authUser";
 
@@ -47,6 +61,29 @@ async function accountRequest(
   const result = (await response.json()) as Result;
   if (!response.ok) throw new Error(result.error ?? "Request failed");
   return result;
+}
+
+function GoogleIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+      />
+    </svg>
+  );
 }
 
 export default function AccountSettingsPage() {
@@ -201,24 +238,58 @@ export default function AccountSettingsPage() {
         onLogout={async () => {
           await authLogout();
           setUser(null);
-          setNotice("You have been signed out.");
+          window.location.href = "/";
         }}
       />
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-220px)] max-w-md items-center px-4 py-10">
-      <section className="w-full rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+    <main className="mx-auto flex min-h-[calc(100vh-180px)] max-w-md flex-col justify-center px-4 py-8">
+      {/* Return to Home Header Link */}
+      <div className="mb-5 flex items-center justify-between">
+        <Link
+          href="/"
+          className="group inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 transition hover:text-gray-900"
+        >
+          <ArrowLeft
+            size={15}
+            className="transition-transform group-hover:-translate-x-1"
+          />
+          <span>Return to Home</span>
+        </Link>
+        <span className="text-[11px] font-medium text-gray-400">
+          TravelSync Malaysia
+        </span>
+      </div>
+
+      {/* Main Authentication Card */}
+      <section className="w-full rounded-3xl border border-gray-200/90 bg-white p-7 shadow-xl shadow-gray-200/40 sm:p-8">
+        {/* Brand Header */}
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-primary-500 shadow-sm border border-rose-100">
+            <Compass size={22} />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-900 leading-none">
+              TravelSync
+            </h2>
+            <p className="mt-1 text-[11px] text-gray-400">
+              Malaysian Travel & Itinerary Platform
+            </p>
+          </div>
+        </div>
+
+        {/* Mode Switcher Tabs (Sign in / Register) */}
         {mode !== "forgot" && mode !== "reset" && (
-          <div className="mb-7 flex gap-6 border-b border-slate-200">
+          <div className="mb-6 flex rounded-2xl bg-gray-100 p-1">
             <button
               type="button"
               onClick={() => switchMode("signin")}
-              className={`border-b-2 pb-3 text-sm font-semibold transition ${
+              className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
                 mode === "signin"
-                  ? "border-teal-600 text-teal-700"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-900"
               }`}
             >
               Sign in
@@ -226,197 +297,302 @@ export default function AccountSettingsPage() {
             <button
               type="button"
               onClick={() => switchMode("register")}
-              className={`border-b-2 pb-3 text-sm font-semibold transition ${
+              className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
                 mode === "register"
-                  ? "border-teal-600 text-teal-700"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-900"
               }`}
             >
-              Register
+              Create account
             </button>
           </div>
         )}
 
-        <h1 className="text-2xl font-bold text-slate-900">
-          {mode === "register"
-            ? "Create your account"
-            : mode === "forgot"
-            ? "Reset your password"
-            : mode === "reset"
-            ? "Set new password"
-            : "Welcome back"}
-        </h1>
-        <p className="mt-2 text-xs text-slate-500">
-          {mode === "register"
-            ? "Required: username, name, password, terms, and either email or phone."
-            : mode === "forgot"
-            ? "Enter your registered email and we will send you a reset link."
-            : mode === "reset"
-            ? "Enter a strong new password for your account."
-            : "Use your username or email and password to sign in."}
-        </p>
-
-        {(error || notice) && (
-          <p
-            className={`mt-4 rounded-lg p-3 text-sm font-medium ${
-              error ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
-            }`}
-          >
-            {error || notice}
+        {/* Headline & Subtitle */}
+        <div className="space-y-1">
+          <h1 className="text-2xl font-black text-gray-900">
+            {mode === "register"
+              ? "Join TravelSync"
+              : mode === "forgot"
+              ? "Reset password"
+              : mode === "reset"
+              ? "Set new password"
+              : "Welcome back"}
+          </h1>
+          <p className="text-xs leading-relaxed text-gray-500">
+            {mode === "register"
+              ? "Start planning your dream Malaysian holidays with friends."
+              : mode === "forgot"
+              ? "Enter your registered email and we&apos;ll send you a recovery link."
+              : mode === "reset"
+              ? "Enter a secure new password for your account."
+              : "Sign in to access your saved Malaysian itineraries."}
           </p>
+        </div>
+
+        {/* Social Authentication: Continue with Google */}
+        {(mode === "signin" || mode === "register") && (
+          <div className="mt-6 space-y-5">
+            <a
+              href="/01_User_&_Account_Management/account-actions?action=google"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99]"
+            >
+              <GoogleIcon className="h-4 w-4" />
+              <span>Continue with Google</span>
+            </a>
+
+            <div className="relative flex items-center justify-center">
+              <div className="w-full border-t border-gray-200" />
+              <span className="absolute bg-white px-3 text-[11px] font-medium text-gray-400">
+                or continue with credentials
+              </span>
+            </div>
+          </div>
         )}
 
+        {/* Notice & Error Banners */}
+        {notice && (
+          <div className="mt-4 flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs font-medium text-emerald-800 animate-in fade-in">
+            <CheckCircle2 size={16} className="flex-shrink-0 text-emerald-600" />
+            <span>{notice}</span>
+          </div>
+        )}
+        {error && (
+          <div className="mt-4 flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50/70 p-3 text-xs font-medium text-rose-800 animate-in fade-in">
+            <AlertCircle size={16} className="flex-shrink-0 text-rose-600" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* ─── FORGOT PASSWORD FORM ─── */}
         {mode === "forgot" ? (
           <form onSubmit={submit} className="mt-6 space-y-4">
-            <label className="block text-sm font-medium text-slate-700">
-              Registered Email
-              <input
-                required
-                type="email"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-              />
-            </label>
+            <div>
+              <label className="block text-xs font-bold text-gray-700">
+                Registered Email
+              </label>
+              <div className="relative mt-1">
+                <input
+                  required
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-9 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                />
+                <Mail
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+              </div>
+            </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-teal-700 py-2.5 font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+              className="w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.99] disabled:opacity-50"
             >
               {loading ? "Sending link..." : "Send Reset Link"}
             </button>
 
-            <div className="text-center pt-2">
+            <div className="pt-2 text-center">
               <button
                 type="button"
                 onClick={() => switchMode("signin")}
-                className="text-xs font-semibold text-teal-700 hover:underline"
+                className="text-xs font-semibold text-primary-500 transition hover:underline"
               >
                 ← Back to Sign in
               </button>
             </div>
           </form>
         ) : mode === "reset" ? (
+          /* ─── RESET PASSWORD FORM ─── */
           <form onSubmit={submit} className="mt-6 space-y-4">
-            <label className="block text-sm font-medium text-slate-700">
-              Reset Token
+            <div>
+              <label className="block text-xs font-bold text-gray-700">
+                Reset Token
+              </label>
               <input
                 required
                 value={resetToken}
                 onChange={(e) => setResetToken(e.target.value)}
                 placeholder="Paste your reset token"
-                className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
               />
-            </label>
+            </div>
 
-            <label className="block text-sm font-medium text-slate-700">
-              New Password
-              <input
-                required
-                type="password"
-                minLength={8}
-                value={newResetPassword}
-                onChange={(e) => setNewResetPassword(e.target.value)}
-                placeholder="At least 8 chars: upper, lower, number, special"
-                className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-              />
-            </label>
+            <div>
+              <label className="block text-xs font-bold text-gray-700">
+                New Password
+              </label>
+              <div className="relative mt-1">
+                <input
+                  required
+                  type="password"
+                  minLength={8}
+                  value={newResetPassword}
+                  onChange={(e) => setNewResetPassword(e.target.value)}
+                  placeholder="At least 8 chars: upper, lower, number, special"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-9 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                />
+                <Lock
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+              </div>
+            </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-teal-700 py-2.5 font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+              className="w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.99] disabled:opacity-50"
             >
               {loading ? "Resetting..." : "Save New Password"}
             </button>
 
-            <div className="text-center pt-2">
+            <div className="pt-2 text-center">
               <button
                 type="button"
                 onClick={() => switchMode("signin")}
-                className="text-xs font-semibold text-teal-700 hover:underline"
+                className="text-xs font-semibold text-primary-500 transition hover:underline"
               >
                 ← Back to Sign in
               </button>
             </div>
           </form>
         ) : (
-          <form onSubmit={submit} className="mt-6 space-y-4">
+          /* ─── SIGN IN & REGISTER FORM ─── */
+          <form onSubmit={submit} className="mt-5 space-y-4">
             {mode === "register" ? (
               <>
-                <label className="block text-sm font-medium text-slate-700">
-                  Username
-                  <input
-                    required
-                    pattern="[A-Za-z0-9_]{3,24}"
-                    value={form.username}
-                    onChange={(event) => update("username", event.target.value)}
-                    placeholder="3-24 characters: lowercase, numbers, _"
-                    className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-                  />
-                </label>
-                <label className="block text-sm font-medium text-slate-700">
-                  Full name
-                  <input
-                    required
-                    value={form.fullName}
-                    onChange={(event) => update("fullName", event.target.value)}
-                    placeholder="Your full name"
-                    className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-                  />
-                </label>
-                <label className="block text-sm font-medium text-slate-700">
-                  Email Address
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(event) => update("email", event.target.value)}
-                    placeholder="name@example.com"
-                    className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-                  />
-                </label>
-                <label className="block text-sm font-medium text-slate-700">
-                  Phone number <span className="font-normal text-slate-400">(optional)</span>
-                  <input
-                    value={form.phone}
-                    onChange={(event) => update("phone", event.target.value)}
-                    placeholder="+60 12-345 6789"
-                    className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-                  />
-                </label>
-                <label className="block text-sm font-medium text-slate-700">
-                  IC Number <span className="font-normal text-slate-400">(optional)</span>
-                  <input
-                    value={form.icNumber}
-                    onChange={(event) => update("icNumber", event.target.value)}
-                    placeholder="MyKad / IC Number"
-                    className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-                  />
-                </label>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700">
+                    Username
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      required
+                      pattern="[A-Za-z0-9_]{3,24}"
+                      value={form.username}
+                      onChange={(e) => update("username", e.target.value)}
+                      placeholder="3-24 chars: letters, numbers, _"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-9 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                    />
+                    <UserIcon
+                      size={15}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700">
+                    Full Name
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      required
+                      value={form.fullName}
+                      onChange={(e) => update("fullName", e.target.value)}
+                      placeholder="Your full name"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-9 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                    />
+                    <UserIcon
+                      size={15}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700">
+                    Email Address
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => update("email", e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-9 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                    />
+                    <Mail
+                      size={15}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700">
+                      Phone <span className="font-normal text-gray-400">(opt)</span>
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        value={form.phone}
+                        onChange={(e) => update("phone", e.target.value)}
+                        placeholder="+60 12-345 6789"
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-8 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                      />
+                      <Phone
+                        size={13}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700">
+                      MyKad IC <span className="font-normal text-gray-400">(opt)</span>
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        value={form.icNumber}
+                        onChange={(e) => update("icNumber", e.target.value)}
+                        placeholder="IC Number"
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-8 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                      />
+                      <CreditCard
+                        size={13}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
+                    </div>
+                  </div>
+                </div>
               </>
             ) : (
-              <label className="block text-sm font-medium text-slate-700">
-                Username or Email
-                <input
-                  required
-                  value={form.identifier}
-                  onChange={(event) => update("identifier", event.target.value)}
-                  placeholder="Enter username or email"
-                  className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-                />
-              </label>
+              <div>
+                <label className="block text-xs font-bold text-gray-700">
+                  Username or Email
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    required
+                    value={form.identifier}
+                    onChange={(e) => update("identifier", e.target.value)}
+                    placeholder="Enter your username or email"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-9 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                  />
+                  <UserIcon
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                </div>
+              </div>
             )}
 
-            <label className="block text-sm font-medium text-slate-700">
-              <div className="flex justify-between items-center">
-                <span>Password</span>
+            {/* Password field with toggle visibility */}
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-700">
+                  Password
+                </label>
                 {mode === "signin" && (
                   <button
                     type="button"
                     onClick={() => switchMode("forgot")}
-                    className="text-xs font-semibold text-teal-700 hover:underline"
+                    className="text-[11px] font-semibold text-primary-500 transition hover:underline"
                   >
                     Forgot password?
                   </button>
@@ -428,64 +604,64 @@ export default function AccountSettingsPage() {
                   type={showPassword ? "text" : "password"}
                   minLength={8}
                   value={form.password}
-                  onChange={(event) => update("password", event.target.value)}
+                  onChange={(e) => update("password", e.target.value)}
                   placeholder="At least 8 chars: upper, lower, number, special"
-                  className="w-full rounded-lg border border-slate-200 p-2.5 pr-16 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 pl-9 pr-10 text-xs font-medium text-gray-800 outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                />
+                <Lock
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-teal-700 hover:underline"
+                  onClick={() => setShowPassword((curr) => !curr)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600"
+                  title={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
-            </label>
+            </div>
 
+            {/* Checkbox Options */}
             {mode === "register" ? (
-              <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+              <label className="flex items-start gap-2 pt-1 text-[11px] text-gray-500 cursor-pointer">
                 <input
                   required
                   type="checkbox"
                   checked={form.acceptTerms}
-                  onChange={(event) => update("acceptTerms", event.target.checked)}
-                  className="rounded border-slate-300"
+                  onChange={(e) => update("acceptTerms", e.target.checked)}
+                  className="mt-0.5 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
                 />
-                I accept the terms and privacy policy
+                <span>
+                  I agree to the Terms of Service and Privacy Policy for TravelSync Malaysia.
+                </span>
               </label>
             ) : (
-              <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+              <label className="flex items-center gap-2 pt-1 text-xs text-gray-600 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={form.rememberMe}
-                  onChange={(event) => update("rememberMe", event.target.checked)}
-                  className="rounded border-slate-300"
+                  onChange={(e) => update("rememberMe", e.target.checked)}
+                  className="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
                 />
-                Remember me (31 days)
+                <span>Remember me for 31 days</span>
               </label>
             )}
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-teal-700 py-2.5 font-semibold text-white transition hover:bg-teal-800 active:scale-[0.99] disabled:opacity-50"
+              className="mt-2 w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.99] disabled:opacity-50"
             >
               {loading
                 ? "Processing..."
                 : mode === "register"
-                ? "Create account"
-                : "Sign in"}
+                ? "Create Account"
+                : "Sign In"}
             </button>
           </form>
-        )}
-
-        {mode === "signin" && (
-          <a
-            href="/01_User_&_Account_Management/account-actions?action=google"
-            className="mt-4 block rounded-lg border border-slate-300 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            Continue with Google
-          </a>
         )}
       </section>
     </main>

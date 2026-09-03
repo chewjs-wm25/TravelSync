@@ -11,7 +11,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 const MENU_ITEMS = [
   {
@@ -43,14 +48,19 @@ const MENU_ITEMS = [
 
 export default function Sidebar() {
   const { isOpen, toggleSidebar } = useSidebarStore();
+  const { isLoggedIn } = useAuthStore();
   const pathname = usePathname();
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted)
-    return (
-      <div className="hidden h-full w-24 border-r-2 border-gray-200 bg-white md:block"></div>
-    );
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    getClientSnapshot,
+    getServerSnapshot
+  );
+
+  // When not mounted yet or user is not logged in, do not render sidebar
+  if (!mounted || !isLoggedIn) {
+    return null;
+  }
 
   return (
     <aside

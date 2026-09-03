@@ -4,14 +4,21 @@ import { Compass } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export default function Header() {
   const { isLoggedIn, user, logout, refreshSession } = useAuthStore();
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    getClientSnapshot,
+    getServerSnapshot
+  );
 
   useEffect(() => {
-    setIsMounted(true);
     // 从服务端 cookie 会话恢复登录状态（未登录则清空本地残留）
     void refreshSession();
   }, [refreshSession]);
@@ -79,8 +86,11 @@ export default function Header() {
               </div>
             </Link>
             <button
-              onClick={() => void logout()}
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-gray-700"
+              onClick={async () => {
+                await logout();
+                window.location.href = "/";
+              }}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-gray-700 active:scale-95"
             >
               Logout
             </button>
