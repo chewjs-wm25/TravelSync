@@ -18,17 +18,12 @@ import {
   Search,
   Star,
   Clock,
-  Plus,
-  ChevronRight,
   Award,
   Ticket,
   Car,
-  Check,
 } from "lucide-react";
 
 import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
-import CreateTripModal from "@/app/02_Trip_Planning_&_Itinerary_Management/components/CreateTripModal";
-import { listTripsAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 import {
   getStateSuggestions,
   type StateSuggestion,
@@ -311,19 +306,9 @@ const HIGHLIGHTS = [
   },
 ];
 
-type UserTripRecord = {
-  trip_id: string;
-  user_id: string;
-  trip_name: string;
-  start_date: string | null;
-  end_date: string | null;
-  trip_note: string | null;
-  image_url: string | null;
-};
-
 export default function HomePage() {
   const router = useRouter();
-  const { isLoggedIn, user } = useAuthStore();
+  const { isLoggedIn } = useAuthStore();
 
   // Search & Destination Suggestions State
   const [searchQuery, setSearchQuery] = useState("");
@@ -340,38 +325,8 @@ export default function HomePage() {
     "all" | "quality" | "heritage" | "nature" | "city" | "highlands"
   >("all");
 
-  // Create Trip Modal State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  // Toast feedback
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Active User Trips (Fetched if Logged In)
-  const [userTrips, setUserTrips] = useState<UserTripRecord[]>([]);
-
   // Dynamic Quality Rated POIs from Module 03
   const [qualityPois, setQualityPois] = useState<PoiItem[]>([]);
-
-  // ─── Fetch Active User Trips If Logged In ───
-  useEffect(() => {
-    if (!isLoggedIn || !user?.id) {
-      return;
-    }
-
-    let isMounted = true;
-
-    listTripsAction(user.id)
-      .then((trips) => {
-        if (isMounted) setUserTrips(trips);
-      })
-      .catch(() => {
-        if (isMounted) setUserTrips([]);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isLoggedIn, user?.id]);
 
   // ─── Fetch Module 03 Quality Rated POIs ───
   useEffect(() => {
@@ -431,27 +386,13 @@ export default function HomePage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ─── Trigger Trip Planning Flow ───
-  const handleStartPlanning = (prefillDest?: string) => {
+  // ─── Trigger Trip Planning Flow (Navigates to Module 02) ───
+  const handleStartPlanning = (_prefillDest?: string) => {
     if (!isLoggedIn) {
       router.push("/01_User_&_Account_Management");
       return;
     }
-    if (prefillDest) {
-      setSearchQuery(prefillDest);
-    }
-    setIsCreateModalOpen(true);
-  };
-
-  const handleTripCreated = () => {
-    setIsCreateModalOpen(false);
-    setToastMessage("Trip created successfully!");
-    setTimeout(() => setToastMessage(null), 3500);
-
-    // Refresh user trips if logged in
-    if (user?.id) {
-      listTripsAction(user.id).then(setUserTrips).catch(() => {});
-    }
+    router.push("/02_Trip_Planning_&_Itinerary_Management");
   };
 
   // Filtered featured destinations (combines static curated + Module 03 quality POIs)
@@ -488,105 +429,6 @@ export default function HomePage() {
 
   return (
     <div className="space-y-20 pb-20">
-      {/* ─── TOAST NOTIFICATION ─── */}
-      {toastMessage && (
-        <div className="fixed right-6 top-24 z-50 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-800 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-4">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-            <Check size={14} />
-          </div>
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* ─── CREATE TRIP MODAL (FROM MODULE 02) ─── */}
-      <CreateTripModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleTripCreated}
-      />
-
-      {/* ─── LOGGED IN USER QUICK DASHBOARD ─── */}
-      {isLoggedIn && user && (
-        <section className="rounded-2xl border border-gray-200/90 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
-                <Compass size={13} className="text-primary-500" />
-                <span>Traveler Dashboard</span>
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">
-                Welcome back, {user.name}
-              </h2>
-              <p className="text-xs text-gray-500">
-                Continue organizing your upcoming Malaysian trips or start a new itinerary.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-95"
-              >
-                <Plus size={15} />
-                <span>New Trip</span>
-              </button>
-              <Link
-                href="/02_Trip_Planning_&_Itinerary_Management"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50 active:scale-95"
-              >
-                <span>All Trips</span>
-                <ChevronRight size={14} />
-              </Link>
-            </div>
-          </div>
-
-          {/* Active Trips Quick Strip */}
-          {userTrips.length > 0 && (
-            <div className="mt-5 border-t border-gray-100 pt-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                Recent Itineraries
-              </p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {userTrips.slice(0, 3).map((trip) => (
-                  <Link
-                    key={trip.trip_id}
-                    href={`/02_Trip_Planning_&_Itinerary_Management/${trip.trip_id}`}
-                    className="group flex items-center gap-3.5 rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 transition hover:border-gray-300 hover:bg-white hover:shadow-sm"
-                  >
-                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
-                      {trip.image_url ? (
-                        <img
-                          src={trip.image_url}
-                          alt={trip.trip_name}
-                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-400">
-                          <Map size={18} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="truncate text-sm font-semibold text-gray-800 group-hover:text-primary-500">
-                        {trip.trip_name}
-                      </h4>
-                      <p className="text-[11px] text-gray-500">
-                        {trip.start_date || "Flexible dates"}
-                      </p>
-                    </div>
-                    <ChevronRight
-                      size={15}
-                      className="text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-gray-700"
-                    />
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
       {/* ─── 1. MODERN MINIMALIST HERO SECTION (CLEAN & LIGHT) ─── */}
       <section className="relative overflow-hidden rounded-3xl border border-gray-200/80 bg-gradient-to-b from-white via-gray-50/40 to-white px-6 py-16 text-center sm:px-10 sm:py-24">
         <div className="mx-auto max-w-3xl space-y-7">
