@@ -41,6 +41,7 @@ function getAuthUserId(): string {
 interface ControlCenterState {
   owned: TripShareSummary[];
   joined: TripShareSummary[];
+  pendingInvitations: import("@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo").ReceivedInviteWithDetails[];
 }
 
 interface CollabState {
@@ -230,16 +231,27 @@ export const useCollabStore = create<CollabState>()((set, get) => {
     loadControlCenter: async () => {
       const uid = getAuthUserId();
       if (!uid) {
-        set({ controlCenter: { owned: [], joined: [] }, controlLoading: false, controlError: null });
+        set({ controlCenter: { owned: [], joined: [], pendingInvitations: [] }, controlLoading: false, controlError: null });
         return;
       }
       set({ controlLoading: true, controlError: null });
       try {
         const data = await collabApi.listControlCenter(uid);
         if ((data as { success: boolean }).success === false) throw new Error((data as { message?: string }).message ?? "Failed");
-        set({ controlCenter: { owned: (data as { owned: TripShareSummary[] }).owned ?? [], joined: (data as { joined: TripShareSummary[] }).joined ?? [] }, controlLoading: false });
+        set({
+          controlCenter: {
+            owned: (data as { owned: TripShareSummary[] }).owned ?? [],
+            joined: (data as { joined: TripShareSummary[] }).joined ?? [],
+            pendingInvitations: (data as { pendingInvitations?: import("@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo").ReceivedInviteWithDetails[] }).pendingInvitations ?? [],
+          },
+          controlLoading: false,
+        });
       } catch (e) {
-        set({ controlLoading: false, controlError: e instanceof Error ? e.message : "Failed to load trips", controlCenter: { owned: [], joined: [] } });
+        set({
+          controlLoading: false,
+          controlError: e instanceof Error ? e.message : "Failed to load trips",
+          controlCenter: { owned: [], joined: [], pendingInvitations: [] },
+        });
       }
     },
 
@@ -308,7 +320,9 @@ export const useCollabStore = create<CollabState>()((set, get) => {
             trips: [
               {
                 ...trips[0],
-                invites: trips[0].invites.filter((i) => i.id !== inviteId),
+                invites: trips[0].invites.map((i) =>
+                  i.id === inviteId ? { ...i, status: "expired" as const } : i
+                ),
               },
             ],
           });

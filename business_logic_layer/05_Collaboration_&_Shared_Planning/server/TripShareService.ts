@@ -23,6 +23,7 @@ export interface TripShareSummary {
 export interface ControlCenterData {
   owned: TripShareSummary[];
   joined: TripShareSummary[];
+  pendingInvitations: InviteRepo.ReceivedInviteWithDetails[];
 }
 
 function isSharedFromCounts(memberCount: number, pending: number): boolean {
@@ -174,7 +175,18 @@ export async function buildControlCenterData(
     )
   ).filter((r): r is TripShareSummary => r !== null && r.ownerId !== viewerId);
 
-  return { owned, joined };
+  // 查询当前用户收到的所有有效 pending 邀请
+  let userEmail = "";
+  try {
+    const { findAccountById } = await import("@/data_access_layer/05_Collaboration_&_Shared_Planning/AccountRepo");
+    const account = await findAccountById(viewerId);
+    if (account?.email) userEmail = account.email;
+  } catch {
+    // ignore
+  }
+  const pendingInvitations = await InviteRepo.findPendingForUser(viewerId, userEmail).catch(() => []);
+
+  return { owned, joined, pendingInvitations };
 }
 
 /** 切换共享：isShared=false 时立刻踢出所有非 Owner 并过期 pending 邀请（需求 2） */

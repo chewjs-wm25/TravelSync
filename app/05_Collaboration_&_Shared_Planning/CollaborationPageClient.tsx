@@ -64,7 +64,7 @@ function formatTripDates(start?: string | null, end?: string | null): string {
 
 function parseCommentDate(rawTime?: string): Date | null {
   if (!rawTime) return null;
-  let dateStr: any = rawTime.trim();
+  let dateStr: string | number = rawTime.trim();
   if (/^\d{10,13}$/.test(dateStr)) {
     dateStr = Number(dateStr);
   } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)) {
@@ -1000,7 +1000,7 @@ function InviteOnboardingFlow({
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
-  const [viewState, setViewState] = useState<"decision" | "login" | "register" | "declined">("decision");
+  const [viewState, setViewState] = useState<"decision" | "login" | "register" | "declined" | "already_accepted">("decision");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
@@ -1022,9 +1022,12 @@ function InviteOnboardingFlow({
   useEffect(() => {
     fetch(`/05_Collaboration_&_Shared_Planning/api/collab/invites/lookup?token=${encodeURIComponent(token)}`)
       .then(async (res) => {
-        const data = (await res.json()) as { success: boolean; invite?: typeof inviteData; error?: string };
+        const data = (await res.json()) as { success: boolean; alreadyAccepted?: boolean; invite?: typeof inviteData; error?: string };
         if (data.success && data.invite) {
           setInviteData(data.invite);
+          if (data.alreadyAccepted) {
+            setViewState("already_accepted");
+          }
         } else {
           setFetchError(data.error || "Invalid or expired invitation");
         }
@@ -1221,6 +1224,28 @@ function InviteOnboardingFlow({
           >
             Go to Collaboration
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewState === "already_accepted") {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-lg">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+            <ShieldCheck size={32} className="text-emerald-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800">Already a Member</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            You have already joined <b>{inviteData.tripName}</b>!
+          </p>
+          <a
+            href={`/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(inviteData.tripId)}`}
+            className="mt-6 block w-full rounded-xl bg-primary-500 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-primary-500/90 active:scale-[0.98]"
+          >
+            Open Trip Workspace
+          </a>
         </div>
       </div>
     );

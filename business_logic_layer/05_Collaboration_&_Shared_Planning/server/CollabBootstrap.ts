@@ -60,7 +60,7 @@ export async function loadBootstrap(
   // Update last_seen for the current user (heartbeat for online status)
   await CollaboratorRepo.updateLastSeen(tripId, meUserId).catch(() => {});
 
-  let [itineraries, members, invites, chats, activity, likes] = await Promise.all([
+  const [itinerariesInit, membersInit, invites, chats, activity, likes] = await Promise.all([
     ItineraryRepo.findByTrip(tripId),
     CollaboratorRepo.findByTrip(tripId),
     InviteRepo.findByTrip(tripId),
@@ -70,6 +70,8 @@ export async function loadBootstrap(
       m.getLikes(tripId, meUserId)
     ).catch(() => ({ count: 0, likedByMe: false, likers: [] })),
   ]);
+  let itineraries = itinerariesInit;
+  let members = membersInit;
 
   // 若当前用户是 Owner 但尚无 Collaborator 行（私有首次打开），自动补 Owner 以保证页面 me 存在
   if (members.length === 0 && trip.UserID === meUserId) {

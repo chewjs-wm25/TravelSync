@@ -10,10 +10,33 @@ export async function GET(req: Request) {
 
     const invite = await InviteRepo.findByToken(token);
     if (!invite) return error("Invitation not found.", 404);
-    if (invite.status !== "pending") return error("This invitation is no longer pending.");
-    if (new Date(invite.expires_at) < new Date()) return error("This invitation has expired.");
-
     const trip = await TripRepo.findTripById(invite.trip_id);
+
+    if (invite.status === "accepted") {
+      return json({
+        success: true,
+        alreadyAccepted: true,
+        invite: {
+          id: invite.invitation_id,
+          token: invite.Token,
+          email: invite.receiver_email,
+          role: invite.role,
+          tripId: invite.trip_id,
+          tripName: trip?.TripName ?? "Shared Trip",
+          tripRegion: trip?.Region ?? "",
+          invitedBy: invite.sender_name,
+          expiresAt: invite.expires_at,
+          status: "accepted",
+          accountExists: true,
+        },
+      });
+    }
+
+    if (invite.status === "expired" || invite.status === "rejected") {
+      return error("This invitation link has been cancelled or has expired.");
+    }
+    if (invite.status !== "pending") return error("This invitation is no longer active.");
+    if (new Date(invite.expires_at) < new Date()) return error("This invitation link has expired.");
 
     const { getDB } = await import("@/data_access_layer/05_Collaboration_&_Shared_Planning/db");
     const db = await getDB();

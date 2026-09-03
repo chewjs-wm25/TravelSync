@@ -57,8 +57,13 @@ export const collabApi = {
     });
   },
 
-  /** Control Center：我的 Plan + 我加入的 Share Plan */
-  listControlCenter(userId: string): Promise<{ success: boolean; owned: import("@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/TripShareService").TripShareSummary[]; joined: import("@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/TripShareService").TripShareSummary[] }> {
+  /** Control Center：我的 Plan + 我加入的 Share Plan + 收到的邀请 */
+  listControlCenter(userId: string): Promise<{
+    success: boolean;
+    owned: import("@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/TripShareService").TripShareSummary[];
+    joined: import("@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/TripShareService").TripShareSummary[];
+    pendingInvitations: import("@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo").ReceivedInviteWithDetails[];
+  }> {
     return request(`${BASE}/trips`, { headers: headers(userId) });
   },
 
@@ -101,16 +106,24 @@ export const collabApi = {
   },
 
   /** 接受 / 拒绝邀请 */
-  updateInvite(inviteId: string, status: "accepted" | "rejected", userId?: string, tripId?: string) {
+  updateInvite(
+    inviteId: string,
+    status: "accepted" | "rejected",
+    userId?: string,
+    tripId?: string
+  ): Promise<{ success: boolean; tripId?: string; message?: string; error?: string }> {
     const params = new URLSearchParams();
     if (userId) params.set("userId", userId);
     if (tripId) params.set("tripId", tripId);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    return request(`${BASE}/invites/${encodeURIComponent(inviteId)}/status${qs}`, {
-      method: "PATCH",
-      headers: headers(userId, tripId),
-      body: JSON.stringify({ status, userId }),
-    });
+    return request<{ success: boolean; tripId?: string; message?: string; error?: string }>(
+      `${BASE}/invites/${encodeURIComponent(inviteId)}/status${qs}`,
+      {
+        method: "PATCH",
+        headers: headers(userId, tripId),
+        body: JSON.stringify({ status, userId }),
+      }
+    );
   },
 
   /** 模拟 30 天过期 */

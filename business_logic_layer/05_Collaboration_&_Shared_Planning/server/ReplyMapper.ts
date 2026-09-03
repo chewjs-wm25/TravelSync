@@ -86,7 +86,7 @@ export function mapChat(row: ChatRow, currentUserId: string): CollabComment {
 export function mapActivity(row: ActivityWithUser): ActivityEntry {
   return {
     id: String(row.id),
-    actor: (row as any).full_name || row.username,
+    actor: (row as { full_name?: string }).full_name || row.username,
     action: row.action,
     at: Date.parse(row.created_at),
   };

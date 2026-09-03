@@ -1,16 +1,34 @@
 import * as AccountRepo from "@/data_access_layer/05_Collaboration_&_Shared_Planning/AccountRepo";
+import { getAuthSession } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
 
 /**
- * Demo 会话：前端通过 `x-demo-user-id` 头声明"当前用户"。
- * 未提供时回退到默认 demo 用户 m_marcus。
- * 未来接模块 01 正式会话后，仅需替换此函数内部实现。
+ * 解析当前操作用户：
+ * 1. 优先使用显式传入的 userId 或 x-demo-user-id
+ * 2. 次选从真实 Cookie 会话 (travelsync_session) 中提取用户 ID
+ * 3. 兜底回退到默认演示用户 m_marcus
  */
 export async function resolveDemoUser(
-  userId: string | null
+  userId: string | null,
+  req?: Request
 ): Promise<AccountRepo.AccountRow> {
-  const id = userId || "m_marcus";
-  const account = await AccountRepo.findAccountById(id);
-  if (account) return account;
+  let targetId = userId;
+
+  // 若未传入有效 userId 且提供了 req，尝试读取 HttpOnly Cookie 会话
+  if ((!targetId || targetId === "undefined" || targetId === "null") && req) {
+    try {
+      const session = await getAuthSession(req).catch(() => null);
+      if (session?.userId) {
+        targetId = session.userId;
+      }
+    } catch {
+      // ignore session error
+    }
+  }
+
+  if (targetId && targetId !== "undefined" && targetId !== "null") {
+    const account = await AccountRepo.findAccountById(targetId);
+    if (account) return account;
+  }
 
   const marcus = await AccountRepo.findAccountById("m_marcus");
   if (marcus) return marcus;
@@ -22,5 +40,20 @@ export async function resolveDemoUser(
 }
 
 export function extractUserId(req: Request): string | null {
-  return req.headers.get("x-demo-user-id");
+  const fromHeader = req.headers.get("x-demo-user-id");
+  if (fromHeader && fromHeader !== "undefined" && fromHeader !== "null" && fromHeader.trim() !== "") {
+    return fromHeader.trim();
+  }
+
+  try {
+    const url = new URL(req.url);
+    const fromQuery = url.searchParams.get("userId");
+    if (fromQuery && fromQuery !== "undefined" && fromQuery !== "null" && fromQuery.trim() !== "") {
+      return fromQuery.trim();
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
 }

@@ -13,6 +13,9 @@ import {
   RefreshCw,
   CalendarDays,
   Upload,
+  Mail,
+  Check,
+  X,
 } from "lucide-react";
 import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
@@ -209,6 +212,7 @@ export default function ControlCenter() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(Boolean(importKeyParam));
   const [exportModalTrip, setExportModalTrip] = useState<{ tripId: string; tripName: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -218,6 +222,23 @@ export default function ControlCenter() {
   useEffect(() => {
     void loadControlCenter();
   }, [loadControlCenter, user?.id]);
+
+  const handleRespondInvite = async (inviteId: string, tripId: string, status: "accepted" | "rejected") => {
+    setProcessingInviteId(inviteId);
+    try {
+      const res = await collabApi.updateInvite(inviteId, status, user?.id, tripId);
+      if (res.success) {
+        showToast(status === "accepted" ? "Joined shared plan successfully!" : "Declined invitation");
+        await loadControlCenter();
+      } else {
+        showToast((res as { message?: string; error?: string }).message || (res as { message?: string; error?: string }).error || "Action failed");
+      }
+    } catch {
+      showToast("Action failed");
+    } finally {
+      setProcessingInviteId(null);
+    }
+  };
 
   const handleOpenExportModal = (tripId: string, tripName: string) => {
     setExportModalTrip({ tripId, tripName });
@@ -294,6 +315,7 @@ export default function ControlCenter() {
 
   const owned = controlCenter?.owned ?? [];
   const joined = controlCenter?.joined ?? [];
+  const pendingInvites = controlCenter?.pendingInvitations ?? [];
 
   return (
     <div className="space-y-8">
@@ -330,6 +352,70 @@ export default function ControlCenter() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
           {controlError}
         </div>
+      )}
+
+      {/* Section: Pending Invitations */}
+      {pendingInvites.length > 0 && (
+        <section className="space-y-4 rounded-2xl border border-primary-200/80 bg-gradient-to-r from-primary-500/5 via-primary-500/10 to-transparent p-5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Mail className="text-primary-500" size={18} />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-800">
+                Pending Invitations / 待处理的邀请
+              </h2>
+              <span className="rounded-full bg-primary-500 px-2.5 py-0.5 text-[11px] font-bold text-white">
+                {pendingInvites.length}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">
+              You have been invited to collaborate on these travel plans
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+            {pendingInvites.map((inv) => (
+              <div
+                key={inv.invitation_id}
+                className="flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-gray-900 line-clamp-1">{inv.trip_name}</h3>
+                    <span className="shrink-0 rounded-full bg-secondary-500/10 px-2 py-0.5 text-[10px] font-bold text-secondary-600">
+                      {inv.role}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Invited by <span className="font-medium text-gray-700">{inv.sender_name}</span>
+                  </p>
+                </div>
+
+                <div className="mt-4 flex items-center justify-end gap-2 border-t border-gray-100 pt-2.5">
+                  <button
+                    disabled={processingInviteId === inv.invitation_id}
+                    onClick={() => handleRespondInvite(inv.invitation_id, inv.trip_id, "rejected")}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <X size={13} />
+                    <span>Decline</span>
+                  </button>
+                  <button
+                    disabled={processingInviteId === inv.invitation_id}
+                    onClick={() => handleRespondInvite(inv.invitation_id, inv.trip_id, "accepted")}
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {processingInviteId === inv.invitation_id ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    <span>Accept & Join</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Section: My Plans */}

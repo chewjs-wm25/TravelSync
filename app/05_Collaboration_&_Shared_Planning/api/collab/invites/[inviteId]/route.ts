@@ -11,15 +11,19 @@ type Ctx = { params: Promise<{ inviteId: string }> };
 export async function DELETE(req: Request, ctx: Ctx) {
   try {
     const { inviteId } = await ctx.params;
-    const me = await resolveDemoUser(extractUserId(req));
+    const me = await resolveDemoUser(extractUserId(req), req);
 
     const invite = await InviteRepo.findById(inviteId);
     if (!invite) return error("Invitation not found", 404);
 
     const targetTripId = invite.trip_id || extractTripId(req);
-    await requirePermission(targetTripId, me.id, "cancelInvite");
+    // 允许发送者本人或 Owner 撤销邀请
+    if (invite.sender_id !== me.id) {
+      await requirePermission(targetTripId, me.id, "cancelInvite");
+    }
 
-    await InviteRepo.deleteInvite(inviteId);
+    // 将邀请状态标记为 expired，使链接彻底失效，无法再被任何人点击加入
+    await InviteRepo.updateStatus(inviteId, "expired");
     await logActivity({
       trip_id: targetTripId,
       user_id: me.id,

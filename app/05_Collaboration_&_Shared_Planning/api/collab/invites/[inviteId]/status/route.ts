@@ -28,13 +28,29 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     const actorAccount = await resolveActor(req, invite);
     if (status === "accepted") {
-      const existing = invite.receiver_user_id
-        ? await AccountRepo.findAccountById(invite.receiver_user_id)
-        : (body.userId ? await AccountRepo.findAccountById(body.userId) : await AccountRepo.findAccountByEmail(invite.receiver_email));
-      const account = existing ?? (await AccountRepo.insertAccount({
-        username: displayNameFromEmail(invite.receiver_email),
-        email: invite.receiver_email,
-      }));
+      // 优先匹配传入的 userId、cookie 会话、receiver_user_id 或邮箱
+      let account: AccountRepo.AccountRow | null = null;
+      if (body.userId) {
+        account = await AccountRepo.findAccountById(body.userId);
+      }
+      if (!account && invite.receiver_user_id) {
+        account = await AccountRepo.findAccountById(invite.receiver_user_id);
+      }
+      if (!account) {
+        const { getAuthSession } = await import("@/business_logic_layer/01_User_&_Account_Management/sessionHelper");
+        const session = await getAuthSession(req).catch(() => null);
+        if (session?.userId) {
+          account = await AccountRepo.findAccountById(session.userId);
+        }
+      }
+      if (!account) {
+        account = await AccountRepo.findAccountByEmail(invite.receiver_email);
+      }
+
+      if (!account) {
+        return error("No registered user account found to accept this invitation. Please sign in first.", 400);
+      }
+
       await InviteRepo.updateReceiverUserId(inviteId, account.id);
       await CollaboratorRepo.insertCollaborator({
         role: invite.role === "Editor" ? "Editor" : "Viewer",

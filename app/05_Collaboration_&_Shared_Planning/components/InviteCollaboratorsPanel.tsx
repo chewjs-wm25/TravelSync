@@ -75,14 +75,14 @@ export default function InviteCollaboratorsPanel() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Email Address
+                Email Address or Username
               </label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="colleague@email.com"
+                placeholder="Registered email or username (e.g. alex@mail.com or alex99)"
                 className="w-full rounded-lg border border-gray-200 bg-[#FAF8FF] px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />
             </div>

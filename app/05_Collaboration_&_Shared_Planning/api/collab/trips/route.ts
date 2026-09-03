@@ -13,7 +13,7 @@ async function getDb() {
 
 export async function GET(req: Request) {
   try {
-    const demoUser = await resolveDemoUser(extractUserId(req));
+    const demoUser = await resolveDemoUser(extractUserId(req), req);
     const db = await getDb();
 
     // 1. 同步级联清理：若用户在 Module 02 删除了行程，自动清理 05 中的所有孤儿数据

@@ -21,6 +21,7 @@ export async function createInvite(input: {
   sender_id: string;
   receiver_email: string;
   role: InviteRepo.InviteRoleDB;
+  receiver_user_id?: string | null;
 }): Promise<InviteRepo.InviteRow> {
   const token = await generateToken();
   const expires_at = isoDaysFromNow(INVITE_TTL_DAYS);
@@ -31,5 +32,6 @@ export async function createInvite(input: {
     expires_at,
     trip_id: input.trip_id,
     sender_id: input.sender_id,
+    receiver_user_id: input.receiver_user_id ?? null,
   });
 }

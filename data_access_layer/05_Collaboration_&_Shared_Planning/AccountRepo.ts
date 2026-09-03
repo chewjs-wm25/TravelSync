@@ -38,6 +38,15 @@ export async function findAccountByEmail(email: string): Promise<AccountRow | nu
     .first<AccountRow>();
 }
 
+/** 按用户名查单个账号（唯一用户名） */
+export async function findAccountByUsername(username: string): Promise<AccountRow | null> {
+  const db = await getDB();
+  return db
+    .prepare("SELECT * FROM users WHERE lower(username) = lower(?) LIMIT 1")
+    .bind(username)
+    .first<AccountRow>();
+}
+
 /** 创建账号（简化版，用于邀请接受时自动创建） */
 export async function insertAccount(a: {
   username: string;

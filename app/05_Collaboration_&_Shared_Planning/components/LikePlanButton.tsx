@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Heart } from "lucide-react";
 import Image from "next/image";
 import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab";
@@ -46,30 +46,35 @@ export default function LikePlanButton({
   // Sync from CollabStore if store has newer data
   useEffect(() => {
     if (storeTrip?.likes) {
-      setLikesData(storeTrip.likes);
+      const likes = storeTrip.likes;
+      Promise.resolve().then(() => {
+        setLikesData(likes);
+      });
     }
   }, [storeTrip?.likes]);
 
   // Fetch likes on mount and when targetTripId or user changes
-  const fetchLikes = useCallback(async () => {
-    if (!targetTripId) return;
-    try {
-      const res = await collabApi.getLikes(targetTripId, effectiveUserId);
-      if (res.success) {
-        setLikesData({
-          count: res.count,
-          likedByMe: res.likedByMe,
-          likers: res.likers ?? [],
-        });
-      }
-    } catch {
-      // ignore
-    }
-  }, [targetTripId, effectiveUserId]);
-
   useEffect(() => {
-    void fetchLikes();
-  }, [fetchLikes]);
+    let cancelled = false;
+    void (async () => {
+      if (!targetTripId) return;
+      try {
+        const res = await collabApi.getLikes(targetTripId, effectiveUserId);
+        if (res.success && !cancelled) {
+          setLikesData({
+            count: res.count,
+            likedByMe: res.likedByMe,
+            likers: res.likers ?? [],
+          });
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetTripId, effectiveUserId]);
 
   // Close popover on outside click
   useEffect(() => {
@@ -153,7 +158,17 @@ export default function LikePlanButton({
       }
     } catch {
       // Re-fetch on failure to restore truth
-      void fetchLikes();
+      if (targetTripId) {
+        void collabApi.getLikes(targetTripId, effectiveUserId).then((fallback) => {
+          if (fallback.success) {
+            setLikesData({
+              count: fallback.count,
+              likedByMe: fallback.likedByMe,
+              likers: fallback.likers ?? [],
+            });
+          }
+        });
+      }
     } finally {
       setIsLoading(false);
     }
