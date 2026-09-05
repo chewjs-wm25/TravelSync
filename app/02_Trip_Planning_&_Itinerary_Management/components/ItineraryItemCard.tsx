@@ -73,7 +73,8 @@ export function ItineraryItemCard({
             type="button"
             onClick={onToggleEdit}
             title="Edit Item"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            aria-label="Edit item"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 active:scale-90"
           >
             <svg
               className="h-4 w-4"
@@ -96,7 +97,8 @@ export function ItineraryItemCard({
               void onDelete();
             }}
             title="Delete Item"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600"
+            aria-label="Delete item"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 active:scale-90"
           >
             <svg
               className="h-4 w-4"
@@ -152,7 +154,7 @@ export function ItineraryItemCard({
                 position: resolvedPosition,
               })
             }
-            className="flex h-5 w-5 items-center justify-center rounded text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex h-6 w-6 items-center justify-center rounded text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 active:scale-90"
             title="Delete note"
             aria-label="Delete note"
           >

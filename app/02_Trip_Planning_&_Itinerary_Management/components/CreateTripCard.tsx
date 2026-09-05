@@ -8,7 +8,7 @@ export default function CreateTripCard({
   onOpen,
 }: CreateTripCardProps) {
   const sharedClasses =
-    "flex cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-white transition-all hover:border-[#ff6b6b] hover:bg-red-50/20";
+    "flex cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-white transition-all hover:border-[#ff6b6b] hover:bg-red-50/20 active:scale-[0.98]";
 
   if (variant === "empty") {
     return (

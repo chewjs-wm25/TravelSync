@@ -147,7 +147,7 @@ export default function TripCard({
                 <button
                   type="button"
                   onClick={closeDeleteDialog}
-                  className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95 disabled:opacity-60"
                   disabled={isDeleting}
                 >
                   Cancel
@@ -156,7 +156,7 @@ export default function TripCard({
                   type="button"
                   onClick={handleDeleteConfirm}
                   disabled={isDeleting || !onDelete}
-                  className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-red-600/20 transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-red-600/20 transition hover:bg-red-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isDeleting ? "Removing Trip..." : "Delete Trip"}
                 </button>
@@ -172,7 +172,7 @@ export default function TripCard({
         aria-label={"Open itinerary for " + name}
         onClick={handleCardNavigate}
         onKeyDown={handleCardKeyDown}
-        className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#ff6b6b]/30 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b6b] focus-visible:ring-offset-2"
+        className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#ff6b6b]/30 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b6b] focus-visible:ring-offset-2"
       >
         <div className="relative h-48 w-full overflow-hidden bg-gray-200">
           {image ? (
@@ -196,7 +196,7 @@ export default function TripCard({
                 event.stopPropagation();
                 setIsOpen((prev) => !prev);
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-gray-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white hover:text-gray-900"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-gray-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white hover:text-gray-900 active:scale-90"
               aria-label="Trip options"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
@@ -212,7 +212,7 @@ export default function TripCard({
                     event.stopPropagation();
                     handleEdit();
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
                 >
                   <svg
                     className="h-4 w-4 text-gray-500"
@@ -231,8 +231,15 @@ export default function TripCard({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsOpen(false);
+                    router.push(
+                      `/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(tripId)}`
+                    );
+                  }}
+                  title="Open this trip in Shared Planning"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
                 >
                   <svg
                     className="h-4 w-4 text-gray-500"
@@ -257,7 +264,7 @@ export default function TripCard({
                     setIsOpen(false);
                     setIsDeleteDialogOpen(true);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 active:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                   disabled={!onDelete}
                 >
                   <svg

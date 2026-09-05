@@ -74,7 +74,7 @@ export default function PendingInvitesPanel({ isOwner }: PendingInvitesPanelProp
         {pending.length > 0 && (
           <button
             onClick={simulateExpiry}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:border-warning hover:text-warning"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:border-warning hover:text-warning active:scale-95"
             title="Demo: skip ahead 30 days to show auto-expiry"
           >
             <RefreshCw size={13} />
@@ -126,7 +126,7 @@ export default function PendingInvitesPanel({ isOwner }: PendingInvitesPanelProp
 
                   <button
                     onClick={() => copyLink(invite)}
-                    className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-50"
+                    className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-50 active:scale-95"
                     title="Copy invite link (demo)"
                   >
                     {copiedId === invite.id ? (
@@ -142,7 +142,7 @@ export default function PendingInvitesPanel({ isOwner }: PendingInvitesPanelProp
                       await cancelInvite(invite.id);
                       showToast(`Invitation to ${invite.email} cancelled (link invalidated)`);
                     }}
-                    className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50/60 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-100/70"
+                    className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50/60 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-100/70 active:scale-95"
                     title="Cancel this invitation (invalidates the link permanently)"
                   >
                     <Trash2 size={13} />

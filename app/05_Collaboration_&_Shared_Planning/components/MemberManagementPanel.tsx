@@ -146,7 +146,7 @@ export default function MemberManagementPanel() {
                   <div className="relative">
                     <button
                       onClick={(e) => openMenu(m, e)}
-                      className="text-gray-400 transition hover:text-gray-600"
+                      className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 active:scale-95"
                       aria-label={`Manage ${m.name}`}
                     >
                       <MoreVertical size={18} />
@@ -172,7 +172,7 @@ export default function MemberManagementPanel() {
                             <button
                               key={role}
                               onClick={() => handleRoleChange(m, role)}
-                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition hover:bg-gray-50 ${
+                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition hover:bg-gray-50 active:bg-gray-100 ${
                                 m.role === role
                                   ? "text-primary-500"
                                   : "text-gray-600"
@@ -185,7 +185,7 @@ export default function MemberManagementPanel() {
                           <div className="my-1 h-px bg-gray-100" />
                           <button
                             onClick={() => handleRemove(m)}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-error transition hover:bg-error/5"
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-error transition hover:bg-error/5 active:bg-error/10"
                           >
                             <Trash2 size={14} />
                             Remove member
@@ -199,7 +199,7 @@ export default function MemberManagementPanel() {
                 {isSelf && m.role !== "Owner" && (
                   <button
                     onClick={handleLeave}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:border-error hover:text-error"
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:border-error hover:text-error active:scale-95"
                   >
                     <LogOut size={14} />
                     Leave

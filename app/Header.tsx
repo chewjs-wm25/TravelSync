@@ -67,7 +67,11 @@ export default function Header() {
             >
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-semibold text-gray-800">{user.name}</p>
-                <p className="text-[10px] text-gray-400">{user.role ?? "user"}</p>
+                {user.role === "admin" && (
+                  <span className="mt-0.5 inline-block rounded-md bg-primary-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-500">
+                    Admin
+                  </span>
+                )}
               </div>
               <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-gray-200">
                 {user.avatarUrl ? (

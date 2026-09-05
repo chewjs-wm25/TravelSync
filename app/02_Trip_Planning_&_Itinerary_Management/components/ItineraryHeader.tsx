@@ -34,7 +34,7 @@ export function ItineraryHeader({
       <div>
         <Link
           href="/02_Trip_Planning_&_Itinerary_Management"
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
         >
           <svg
             className="h-4 w-4 text-gray-600"
@@ -85,7 +85,7 @@ export function ItineraryHeader({
             type="button"
             onClick={onCreate}
             disabled={!canCreate || isLoading}
-            className="inline-flex items-center gap-2 rounded-full bg-[#ff6b6b] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-[#ff6b6b] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <svg
               className="h-4 w-4"

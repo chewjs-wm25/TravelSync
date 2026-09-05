@@ -1055,7 +1055,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
           <p className="mb-4 text-sm text-gray-600">Please sign in to access this trip. Trips are private to each account.</p>
           <a
             href="/01_User_&_Account_Management"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-4 py-2 text-sm font-semibold text-white shadow-sm"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#ff5252] active:scale-95"
           >
             Go to Sign in
           </a>
@@ -1088,6 +1088,11 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
         endDate={tripEnd}
         ownerAvatar={user?.avatarUrl ?? undefined}
         ownerName={user?.name ?? undefined}
+        shareUrl={
+          tripId
+            ? `/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(tripId)}`
+            : undefined
+        }
         onSaveTripName={handleSaveTripName}
       />
 
@@ -1107,14 +1112,14 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
                   type="date"
                   value={draftStartDate}
                   onChange={(e) => setDraftStartDate(e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20"
                 />
                 <span className="text-sm text-gray-500">—</span>
                 <input
                   type="date"
                   value={draftEndDate}
                   onChange={(e) => setDraftEndDate(e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20"
                 />
 
                 <button
@@ -1166,7 +1171,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
                     }
                   }}
                   disabled={isSavingDates}
-                  className="rounded-xl bg-[#ff6b6b] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#ff5252] disabled:opacity-60"
+                  className="rounded-xl bg-[#ff6b6b] px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#ff5252] active:scale-95 disabled:opacity-60"
                 >
                   Save
                 </button>
@@ -1174,7 +1179,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
                 <button
                   type="button"
                   onClick={() => setIsEditingDates(false)}
-                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm ml-1"
+                  className="ml-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 active:scale-95"
                 >
                   Cancel
                 </button>
@@ -1183,7 +1188,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
               <>
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-100"
+                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-100 active:scale-95"
                   onClick={() => {
                     setDraftStartDate(trip?.start_date ?? "");
                     setDraftEndDate(trip?.end_date ?? "");
@@ -1210,7 +1215,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
                   type="button"
                   onClick={() => setIsCreateModalOpen(true)}
                   disabled={!canCreateItinerary}
-                  className="bg-primary-500 hover:bg-primary-500/90 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all disabled:cursor-not-allowed disabled:bg-gray-300"
+                  className="bg-primary-500 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                   title="Add a new itinerary day"
                 >
                   <span className="text-sm font-bold">+</span>
@@ -1234,7 +1239,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
-              className="bg-primary-500 hover:bg-primary-500/90 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm"
+              className="bg-primary-500 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#ff5252] active:scale-95"
             >
               <span>+</span> Create First Itinerary Day
             </button>

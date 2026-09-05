@@ -25,11 +25,13 @@ function mapPublicUser(u: {
   username: string;
   fullName: string;
   profilePicture: string | null;
+  role?: string;
 }): User {
   return {
     id: u.id,
     name: u.fullName || u.username,
     avatarUrl: u.profilePicture ?? undefined,
+    role: u.role ?? undefined,
   };
 }
 

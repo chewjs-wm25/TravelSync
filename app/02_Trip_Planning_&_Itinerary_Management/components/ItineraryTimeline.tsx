@@ -34,7 +34,7 @@ export function ItineraryTimeline({
           type="button"
           onClick={onCreate}
           disabled={!canCreate || isLoading}
-          className="rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
           + Add Itinerary
         </button>
@@ -70,7 +70,7 @@ export function ItineraryTimeline({
             type="button"
             onClick={onCreate}
             disabled={!canCreate}
-            className="mt-6 inline-flex rounded-full bg-[#ff6b6b] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 inline-flex rounded-full bg-[#ff6b6b] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Create first itinerary
           </button>

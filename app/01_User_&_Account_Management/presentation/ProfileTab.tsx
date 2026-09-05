@@ -136,7 +136,7 @@ export default function ProfileTab({
                 <button
                   type="button"
                   onClick={removePicture}
-                  className="text-xs text-red-600 hover:underline"
+                  className="text-xs text-red-600 transition-colors hover:text-red-700 hover:underline active:opacity-70"
                 >
                   Remove picture
                 </button>
@@ -169,7 +169,7 @@ export default function ProfileTab({
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+            className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 active:scale-95 disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save changes"}
           </button>
@@ -182,7 +182,7 @@ export default function ProfileTab({
               setPicture(user.profilePicture ?? "");
               setError(null);
             }}
-            className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+            className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-700 active:scale-95"
           >
             Cancel
           </button>
@@ -249,7 +249,7 @@ export default function ProfileTab({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="mt-6 rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800"
+        className="mt-6 rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 active:scale-95"
       >
         Edit profile
       </button>

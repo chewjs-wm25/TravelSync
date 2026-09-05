@@ -257,7 +257,7 @@ export default function ImportTripModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-xl p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 active:scale-90"
           >
             <X size={18} />
           </button>
@@ -283,7 +283,7 @@ export default function ImportTripModal({
               <div className="mt-6 flex justify-center gap-3">
                 <button
                   onClick={onClose}
-                  className="rounded-xl border border-gray-200 px-5 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="rounded-xl border border-gray-200 px-5 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95"
                 >
                   Close
                 </button>
@@ -309,15 +309,15 @@ export default function ImportTripModal({
                       setActiveTab("key");
                       setErrorMsg(null);
                     }}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition ${
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition active:scale-[0.98] ${
                       activeTab === "key"
-                        ? "bg-white text-primary-600 shadow-xs border border-gray-200/60"
+                        ? "bg-white text-primary-500 shadow-xs border border-gray-200/60"
                         : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                     }`}
                   >
                     <Key size={14} />
                     <span>Import via Share Key</span>
-                    <span className="rounded-full bg-primary-100 px-1.5 py-0.2 text-[9px] font-bold text-primary-700">
+                    <span className="rounded-full bg-primary-500/10 px-1.5 py-0.2 text-[9px] font-bold text-primary-500">
                       No File
                     </span>
                   </button>
@@ -327,9 +327,9 @@ export default function ImportTripModal({
                       setActiveTab("file");
                       setErrorMsg(null);
                     }}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition ${
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition active:scale-[0.98] ${
                       activeTab === "file"
-                        ? "bg-white text-primary-600 shadow-xs border border-gray-200/60"
+                        ? "bg-white text-primary-500 shadow-xs border border-gray-200/60"
                         : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                     }`}
                   >
@@ -351,7 +351,7 @@ export default function ImportTripModal({
                         Enter Trip Share Key or Link
                       </h3>
                       <p className="mt-1 text-xs text-gray-500">
-                        Paste the Key (e.g. <code className="text-primary-600 font-semibold bg-primary-50 px-1 py-0.5 rounded">PLAN-XXXX-XXXX</code>) or the direct share link
+                        Paste the Key (e.g. <code className="text-primary-500 font-semibold bg-primary-500/10 px-1 py-0.5 rounded">PLAN-XXXX-XXXX</code>) or the direct share link
                       </p>
                     </div>
 
@@ -373,7 +373,7 @@ export default function ImportTripModal({
                         type="button"
                         disabled={isFetchingKey || !inputKey.trim()}
                         onClick={() => void handleFetchByKey()}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-primary-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isFetchingKey ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -397,7 +397,7 @@ export default function ImportTripModal({
                     onClick={() => fileInputRef.current?.click()}
                     className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition cursor-pointer ${
                       dragActive
-                        ? "border-primary-500 bg-primary-50/40"
+                        ? "border-primary-500 bg-primary-500/10"
                         : "border-gray-200 bg-gray-50/60 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >
@@ -421,7 +421,7 @@ export default function ImportTripModal({
                 )
               ) : (
                 /* Selected / Loaded Plan Badge */
-                <div className="flex items-center justify-between rounded-2xl border border-primary-500/20 bg-primary-50/40 p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-primary-500/20 bg-primary-500/10 p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary-500 shadow-sm">
                       {activeTab === "key" ? <Key size={20} /> : <FileCode size={20} />}
@@ -443,7 +443,7 @@ export default function ImportTripModal({
                   </div>
                   <button
                     onClick={handleReset}
-                    className="rounded-lg px-2.5 py-1 text-xs font-semibold text-gray-500 hover:bg-white/80 hover:text-gray-700"
+                    className="rounded-lg px-2.5 py-1 text-xs font-semibold text-gray-500 transition hover:bg-white/80 hover:text-gray-700 active:scale-95"
                   >
                     Change Plan
                   </button>
@@ -614,7 +614,7 @@ export default function ImportTripModal({
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50"
             >
               Cancel
             </button>

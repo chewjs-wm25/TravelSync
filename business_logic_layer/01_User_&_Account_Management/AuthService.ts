@@ -28,6 +28,8 @@ export interface PublicUser {
   createdAt: string;
   isVerified: boolean;
   hasPassword: boolean;
+  /** 账户角色（user | admin），供前端按角色展示 */
+  role: string;
 }
 
 export interface LoginInput {
@@ -77,6 +79,7 @@ function publicUser(user: UserRecord): PublicUser {
     createdAt: user.created_at,
     isVerified: Boolean(user.is_verified),
     hasPassword: user.has_password === undefined || user.has_password === null ? true : Boolean(user.has_password),
+    role: user.role ?? "user",
   };
 }
 

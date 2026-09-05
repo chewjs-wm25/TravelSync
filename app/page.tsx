@@ -501,7 +501,7 @@ export default function HomePage() {
                       setShowSuggestions(false);
                       handleStartPlanning(item.name);
                     }}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition hover:bg-gray-50"
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition hover:bg-gray-50 active:scale-[0.98]"
                   >
                     <div className="flex items-center gap-2.5">
                       <MapPin size={15} className="text-primary-500" />
@@ -581,7 +581,7 @@ export default function HomePage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition ${
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
                   isActive
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-500 hover:text-gray-900"
@@ -678,7 +678,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={() => setActiveItineraryDay(1)}
-                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition active:scale-[0.98] ${
                           activeItineraryDay === 1
                             ? "bg-white text-gray-900 shadow-sm border border-gray-200"
                             : "text-gray-500 hover:text-gray-900"
@@ -689,7 +689,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={() => setActiveItineraryDay(2)}
-                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition active:scale-[0.98] ${
                           activeItineraryDay === 2
                             ? "bg-white text-gray-900 shadow-sm border border-gray-200"
                             : "text-gray-500 hover:text-gray-900"
@@ -1027,7 +1027,7 @@ export default function HomePage() {
                 key={cat.id}
                 type="button"
                 onClick={() => setCategoryFilter(cat.id)}
-                className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
+                className={`rounded-lg px-3 py-1 text-xs font-medium transition active:scale-[0.98] ${
                   categoryFilter === cat.id
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-500 hover:text-gray-900"
@@ -1122,7 +1122,7 @@ export default function HomePage() {
                 </button>
                 <Link
                   href="/03_Destination_Discovery_&_Inspiration"
-                  className="text-xs font-medium text-gray-500 transition hover:text-gray-800"
+                  className="text-xs font-medium text-gray-500 transition hover:text-gray-800 active:opacity-70"
                 >
                   Explore Guide
                 </Link>

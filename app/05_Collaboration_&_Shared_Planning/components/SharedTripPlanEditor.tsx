@@ -702,7 +702,7 @@ export default function SharedTripPlanEditor() {
           {canEdit && (
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary-500/90"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-95"
             >
               <Plus size={14} />
               <span>Create First Day</span>

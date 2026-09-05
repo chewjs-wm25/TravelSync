@@ -15,7 +15,7 @@ export default function SuggestedTripCard({
   owner,
 }: SuggestedTripCardProps) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
       <div className="h-44 w-full bg-gray-200">
         <img src={image} alt={name} className="h-full w-full object-cover" />
       </div>

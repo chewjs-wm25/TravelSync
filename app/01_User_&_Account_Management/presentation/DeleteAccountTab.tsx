@@ -75,7 +75,7 @@ export default function DeleteAccountTab({
       <button
         type="submit"
         disabled={!confirmed || !confirmation.trim() || deleting}
-        className="rounded-lg bg-red-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg bg-red-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {deleting ? "Deleting account..." : "Permanently Delete Account"}
       </button>

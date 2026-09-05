@@ -90,7 +90,7 @@ export default function ItineraryPermissionDemo() {
             <select
               value={day}
               onChange={(e) => setDay(Number(e.target.value))}
-              className="w-24 appearance-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-primary-500"
+              className="w-24 appearance-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-primary-500 active:scale-95"
             >
               {[1, 2, 3, 4, 5].map((d) => (
                 <option key={d} value={d}>
@@ -139,7 +139,7 @@ export default function ItineraryPermissionDemo() {
                     {canEdit && (
                       <button
                         onClick={() => handleRemove(item.itemId, item.name)}
-                        className="text-gray-300 transition hover:text-error"
+                        className="text-gray-300 transition hover:text-error active:scale-90"
                         aria-label={`Delete ${item.name}`}
                       >
                         <Trash2 size={16} />

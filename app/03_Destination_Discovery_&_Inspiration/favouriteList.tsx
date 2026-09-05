@@ -118,7 +118,7 @@ export default function FavouriteList({
         <div
           aria-hidden="true"
           onClick={() => setIsDrawerOpen(false)}
-          className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-sm"
+          className="fixed inset-0 z-40 cursor-pointer bg-gray-900/40 backdrop-blur-sm"
         />
       )}
 

@@ -514,7 +514,7 @@ END:VCALENDAR`;
         </div>
         <Link
           href="/05_Collaboration_&_Shared_Planning"
-          className="rounded-xl bg-primary-500 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-primary-600 active:scale-[0.98]"
+          className="rounded-xl bg-primary-500 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-primary-500/90 active:scale-[0.98]"
         >
           Return to Control Center
         </Link>
@@ -557,7 +557,7 @@ END:VCALENDAR`;
       <div className="flex-1 space-y-6">
         <Link
           href="/05_Collaboration_&_Shared_Planning"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 transition-colors hover:text-primary-500 active:opacity-70"
         >
           ← Back to Control Center
         </Link>
@@ -613,7 +613,7 @@ END:VCALENDAR`;
             </button>
             <button
               onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 active:scale-[0.97]"
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 active:scale-[0.98]"
             >
               <Upload size={18} className="text-primary-500" />
               <span>Import Plan</span>
@@ -621,7 +621,7 @@ END:VCALENDAR`;
             {canInvite && (
               <button
                 onClick={handleInviteScroll}
-                className="flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 font-medium text-white shadow-md transition hover:bg-primary-500/80 active:scale-[0.97]"
+                className="flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 font-medium text-white shadow-md transition hover:bg-primary-500/80 active:scale-[0.98]"
               >
                 <UserPlus size={18} />
                 Invite
@@ -662,15 +662,15 @@ END:VCALENDAR`;
               <div className="space-y-3">
                 <button
                   onClick={() => setIsExportModalOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-lg border border-primary-200 bg-gradient-to-r from-primary-50/70 to-white px-4 py-3 text-left transition hover:from-primary-50 hover:to-primary-50/40 active:scale-[0.98]"
+                  className="flex w-full items-center gap-3 rounded-lg border border-primary-500/20 bg-gradient-to-r from-primary-500/10 to-white px-4 py-3 text-left transition hover:from-primary-500/20 hover:to-primary-500/5 hover:shadow-sm active:scale-[0.98]"
                 >
-                  <Key size={20} className="shrink-0 text-primary-600" />
+                  <Key size={20} className="shrink-0 text-primary-500" />
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-bold text-gray-800">
                         Share via Plan Key
                       </span>
-                      <span className="rounded-full bg-primary-100 px-1.5 py-0.2 text-[9px] font-extrabold text-primary-700">
+                      <span className="rounded-full bg-primary-500/10 px-1.5 py-0.2 text-[9px] font-extrabold text-primary-500">
                         No File
                       </span>
                     </div>
@@ -681,7 +681,7 @@ END:VCALENDAR`;
                 </button>
                 <button
                   onClick={exportJSON}
-                  className="flex w-full items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/30 px-4 py-3 text-left transition hover:bg-amber-50 active:scale-[0.98]"
+                  className="flex w-full items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/30 px-4 py-3 text-left transition hover:bg-amber-50 hover:shadow-sm active:scale-[0.98]"
                 >
                   <FileCode size={20} className="shrink-0 text-amber-600" />
                   <div>
@@ -695,7 +695,7 @@ END:VCALENDAR`;
                 </button>
                 <button
                   onClick={exportPDF}
-                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]"
+                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 hover:shadow-sm active:scale-[0.98]"
                 >
                   <FileText size={20} className="shrink-0 text-red-500" />
                   <span className="text-sm font-medium text-gray-800">
@@ -704,7 +704,7 @@ END:VCALENDAR`;
                 </button>
                 <button
                   onClick={exportCSV}
-                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 active:scale-[0.98]"
+                  className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 hover:shadow-sm active:scale-[0.98]"
                 >
                   <Download size={20} className="shrink-0 text-green-600" />
                   <span className="text-sm font-medium text-gray-800">
@@ -713,7 +713,7 @@ END:VCALENDAR`;
                 </button>
                 <button
                   onClick={() => setIsGoogleCalendarModalOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/30 px-4 py-3 text-left transition hover:bg-blue-50 active:scale-[0.98]"
+                  className="flex w-full items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/30 px-4 py-3 text-left transition hover:bg-blue-50 hover:shadow-sm active:scale-[0.98]"
                 >
                   <CalendarDays size={20} className="shrink-0 text-blue-600" />
                   <div>
@@ -770,7 +770,7 @@ END:VCALENDAR`;
             </div>
             <button
               onClick={() => setChatOpen(false)}
-              className="ml-auto rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+              className="ml-auto rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 active:scale-95"
               aria-label="Close chat"
             >
               <X size={16} />
@@ -1107,7 +1107,7 @@ function InviteOnboardingFlow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier: inviteData.email, password }),
       });
-      const data = (await res.json()) as { success: boolean; user?: { id: string; username: string; fullName: string; profilePicture?: string }; error?: string; message?: string };
+      const data = (await res.json()) as { success: boolean; user?: { id: string; username: string; fullName: string; profilePicture?: string; role?: string }; error?: string; message?: string };
       if (!data.success || !data.user) {
         setSubmitError(data.error || data.message || "Invalid password or email");
         setSubmitting(false);
@@ -1117,6 +1117,7 @@ function InviteOnboardingFlow({
         id: data.user.id,
         name: data.user.fullName || data.user.username,
         avatarUrl: data.user.profilePicture,
+        role: data.user.role,
       });
 
       // 接受邀请
@@ -1156,7 +1157,7 @@ function InviteOnboardingFlow({
       const data = (await res.json()) as {
         success: boolean;
         tripId?: string;
-        user?: { id: string; username: string; fullName: string; profilePicture?: string };
+        user?: { id: string; username: string; fullName: string; profilePicture?: string; role?: string };
         error?: string;
         message?: string;
       };
@@ -1165,6 +1166,7 @@ function InviteOnboardingFlow({
           id: data.user.id,
           name: data.user.fullName || data.user.username,
           avatarUrl: data.user.profilePicture,
+          role: data.user.role,
         });
         const destTrip = data.tripId || inviteData.tripId;
         window.location.href = `/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(destTrip)}`;
@@ -1258,7 +1260,7 @@ function InviteOnboardingFlow({
         <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-xl">
           <button
             onClick={() => setViewState("decision")}
-            className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800"
+            className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 transition-colors hover:text-primary-500 active:opacity-70"
           >
             <ArrowLeft size={14} /> Back to Invitation
           </button>
@@ -1304,7 +1306,7 @@ function InviteOnboardingFlow({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="mt-1 text-xs text-primary-500"
+                className="mt-1 text-xs text-primary-500 transition-colors hover:underline active:opacity-70"
               >
                 {showPassword ? "Hide" : "Show"} password
               </button>
@@ -1319,7 +1321,7 @@ function InviteOnboardingFlow({
             <div className="text-center">
               <button
                 onClick={() => setViewState("register")}
-                className="text-xs text-gray-500 hover:text-primary-500"
+                className="text-xs text-gray-500 transition-colors hover:text-primary-500 active:opacity-70"
               >
                 Need to create a new account instead?
               </button>
@@ -1337,7 +1339,7 @@ function InviteOnboardingFlow({
         <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-xl">
           <button
             onClick={() => setViewState("decision")}
-            className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800"
+            className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 transition-colors hover:text-primary-500 active:opacity-70"
           >
             <ArrowLeft size={14} /> Back to Invitation
           </button>
@@ -1411,7 +1413,7 @@ function InviteOnboardingFlow({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="mt-1 text-xs text-primary-500"
+                className="mt-1 text-xs text-primary-500 transition-colors hover:underline active:opacity-70"
               >
                 {showPassword ? "Hide" : "Show"} password
               </button>
@@ -1435,7 +1437,7 @@ function InviteOnboardingFlow({
             <div className="text-center">
               <button
                 onClick={() => setViewState("login")}
-                className="text-xs text-gray-500 hover:text-primary-500"
+                className="text-xs text-gray-500 transition-colors hover:text-primary-500 active:opacity-70"
               >
                 Already registered? Sign in instead
               </button>
@@ -1515,7 +1517,7 @@ function InviteOnboardingFlow({
               <button
                 onClick={handleSwitchAccount}
                 disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-6 py-2.5 text-xs font-medium text-gray-600 transition hover:bg-gray-100 active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-6 py-2.5 text-xs font-medium text-gray-600 transition hover:bg-gray-100 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Switch Account ({inviteData.accountExists ? `Sign in as ${inviteData.email}` : `Register as ${inviteData.email}`})
               </button>
@@ -1523,7 +1525,7 @@ function InviteOnboardingFlow({
               <button
                 onClick={handleDecline}
                 disabled={submitting}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-6 py-2.5 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-red-600"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-6 py-2.5 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-red-600 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X size={14} />
                 Decline Invitation
@@ -1536,7 +1538,7 @@ function InviteOnboardingFlow({
             <button
               onClick={() => setViewState(inviteData.accountExists ? "login" : "register")}
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-6 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-primary-500/90 active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-6 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-primary-500/90 active:scale-[0.98] disabled:opacity-60"
             >
               <Check size={16} />
               Accept Invitation
@@ -1545,7 +1547,7 @@ function InviteOnboardingFlow({
             <button
               onClick={handleDecline}
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-6 py-3 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-red-600"
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-6 py-3 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-red-600 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X size={14} />
               Decline

@@ -122,6 +122,7 @@ export default function AccountSettingsPage() {
     return "";
   });
   const [loading, setLoading] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = useAuthStore.subscribe((state) => {
@@ -160,6 +161,9 @@ export default function AccountSettingsPage() {
       .catch(() => {
         setUser(null);
         useAuthStore.getState().syncUser(null);
+      })
+      .finally(() => {
+        setSessionLoading(false);
       });
   }, []);
 
@@ -244,13 +248,43 @@ export default function AccountSettingsPage() {
     );
   }
 
+  // 会话确认中：先渲染设置界面的骨架占位，避免已登录用户闪见登录表单
+  if (sessionLoading) {
+    return (
+      <main className="mx-auto w-full max-w-5xl px-4 py-10">
+        <div className="flex flex-col gap-8 md:flex-row">
+          <aside className="md:w-56 flex-shrink-0">
+            <div className="h-3 w-28 animate-pulse rounded-full bg-gray-200" />
+            <div className="mt-3 h-7 w-32 animate-pulse rounded-xl bg-gray-200" />
+            <div className="mt-6 space-y-1.5">
+              <div className="h-10 w-full animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-gray-100" />
+            </div>
+          </aside>
+          <section className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
+            <div className="h-3 w-24 animate-pulse rounded-full bg-gray-200" />
+            <div className="mt-4 h-7 w-48 animate-pulse rounded-xl bg-gray-200" />
+            <div className="mt-6 space-y-4">
+              <div className="h-10 w-full animate-pulse rounded-xl bg-gray-100" />
+              <div className="h-10 w-full animate-pulse rounded-xl bg-gray-100" />
+              <div className="h-28 w-full animate-pulse rounded-xl bg-gray-100" />
+              <div className="h-10 w-full animate-pulse rounded-xl bg-gray-100" />
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-[calc(100vh-180px)] max-w-md flex-col justify-center px-4 py-8">
       {/* Return to Home Header Link */}
       <div className="mb-5 flex items-center justify-between">
         <Link
           href="/"
-          className="group inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 transition hover:text-gray-900"
+          className="group inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 transition hover:text-gray-900 active:opacity-70"
         >
           <ArrowLeft
             size={15}
@@ -286,7 +320,7 @@ export default function AccountSettingsPage() {
             <button
               type="button"
               onClick={() => switchMode("signin")}
-              className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
+              className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all active:opacity-70 ${
                 mode === "signin"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-500 hover:text-gray-900"
@@ -297,7 +331,7 @@ export default function AccountSettingsPage() {
             <button
               type="button"
               onClick={() => switchMode("register")}
-              className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
+              className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all active:opacity-70 ${
                 mode === "register"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-500 hover:text-gray-900"
@@ -335,7 +369,7 @@ export default function AccountSettingsPage() {
           <div className="mt-6 space-y-5">
             <a
               href="/01_User_&_Account_Management/account-actions?action=google"
-              className="flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99]"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98]"
             >
               <GoogleIcon className="h-4 w-4" />
               <span>Continue with Google</span>
@@ -390,7 +424,7 @@ export default function AccountSettingsPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.99] disabled:opacity-50"
+              className="w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.98] disabled:opacity-50"
             >
               {loading ? "Sending link..." : "Send Reset Link"}
             </button>
@@ -399,7 +433,7 @@ export default function AccountSettingsPage() {
               <button
                 type="button"
                 onClick={() => switchMode("signin")}
-                className="text-xs font-semibold text-primary-500 transition hover:underline"
+                className="text-xs font-semibold text-primary-500 transition hover:underline active:opacity-70"
               >
                 ← Back to Sign in
               </button>
@@ -445,7 +479,7 @@ export default function AccountSettingsPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.99] disabled:opacity-50"
+              className="w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.98] disabled:opacity-50"
             >
               {loading ? "Resetting..." : "Save New Password"}
             </button>
@@ -454,7 +488,7 @@ export default function AccountSettingsPage() {
               <button
                 type="button"
                 onClick={() => switchMode("signin")}
-                className="text-xs font-semibold text-primary-500 transition hover:underline"
+                className="text-xs font-semibold text-primary-500 transition hover:underline active:opacity-70"
               >
                 ← Back to Sign in
               </button>
@@ -592,7 +626,7 @@ export default function AccountSettingsPage() {
                   <button
                     type="button"
                     onClick={() => switchMode("forgot")}
-                    className="text-[11px] font-semibold text-primary-500 transition hover:underline"
+                    className="text-[11px] font-semibold text-primary-500 transition hover:underline active:opacity-70"
                   >
                     Forgot password?
                   </button>
@@ -615,7 +649,7 @@ export default function AccountSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((curr) => !curr)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 active:scale-90"
                   title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -653,7 +687,7 @@ export default function AccountSettingsPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.99] disabled:opacity-50"
+              className="mt-2 w-full rounded-2xl bg-primary-500 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-[0.98] disabled:opacity-50"
             >
               {loading
                 ? "Processing..."

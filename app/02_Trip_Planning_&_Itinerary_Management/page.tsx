@@ -170,7 +170,7 @@ export default function PlanningPage() {
 
               setIsCreateModalOpen(true);
             }}
-            className="flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#ff5252]"
+            className="flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-150 hover:bg-[#ff5252] active:scale-95"
           >
             <svg
               className="h-4 w-4"
@@ -202,7 +202,7 @@ export default function PlanningPage() {
               <p className="mb-4 text-sm text-gray-600">Please sign in to access your trips and create new itineraries.</p>
               <a
                 href="/01_User_&_Account_Management"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#ff6b6b] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#ff5252] active:scale-95"
               >
                 Go to Sign in
               </a>

@@ -84,7 +84,7 @@ export default function VehicleGarageClient() {
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-primary-500 hover:bg-primary-500 hover:shadow-hover rounded-full px-4 py-2 text-sm font-semibold text-white hover:brightness-90"
+            className="rounded-full bg-primary-500 px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-[#ff5252] hover:shadow-hover active:scale-95"
           >
             + Add Vehicle
           </button>
@@ -168,14 +168,14 @@ export default function VehicleGarageClient() {
             <div className="flex gap-2 sm:col-span-3">
               <button
                 type="submit"
-                className="bg-primary-500 hover:bg-primary-500 hover:shadow-hover rounded-2xl px-6 py-2 text-sm font-semibold text-white hover:brightness-90"
+                className="rounded-2xl bg-primary-500 px-6 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-[#ff5252] hover:shadow-hover active:scale-95"
               >
                 {editingId ? "Update Vehicle" : "Save Vehicle"}
               </button>
               <button
                 type="button"
                 onClick={handleCancel}
-                className="rounded-2xl border border-gray-200 px-6 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-100"
+                className="rounded-2xl border border-gray-200 px-6 py-2 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-100 active:scale-95"
               >
                 Cancel
               </button>
@@ -220,7 +220,7 @@ export default function VehicleGarageClient() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setDefaultVehicle(vehicle.id)}
-                      className={`rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${
+                      className={`rounded-xl border px-3 py-1.5 text-sm font-semibold transition active:scale-95 ${
                         vehicle.isDefault
                           ? "border-success/20 bg-success/10 text-success"
                           : "hover:border-success/30 hover:bg-success/10 border-gray-200 bg-white text-gray-500"
@@ -230,13 +230,13 @@ export default function VehicleGarageClient() {
                     </button>
                     <button
                       onClick={() => handleEdit(vehicle)}
-                      className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-500 hover:bg-gray-100"
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-100 active:scale-95"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => deleteVehicle(vehicle.id)}
-                      className="border-error/20 text-error hover:bg-error/10 rounded-xl border bg-white px-3 py-1.5 text-sm font-semibold"
+                      className="border-error/20 text-error hover:bg-error/10 rounded-xl border bg-white px-3 py-1.5 text-sm font-semibold transition-colors active:scale-95"
                     >
                       Delete
                     </button>

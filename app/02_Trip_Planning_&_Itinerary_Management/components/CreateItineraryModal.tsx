@@ -224,7 +224,7 @@ export default function CreateItineraryModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-900"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 active:scale-90"
               aria-label="Close modal"
             >
               <svg
@@ -305,7 +305,7 @@ export default function CreateItineraryModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95 disabled:opacity-60"
               disabled={isSubmitting}
             >
               Cancel
@@ -313,7 +313,7 @@ export default function CreateItineraryModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-full bg-[#ff6b6b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center justify-center rounded-full bg-[#ff6b6b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? "Creating..." : "Add Day"}
             </button>

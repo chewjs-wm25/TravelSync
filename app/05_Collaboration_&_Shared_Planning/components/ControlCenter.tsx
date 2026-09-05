@@ -124,13 +124,13 @@ function TripCard({
         <LikePlanButton tripId={summary.tripId} size="sm" showLikersPopover={false} />
         <button
           onClick={() => onOpen(summary.tripId)}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-500/90 active:scale-[0.98]"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-500/90 active:scale-95"
         >
           <span>Open</span>
         </button>
         <button
           onClick={() => onExport(summary.tripId, summary.tripName)}
-          className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-primary-500"
+          className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-primary-500 active:scale-90"
           title="Share via Key or Export Plan"
           aria-label="Share via Key or Export Plan"
         >
@@ -151,7 +151,9 @@ function TripCard({
           <button
             disabled={toggling}
             onClick={() => handleToggle(!summary.isShared)}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${
+            role="switch"
+            aria-checked={summary.isShared}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition active:scale-95 ${
               summary.isShared ? "bg-emerald-500" : "bg-gray-300"
             } ${toggling ? "opacity-60" : ""}`}
             aria-label="Toggle share"
@@ -178,14 +180,14 @@ function TripCard({
               <button
                 disabled={toggling}
                 onClick={() => setConfirmPrivate(false)}
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 disabled={toggling}
                 onClick={confirmKick}
-                className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-60"
+                className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-600 active:scale-[0.98] disabled:opacity-60"
               >
                 {toggling ? <Loader2 size={14} className="animate-spin" /> : null}
                 Confirm Private
@@ -340,7 +342,7 @@ export default function ControlCenter() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50 active:scale-95 disabled:opacity-60"
           >
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             Refresh
@@ -381,7 +383,7 @@ export default function ControlCenter() {
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold text-gray-900 line-clamp-1">{inv.trip_name}</h3>
-                    <span className="shrink-0 rounded-full bg-secondary-500/10 px-2 py-0.5 text-[10px] font-bold text-secondary-600">
+                    <span className="shrink-0 rounded-full bg-secondary-500/10 px-2 py-0.5 text-[10px] font-bold text-secondary-500">
                       {inv.role}
                     </span>
                   </div>
@@ -394,7 +396,7 @@ export default function ControlCenter() {
                   <button
                     disabled={processingInviteId === inv.invitation_id}
                     onClick={() => handleRespondInvite(inv.invitation_id, inv.trip_id, "rejected")}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 active:scale-95 disabled:opacity-50"
                   >
                     <X size={13} />
                     <span>Decline</span>
@@ -402,7 +404,7 @@ export default function ControlCenter() {
                   <button
                     disabled={processingInviteId === inv.invitation_id}
                     onClick={() => handleRespondInvite(inv.invitation_id, inv.trip_id, "accepted")}
-                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
                   >
                     {processingInviteId === inv.invitation_id ? (
                       <Loader2 size={13} className="animate-spin" />
@@ -438,14 +440,14 @@ export default function ControlCenter() {
             <div className="flex items-center justify-center gap-2.5 pt-1">
               <button
                 onClick={() => setIsImportModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-500/90"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-primary-500/90 active:scale-95"
               >
                 <Upload size={13} />
                 <span>Import Trip Plan</span>
               </button>
               <Link
                 href="/02_Trip_Planning_&_Itinerary_Management"
-                className="inline-flex rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                className="inline-flex rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-[0.98]"
               >
                 Go to Trip Planning
               </Link>

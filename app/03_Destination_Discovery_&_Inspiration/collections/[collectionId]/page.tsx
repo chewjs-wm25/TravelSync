@@ -93,7 +93,7 @@ function CollectionDetailView() {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="bg-primary-500 hover:bg-primary-500/90 mt-4 inline-flex cursor-pointer items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.94]"
+            className="bg-primary-500 hover:bg-[#ff5252] mt-4 inline-flex cursor-pointer items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.94]"
           >
             Try again
           </button>
@@ -155,7 +155,7 @@ function CollectionDetailView() {
             {detail.items.map((item) => (
               <div
                 key={item.id}
-                className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.98] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
+                className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
               >
                 {/* 图片区（真实 Wikivoyage 缩略图；无图时以 Icon 表示） */}
                 <div className="relative m-2 h-40 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
@@ -191,7 +191,7 @@ function CollectionDetailView() {
                         aria-label={`Show nearby destinations of ${item.title}`}
                         className={`absolute right-3 bottom-3 flex cursor-pointer items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur-sm transition-all duration-150 active:scale-[0.94] ${
                           selectedItem?.id === item.id
-                            ? "bg-primary-500 text-white hover:bg-primary-500/90"
+                            ? "bg-primary-500 text-white hover:ring-2 hover:ring-white/60"
                             : "bg-white/90 text-gray-500 hover:bg-white hover:text-primary-500"
                         }`}
                       >
@@ -214,7 +214,7 @@ function CollectionDetailView() {
                   <div className="mt-4 flex flex-col gap-2">
                     <Link
                       href={searchPagePath(item.title)}
-                      className="bg-primary-500 hover:bg-primary-500/90 flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.94]"
+                      className="bg-primary-500 hover:bg-[#ff5252] flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.94]"
                     >
                       <Search className="h-4 w-4" aria-hidden="true" />
                       Search in TravelSync

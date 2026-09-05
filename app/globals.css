@@ -37,3 +37,29 @@
 .animate-fade-in {
   animation: fade-in 0.2s ease-out forwards;
 }
+
+/* 交互反馈基线：所有可互动控件显示可点击光标；禁用态显示禁止光标 */
+@layer base {
+  button:not(:disabled),
+  select:not(:disabled),
+  [role="button"]:not(:disabled),
+  [role="link"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  /* 键盘焦点可见性（设计规范品牌主色 coral #FF6B6B） */
+  button:focus-visible,
+  a:focus-visible,
+  select:focus-visible,
+  [role="button"]:focus-visible,
+  [role="link"]:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+}

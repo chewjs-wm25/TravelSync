@@ -267,7 +267,7 @@ export function DayItineraryCard({
           <button
             type="button"
             onClick={() => setIsDropdownOpen((previous) => !previous)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-2xs hover:bg-gray-100"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-2xs transition-colors hover:bg-gray-100 active:scale-90"
             aria-label="Itinerary Card Options"
           >
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -285,7 +285,7 @@ export function DayItineraryCard({
                   setIsEditing(true);
                   setIsDropdownOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
               >
                 <svg
                   className="h-4 w-4 text-gray-500"
@@ -308,7 +308,7 @@ export function DayItineraryCard({
                   onAddDayBefore(day.id);
                   setIsDropdownOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
               >
                 <span className="font-bold">+</span> Add Day Before
               </button>
@@ -318,7 +318,7 @@ export function DayItineraryCard({
                   onAddDayAfter(day.id);
                   setIsDropdownOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
               >
                 <span className="font-bold">+</span> Add Day After
               </button>
@@ -331,7 +331,7 @@ export function DayItineraryCard({
                     onToggleCollapse(false);
                     setIsDropdownOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
                 >
                   <svg
                     className="h-4 w-4 text-gray-500"
@@ -355,7 +355,7 @@ export function DayItineraryCard({
                     onToggleCollapse(true);
                     setIsDropdownOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
                 >
                   <svg
                     className="h-4 w-4 text-gray-500"
@@ -389,7 +389,7 @@ export function DayItineraryCard({
                   onDeleteDay();
                   setIsDropdownOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 active:bg-red-100"
               >
                 <svg
                   className="h-4 w-4 text-red-500"
@@ -434,7 +434,7 @@ export function DayItineraryCard({
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 active:scale-95"
             >
               Cancel
             </button>
@@ -444,7 +444,7 @@ export function DayItineraryCard({
                 setIsEditing(false);
                 onEditDay(draftTitle, draftDate);
               }}
-              className="bg-primary-500 hover:bg-primary-500/90 rounded-lg px-3 py-2 text-xs font-semibold text-white"
+              className="bg-primary-500 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-all duration-150 hover:bg-[#ff5252] active:scale-95"
             >
               Save
             </button>
@@ -475,7 +475,7 @@ export function DayItineraryCard({
                     }
                   }}
                   disabled={isSavingNote}
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -485,7 +485,7 @@ export function DayItineraryCard({
                     void handleSaveNote(draftNote);
                   }}
                   disabled={isSavingNote}
-                  className="rounded-lg bg-[#ff6b6b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:bg-gray-300"
+                  className="rounded-lg bg-[#ff6b6b] px-3 py-2 text-xs font-semibold text-white transition-all duration-150 hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSavingNote ? "Saving..." : "Save Note"}
                 </button>
@@ -505,7 +505,7 @@ export function DayItineraryCard({
                 <button
                   type="button"
                   onClick={handleOpenNoteEditor}
-                  className="text-right text-xs font-medium text-[#ff6b6b] hover:underline"
+                  className="self-end rounded-md px-2 py-1 text-right text-xs font-medium text-[#ff6b6b] transition-colors hover:bg-[#ff6b6b]/10 hover:underline active:opacity-70"
                 >
                   Edit
                 </button>
@@ -515,7 +515,7 @@ export function DayItineraryCard({
                     void handleSaveNote("");
                   }}
                   disabled={isSavingNote}
-                  className="text-right text-xs font-medium text-red-500 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  className="self-end rounded-md px-2 py-1 text-right text-xs font-medium text-red-500 transition-colors hover:bg-[#ff6b6b]/10 hover:underline active:opacity-70 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Clear
                 </button>
@@ -525,7 +525,7 @@ export function DayItineraryCard({
             <button
               type="button"
               onClick={handleOpenNoteEditor}
-              className="inline-flex items-center gap-2 text-xs font-semibold text-[#ff6b6b] hover:underline"
+              className="-my-1 inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs font-semibold text-[#ff6b6b] transition-colors hover:bg-[#ff6b6b]/10 hover:underline active:opacity-70"
             >
               <span className="text-base leading-none">+</span>
               Add Itinerary Note
@@ -632,10 +632,18 @@ export function DayItineraryCard({
                     {suggestions.map((suggestion) => (
                       <li
                         key={suggestion.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                           handleSuggestionSelect(suggestion);
                         }}
-                        className="cursor-pointer px-3 py-2 hover:bg-gray-50"
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleSuggestionSelect(suggestion);
+                          }
+                        }}
+                        className="cursor-pointer px-3 py-2 hover:bg-gray-50 focus-visible:bg-gray-100 active:bg-gray-100"
                       >
                         <div className="font-medium text-gray-800">{suggestion.name}</div>
                         <div className="text-gray-500">{suggestion.formatted}</div>
@@ -649,7 +657,7 @@ export function DayItineraryCard({
                 type="button"
                 onClick={onAddItem}
                 disabled={!searchValue.trim()}
-                className="bg-primary-500 hover:bg-primary-500/90 absolute right-2 flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors disabled:cursor-not-allowed disabled:bg-gray-300"
+                className="bg-primary-500 absolute right-2 flex h-8 w-8 items-center justify-center rounded-lg text-white transition-all duration-150 hover:bg-[#ff5252] active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Add location"
               >
                 <svg

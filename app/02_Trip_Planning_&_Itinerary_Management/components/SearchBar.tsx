@@ -20,7 +20,7 @@ export default function SearchBar() {
         <input
           type="text"
           placeholder="Search trip name..."
-          className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm text-gray-800 shadow-sm focus:border-[#ff6b6b] focus:outline-none focus:ring-2 focus:ring-[#ff6b6b]/20"
+          className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm text-gray-800 shadow-sm transition-colors hover:border-gray-300 focus:border-[#ff6b6b] focus:outline-none focus:ring-2 focus:ring-[#ff6b6b]/20"
         />
       </div>
     </section>

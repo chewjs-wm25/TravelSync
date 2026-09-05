@@ -139,7 +139,6 @@ export default function TripNavigationClient() {
     setRoutePickerOpen,
     setActiveField,
     setRouteLocation,
-    generateRoute,
     applyOptimization,
     saveRoute,
     publicTransportStops,
@@ -161,7 +160,6 @@ export default function TripNavigationClient() {
   );
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [activeSection, setActiveSection] = useState<
     "planner" | "analysis" | "saved" | "garage" | "export"
   >("planner");
@@ -285,17 +283,6 @@ export default function TripNavigationClient() {
     setActiveField(null);
   };
 
-  const handleGenerateRoute = async () => {
-    setIsGenerating(true);
-    setSuggestions([]);
-    setActiveField(null);
-    try {
-      await generateRoute();
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const handleSave = () => {
     saveRoute(routeName);
     setRouteName("");
@@ -314,7 +301,7 @@ export default function TripNavigationClient() {
           <button
             key={tab.key}
             onClick={() => setActiveSection(tab.key as typeof activeSection)}
-            className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+            className={`rounded-full px-3 py-2 text-sm font-semibold transition active:scale-95 ${
               activeSection === tab.key
                 ? "bg-primary-500 text-white shadow-sm"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -439,7 +426,7 @@ export default function TripNavigationClient() {
                 </div>
                 <button
                   onClick={() => setRoutePickerOpen(!routePickerOpen)}
-                  className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-500"
+                  className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-50 active:scale-95"
                 >
                   {routePickerOpen ? "Hide" : "Show"}
                 </button>
@@ -470,7 +457,7 @@ export default function TripNavigationClient() {
                           >
                             <button
                               onClick={() => handleSelectSuggestion(suggestion)}
-                              className="w-full rounded-xl px-2 py-2 text-left hover:bg-gray-100"
+                              className="w-full rounded-xl px-2 py-2 text-left transition-colors hover:bg-gray-100 active:bg-gray-200"
                             >
                               {suggestion.display_name}
                             </button>
@@ -506,7 +493,7 @@ export default function TripNavigationClient() {
                                 onClick={() =>
                                   handleSelectSuggestion(suggestion)
                                 }
-                                className="w-full rounded-xl px-2 py-2 text-left hover:bg-gray-100"
+                                className="w-full rounded-xl px-2 py-2 text-left transition-colors hover:bg-gray-100 active:bg-gray-200"
                               >
                                 {suggestion.display_name}
                               </button>
@@ -521,15 +508,6 @@ export default function TripNavigationClient() {
                       ? "Searching places…"
                       : "Search suggestions come from OpenStreetMap and you can also click the map."}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => void handleGenerateRoute()}
-                      disabled={isGenerating || !origin || !destination}
-                      className="bg-primary-500 shadow-base hover:shadow-hover rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
-                    >
-                      {isGenerating ? "Refreshing..." : "Generate Route"}
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -546,7 +524,7 @@ export default function TripNavigationClient() {
               </h3>
               <button
                 onClick={() => setRoutePickerOpen(true)}
-                className="text-primary-500 text-sm font-semibold"
+                className="text-primary-500 text-sm font-semibold transition-colors hover:text-[#ff5252] hover:underline active:opacity-70"
               >
                 Edit route
               </button>
@@ -560,7 +538,7 @@ export default function TripNavigationClient() {
                 <button
                   key={option.value}
                   onClick={() => setVehicleType(option.value)}
-                  className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${
+                  className={`rounded-2xl border px-3 py-2 text-sm font-medium transition active:scale-[0.98] ${
                     vehicleType === option.value
                       ? "border-primary-500 bg-primary-500 text-white"
                       : "hover:border-primary-500 border-gray-200 bg-white text-gray-500"
@@ -577,7 +555,7 @@ export default function TripNavigationClient() {
             <select
               value={selectedVehicleId}
               onChange={(event) => setSelectedVehicleId(event.target.value)}
-              className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none"
+              className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none disabled:opacity-50"
               disabled={vehicleType !== "car"}
             >
               {vehicles
@@ -598,7 +576,7 @@ export default function TripNavigationClient() {
                   optimizationMode === "fastest"
                     ? "bg-primary-500 text-white"
                       : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : ""}`}
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : "active:scale-95"}`}
               >
                 ⚡ Fastest
               </button>
@@ -609,7 +587,7 @@ export default function TripNavigationClient() {
                   optimizationMode === "shortest"
                     ? "bg-primary-500 text-white"
                     : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : ""}`}
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : "active:scale-95"}`}
               >
                 📏 Shortest
               </button>
@@ -620,7 +598,7 @@ export default function TripNavigationClient() {
                   optimizationMode === "cheapest"
                     ? "bg-primary-500 text-white"
                     : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : ""}`}
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : "active:scale-95"}`}
               >
                 💰 Cheapest
               </button>
@@ -634,7 +612,7 @@ export default function TripNavigationClient() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     onClick={() => setPreferredTransitMode(null)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${preferredTransitMode === null ? "bg-primary-500 text-white ring-primary-500" : "bg-white text-gray-700 ring-gray-200 hover:ring-primary-500"}`}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition active:scale-95 ${preferredTransitMode === null ? "bg-primary-500 text-white ring-primary-500" : "bg-white text-gray-700 ring-gray-200 hover:ring-primary-500"}`}
                   >
                     Recommended
                   </button>
@@ -643,7 +621,7 @@ export default function TripNavigationClient() {
                       key={option.mode}
                       disabled={!availableTransitModes.includes(option.mode)}
                       onClick={() => setPreferredTransitMode(option.mode)}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${preferredTransitMode === option.mode ? "bg-primary-500 text-white ring-primary-500" : availableTransitModes.includes(option.mode) ? "bg-white text-gray-700 ring-gray-200 hover:ring-primary-500" : "cursor-not-allowed bg-gray-100 text-gray-400 ring-gray-200"}`}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition active:scale-95 ${preferredTransitMode === option.mode ? "bg-primary-500 text-white ring-primary-500" : availableTransitModes.includes(option.mode) ? "bg-white text-gray-700 ring-gray-200 hover:ring-primary-500" : "cursor-not-allowed bg-gray-100 text-gray-400 ring-gray-200"}`}
                       title={availableTransitModes.includes(option.mode) ? `Show ${option.label} route` : `No ${option.label} route is available for this journey`}
                     >
                       {option.label}
@@ -772,7 +750,7 @@ export default function TripNavigationClient() {
             />
             <button
               onClick={handleSave}
-              className="bg-secondary-500 hover:shadow-hover mt-3 w-full rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
+              className="mt-3 w-full rounded-2xl bg-secondary-500 px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:shadow-hover active:scale-95"
             >
               Save Route
             </button>

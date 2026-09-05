@@ -165,7 +165,7 @@ export default function CreateTripModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-900"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 active:scale-90"
               aria-label="Close modal"
             >
               <svg
@@ -211,7 +211,7 @@ export default function CreateTripModal({
                       onClick={() => {
                         setTripName(state.name);
                       }}
-                      className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700 shadow-sm hover:bg-gray-50"
+                      className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95"
                     >
                       {state.name}
                     </button>
@@ -223,10 +223,10 @@ export default function CreateTripModal({
             </label>
 
             <label
-              className={`space-y-2 md:col-span-2 rounded-2xl border-2 border-dashed p-4 transition ${
+              className={`cursor-pointer space-y-2 rounded-2xl border-2 border-dashed p-4 transition md:col-span-2 ${
                 isDragActive
                   ? "border-[#ff6b6b] bg-[#fff5f5]"
-                  : "border-gray-200 bg-gray-50"
+                  : "border-gray-200 bg-gray-50 hover:border-[#ff6b6b]/50 hover:bg-[#fff7f4]"
               }`}
               onDragOver={(event) => {
                 event.preventDefault();
@@ -331,14 +331,14 @@ export default function CreateTripModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-full bg-[#ff6b6b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center justify-center rounded-full bg-[#ff6b6b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? "Creating Trip..." : "Create Trip"}
             </button>

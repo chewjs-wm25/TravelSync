@@ -101,7 +101,7 @@ export function ItemNoteEditor({
             setErrorMessage(null);
           }}
           placeholder="Enter item name"
-          className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+          className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
           disabled={isSaving}
         />
       </label>
@@ -119,7 +119,7 @@ export function ItemNoteEditor({
               setErrorMessage(null);
             }}
             placeholder="1"
-            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
             disabled={isSaving}
           />
         </label>
@@ -131,7 +131,7 @@ export function ItemNoteEditor({
             value={tempNote}
             onChange={(event) => setTempNote(event.target.value)}
             placeholder="Add a note for this place..."
-            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
             disabled={isSaving}
           />
         </label>
@@ -147,7 +147,7 @@ export function ItemNoteEditor({
               setTempStartTime(e.target.value);
               setErrorMessage(null);
             }}
-            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
             disabled={isSaving}
           />
         </label>
@@ -161,7 +161,7 @@ export function ItemNoteEditor({
               setTempEndTime(e.target.value);
               setErrorMessage(null);
             }}
-            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
             disabled={isSaving}
           />
         </label>
@@ -175,7 +175,7 @@ export function ItemNoteEditor({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg px-2.5 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isSaving}
         >
           Cancel
@@ -186,7 +186,7 @@ export function ItemNoteEditor({
             void handleSave();
           }}
           disabled={isSaving}
-          className="rounded-lg bg-[#ff6b6b] px-3 py-1 text-xs font-semibold text-white hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="rounded-lg bg-[#ff6b6b] px-3 py-1 text-xs font-semibold text-white transition-all duration-150 hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSaving ? "Saving..." : "Save Item"}
         </button>

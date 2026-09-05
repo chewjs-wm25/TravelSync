@@ -114,7 +114,7 @@ export default function ExportTripModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-xl p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 active:scale-90"
           >
             <X size={18} />
           </button>
@@ -124,23 +124,23 @@ export default function ExportTripModal({
         <div className="flex border-b border-gray-100 bg-gray-50/70 p-2 gap-1.5">
           <button
             onClick={() => setActiveTab("key")}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition ${
+            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition active:scale-[0.98] ${
               activeTab === "key"
-                ? "bg-white text-primary-600 shadow-xs border border-gray-200/60"
+                ? "bg-white text-primary-500 shadow-xs border border-gray-200/60"
                 : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
             }`}
           >
             <Key size={14} />
             <span>Share via Key / Token</span>
-            <span className="rounded-full bg-primary-100 px-1.5 py-0.2 text-[9px] font-bold text-primary-700">
+            <span className="rounded-full bg-primary-500/10 px-1.5 py-0.2 text-[9px] font-bold text-primary-500">
               No File
             </span>
           </button>
           <button
             onClick={() => setActiveTab("json")}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition ${
+            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold transition active:scale-[0.98] ${
               activeTab === "json"
-                ? "bg-white text-primary-600 shadow-xs border border-gray-200/60"
+                ? "bg-white text-primary-500 shadow-xs border border-gray-200/60"
                 : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
             }`}
           >
@@ -154,8 +154,8 @@ export default function ExportTripModal({
           {activeTab === "key" ? (
             /* Tab 1: Share Key */
             <div className="space-y-4">
-              <div className="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/50 to-white p-5 text-center space-y-3">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-primary-100/60 px-2.5 py-1 text-[11px] font-semibold text-primary-700">
+              <div className="rounded-2xl border border-primary-500/20 bg-gradient-to-br from-primary-500/10 to-white p-5 text-center space-y-3">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-primary-500/10 px-2.5 py-1 text-[11px] font-semibold text-primary-500">
                   <Sparkles size={12} />
                   <span>Instant Plan Sharing Key</span>
                 </div>
@@ -173,7 +173,7 @@ export default function ExportTripModal({
                   <div className="space-y-3">
                     {/* Share Key Display Card */}
                     <div className="flex items-center justify-between gap-2 rounded-xl border-2 border-dashed border-primary-200 bg-white px-4 py-3 shadow-inner">
-                      <span className="font-mono text-base sm:text-lg font-extrabold tracking-wider text-primary-600 select-all truncate">
+                      <span className="font-mono text-base sm:text-lg font-extrabold tracking-wider text-primary-500 select-all truncate">
                         {shareKey}
                       </span>
                       <button
@@ -181,7 +181,7 @@ export default function ExportTripModal({
                         className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
                           copiedKey
                             ? "bg-emerald-500 text-white"
-                            : "bg-primary-500 text-white hover:bg-primary-600 shadow-sm"
+                            : "bg-primary-500 text-white hover:bg-primary-500/90 shadow-sm"
                         }`}
                       >
                         {copiedKey ? (
@@ -277,7 +277,7 @@ export default function ExportTripModal({
         <div className="flex items-center justify-end border-t border-gray-100 px-6 py-3 bg-gray-50/50">
           <button
             onClick={onClose}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition"
+            className="rounded-xl border border-gray-200 bg-white px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition active:scale-[0.98]"
           >
             Close
           </button>

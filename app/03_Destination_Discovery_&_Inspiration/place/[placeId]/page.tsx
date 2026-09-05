@@ -122,7 +122,7 @@ function PlaceDetailView() {
                 }
                 className={`absolute top-3 right-3 cursor-pointer rounded-full p-2 shadow-sm backdrop-blur-sm transition-all duration-150 active:scale-90 ${
                   favouriteIds.has(place.id)
-                    ? "bg-primary-500 text-white hover:bg-primary-500/90"
+                    ? "bg-primary-500 text-white hover:ring-2 hover:ring-white/60"
                     : "bg-white/90 text-gray-500 hover:bg-white hover:text-primary-500"
                 }`}
               >
@@ -169,7 +169,7 @@ function PlaceDetailView() {
                 className={`mt-4 inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-150 active:scale-[0.95] ${
                   favouriteIds.has(place.id)
                     ? "bg-primary-500/10 text-primary-500 hover:bg-primary-500 hover:text-white"
-                    : "bg-primary-500 text-white shadow-md hover:bg-primary-500/90 hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
+                    : "bg-primary-500 text-white shadow-md hover:bg-[#ff5252] hover:shadow-[0_12px_32px_rgba(255,107,107,0.25)]"
                 }`}
               >
                 <StarIcon

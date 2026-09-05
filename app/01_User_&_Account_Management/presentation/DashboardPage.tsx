@@ -17,6 +17,8 @@ export interface DashboardUser {
   createdAt: string;
   isVerified: boolean;
   hasPassword: boolean;
+  /** 账户角色（user | admin），后端 PublicUser 提供 */
+  role?: string;
 }
 
 export type AccountAction = (
@@ -73,7 +75,7 @@ export default function DashboardPage({
                   setTab(item.id);
                   setMessage("");
                 }}
-                className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+                className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition active:scale-[0.98] ${
                   tab === item.id
                     ? "bg-teal-50 text-teal-800 font-semibold"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -86,7 +88,7 @@ export default function DashboardPage({
           <button
             type="button"
             onClick={onLogout}
-            className="mt-8 block text-sm font-medium text-red-600 hover:text-red-700 transition hover:underline"
+            className="mt-8 block text-sm font-medium text-red-600 transition hover:text-red-700 hover:underline active:opacity-70"
           >
             Sign out
           </button>

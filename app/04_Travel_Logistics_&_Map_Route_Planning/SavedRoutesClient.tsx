@@ -55,13 +55,13 @@ export default function SavedRoutesClient({
                       loadSavedRoute(route.id);
                       onRouteLoad?.();
                     }}
-                    className="rounded-2xl bg-primary-500 px-3 py-1 text-sm font-semibold text-white hover:bg-primary-600"
+                    className="rounded-2xl bg-primary-500 px-3 py-1 text-sm font-semibold text-white transition-all duration-150 hover:bg-primary-500/90 hover:shadow-hover active:scale-95"
                   >
                     Load route
                   </button>
                   <button
                     onClick={() => deleteSavedRoute(route.id)}
-                    className="rounded-2xl border border-gray-200 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-100"
+                    className="rounded-2xl border border-gray-200 px-3 py-1 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-100 active:scale-95"
                   >
                     Delete
                   </button>

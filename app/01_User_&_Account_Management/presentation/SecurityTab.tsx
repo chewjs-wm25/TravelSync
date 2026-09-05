@@ -95,7 +95,7 @@ export default function SecurityTab({
         <button
           type="button"
           onClick={() => setShowPasswords(!showPasswords)}
-          className="text-xs font-semibold text-teal-700 hover:underline"
+          className="text-xs font-semibold text-teal-700 transition-colors hover:text-teal-800 hover:underline active:opacity-70"
         >
           {showPasswords ? "Hide passwords" : "Show passwords"}
         </button>
@@ -173,7 +173,7 @@ export default function SecurityTab({
       <button
         type="submit"
         disabled={saving || !isPasswordValid || !passwordsMatch}
-        className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {saving ? "Saving..." : "Save password"}
       </button>

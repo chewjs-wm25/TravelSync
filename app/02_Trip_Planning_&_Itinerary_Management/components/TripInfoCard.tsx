@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Share2 } from "lucide-react";
 import { useState } from "react";
 
 type TripInfoCardProps = {
@@ -9,6 +10,8 @@ type TripInfoCardProps = {
   endDate: string | null;
   ownerAvatar?: string;
   ownerName?: string;
+  /** 指向 Shared Planning 对应计划的链接；提供时显示分享按钮 */
+  shareUrl?: string;
   onSaveTripName?: (nextName: string) => Promise<boolean> | boolean;
 };
 
@@ -18,6 +21,7 @@ export function TripInfoCard({
   endDate,
   ownerAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
   ownerName = "Sarah Tan",
+  shareUrl,
   onSaveTripName,
 }: TripInfoCardProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -48,10 +52,10 @@ export function TripInfoCard({
 
   return (
     <>
-      <div>
+      <div className="flex items-center justify-between gap-3">
         <Link
           href="/02_Trip_Planning_&_Itinerary_Management"
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
         >
           <svg
             className="h-4 w-4 text-gray-600"
@@ -68,6 +72,17 @@ export function TripInfoCard({
           </svg>
           Back
         </Link>
+
+        {shareUrl ? (
+          <Link
+            href={shareUrl}
+            title="Open this trip in Shared Planning"
+            className="bg-primary-500 hover:bg-[#ff5252] hover:shadow-hover inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 active:scale-95"
+          >
+            <Share2 size={15} strokeWidth={2} />
+            Share
+          </Link>
+        ) : null}
       </div>
 
       <div className="relative flex min-h-40 flex-col justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -91,12 +106,21 @@ export function TripInfoCard({
             />
           ) : (
             <h1
+              role="button"
+              tabIndex={0}
               onClick={() => {
                 setTitle(tripName);
                 setIsEditingTitle(true);
               }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setTitle(tripName);
+                  setIsEditingTitle(true);
+                }
+              }}
               title="Click to edit title"
-              className="group hover:text-primary-500 cursor-pointer text-2xl font-bold tracking-tight text-gray-900"
+              className="group cursor-pointer rounded-lg text-2xl font-bold tracking-tight text-gray-900 transition-colors hover:text-[#ff6b6b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b6b]"
             >
               {tripName}
               <span className="ml-2 inline-block text-xs font-normal text-gray-400 opacity-0 transition-opacity group-hover:opacity-100">

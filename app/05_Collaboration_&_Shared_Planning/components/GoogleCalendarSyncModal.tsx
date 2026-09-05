@@ -59,7 +59,7 @@ export default function GoogleCalendarSyncModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition cursor-pointer"
+            className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition cursor-pointer active:scale-90"
           >
             <X size={18} />
           </button>
@@ -127,7 +127,7 @@ export default function GoogleCalendarSyncModal({
                   {trip.items.map((item) => (
                     <div
                       key={item.itemId}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 text-xs text-gray-700 hover:border-blue-200 transition"
+                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 text-xs text-gray-700"
                     >
                       <span className="truncate max-w-[220px] text-[11px] font-medium">
                         Day {item.day}: {item.name}
@@ -136,7 +136,7 @@ export default function GoogleCalendarSyncModal({
                         onClick={() =>
                           window.open(getItemGoogleWebIntentUrl(item, trip), "_blank", "noopener,noreferrer")
                         }
-                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-0.5 cursor-pointer transition-colors active:opacity-70"
                       >
                         <span>Add</span>
                         <ExternalLink size={10} />
@@ -163,7 +163,7 @@ export default function GoogleCalendarSyncModal({
             <div className="pt-2 text-center">
               <button
                 onClick={onDownloadICS}
-                className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition cursor-pointer"
+                className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition cursor-pointer active:opacity-70"
               >
                 <FileText size={11} />
                 <span>Download .ics file for Apple Calendar / Outlook</span>

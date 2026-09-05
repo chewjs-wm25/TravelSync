@@ -163,7 +163,7 @@ export default function CuratedInspirations() {
                 type="button"
                 onClick={() => scrollEvents(-1)}
                 aria-label="Scroll events left"
-                className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94]"
+                className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ← Prev
               </button>
@@ -171,7 +171,7 @@ export default function CuratedInspirations() {
                 type="button"
                 onClick={() => scrollEvents(1)}
                 aria-label="Scroll events right"
-                className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94]"
+                className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next →
               </button>
