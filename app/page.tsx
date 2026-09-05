@@ -1,26 +1,40 @@
 "use client";
 
+/**
+ * Home Page — TravelSync 首页（Presentation Layer，跨模块落地页）
+ *
+ * 数据真实性原则（本页不展示任何硬编码内容数据或虚构信息）：
+ *   - 官方认证地点：读取本应用维护的官方旅游质量评级名录（Platinum / Gold /
+ *     Silver，含地址 / 电话 / 评级有效期），经模块 03 真实 API 在线获取；
+ *   - 州与联邦直辖区：读取真实州列表 API（13 州 + 3 联邦直辖区）；
+ *   - 地点图片：走模块 03 统一图片链路（Wikivoyage → Wikipedia → Wikimedia
+ *     Commons Geosearch → Mapillary，马来西亚限定），展示开源署名；
+ *   - 搜索联想：读取真实州/直辖区建议 API；
+ *   - 其余为页面 UI 文案与可核验的产品能力描述，不含编造的评分、价格、
+ *     里程、用户评价或演示数据。
+ * 加载失败时展示空态/重试，绝不回退到伪造数据。
+ */
+
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ComponentType } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Compass,
-  Map,
-  Sparkles,
-  MapPin,
-  Users,
   ArrowRight,
-  Route,
-  CheckCircle2,
+  CalendarDays,
+  Compass,
+  ExternalLink,
   Globe,
-  Shield,
-  FileDown,
+  ImageOff,
+  MapPin,
+  Phone,
+  RefreshCw,
+  Route,
   Search,
+  ShieldCheck,
   Star,
-  Clock,
-  Award,
-  Ticket,
-  Car,
+  UserRound,
+  Users,
 } from "lucide-react";
 
 import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
@@ -29,333 +43,280 @@ import {
   type StateSuggestion,
 } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/stateSuggestionApi";
 import { discoveryService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
-import type { PoiItem } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
+import type {
+  PoiItem,
+  StateInfo,
+} from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
+import { usePlaceImages } from "@/app/03_Destination_Discovery_&_Inspiration/hooks";
+import PlaceImageAttribution from "@/app/03_Destination_Discovery_&_Inspiration/placeImageAttribution";
+import { safeHttpUrl } from "@/app/03_Destination_Discovery_&_Inspiration/safeUrl";
+import {
+  googleMapsUrl,
+  MODULE_03_HOME,
+} from "@/app/03_Destination_Discovery_&_Inspiration/routes";
 
-// ─── 1. POPULAR MALAYSIAN DESTINATIONS (CURATED EDITORIAL DATA) ───
-interface DestinationCardData {
-  id: string;
-  name: string;
-  state: string;
-  tag: string;
-  category: "heritage" | "nature" | "city" | "highlands";
-  description: string;
-  image: string;
-  badgeColor: string;
-  qualityBadge?: "platinum" | "gold" | "silver";
-  duration: string;
-  bestTime: string;
-  price: string;
-  ratingScore: number;
-}
+// ---------------------------------------------------------------------------
+// 路由常量（真实模块页面，与 Header/Sidebar 一致）
+// ---------------------------------------------------------------------------
+const ACCOUNT_ROUTE = "/01_User_&_Account_Management";
+const TRIPS_ROUTE = "/02_Trip_Planning_&_Itinerary_Management";
+const LOGISTICS_ROUTE = "/04_Travel_Logistics_&_Map_Route_Planning";
+const COLLAB_ROUTE = "/05_Collaboration_&_Shared_Planning";
 
-const FEATURED_DESTINATIONS: DestinationCardData[] = [
-  {
-    id: "penang",
-    name: "George Town, Penang",
-    state: "Pulau Pinang",
-    tag: "UNESCO Heritage & Food",
-    category: "heritage",
-    description:
-      "World-renowned street food stalls, colonial clan jetties, vibrant street art, and Baba Nyonya heritage mansions.",
-    image:
-      "https://images.unsplash.com/photo-1589308078059-be1415eab4c3?auto=format&fit=crop&w=1200&q=85",
-    badgeColor: "bg-amber-50 text-amber-800 border-amber-200/80",
-    qualityBadge: "platinum",
-    duration: "3-4 Days",
-    bestTime: "Dec - Mar",
-    price: "Free Entry / Street Eats",
-    ratingScore: 4.9,
-  },
-  {
-    id: "kl",
-    name: "Kuala Lumpur City",
-    state: "Federal Territory",
-    tag: "Metropolis & Skyline",
-    category: "city",
-    description:
-      "The iconic Petronas Twin Towers, bustling Bukit Bintang alleys, Batu Caves temple, and scenic rooftop dining.",
-    image:
-      "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=1200&q=85",
-    badgeColor: "bg-rose-50 text-rose-800 border-rose-200/80",
-    qualityBadge: "platinum",
-    duration: "2-3 Days",
-    bestTime: "Year-Round",
-    price: "Free / Various",
-    ratingScore: 4.8,
-  },
-  {
-    id: "langkawi",
-    name: "Langkawi Archipelago",
-    state: "Kedah",
-    tag: "Beaches & UNESCO Geopark",
-    category: "nature",
-    description:
-      "Pristine Andaman beaches, turquoise waters, dramatic limestone cliffs, Kilim mangrove boat tours, and duty-free leisure.",
-    image:
-      "https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=85",
-    badgeColor: "bg-teal-50 text-teal-800 border-teal-200/80",
-    qualityBadge: "gold",
-    duration: "3-5 Days",
-    bestTime: "Nov - Apr",
-    price: "Island Free Entry",
-    ratingScore: 4.9,
-  },
-  {
-    id: "kinabalu",
-    name: "Mount Kinabalu & Sabah",
-    state: "Sabah (Borneo)",
-    tag: "High Peaks & Eco Safari",
-    category: "nature",
-    description:
-      "Southeast Asia's iconic 4,095m mountain peak, lush tropical rainforest canopy walks, and rich wildlife sanctuaries.",
-    image:
-      "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=1200&q=85",
-    badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200/80",
-    qualityBadge: "platinum",
-    duration: "4-5 Days",
-    bestTime: "Mar - Sep",
-    price: "Park Entry RM15-50",
-    ratingScore: 5.0,
-  },
-  {
-    id: "melaka",
-    name: "Historic Melaka",
-    state: "Melaka",
-    tag: "Colonial History & Culture",
-    category: "heritage",
-    description:
-      "Portuguese A Famosa fortress, Christ Church Red Square, Jonker Street weekend food fair, and tranquil riverfront cafes.",
-    image:
-      "https://images.unsplash.com/photo-1606298855672-3efb63017be8?auto=format&fit=crop&w=1200&q=85",
-    badgeColor: "bg-indigo-50 text-indigo-800 border-indigo-200/80",
-    qualityBadge: "gold",
-    duration: "2 Days",
-    bestTime: "Year-Round",
-    price: "Heritage Zone Free",
-    ratingScore: 4.8,
-  },
-  {
-    id: "cameron",
-    name: "Cameron Highlands",
-    state: "Pahang",
-    tag: "Cool Highlands & Tea Trails",
-    category: "highlands",
-    description:
-      "Endless emerald tea valleys, refreshing 18°C cool weather, mossy forest trail hikes, and strawberry farm picking.",
-    image:
-      "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1200&q=85",
-    badgeColor: "bg-lime-50 text-lime-800 border-lime-200/80",
-    qualityBadge: "gold",
-    duration: "2-3 Days",
-    bestTime: "Feb - Jul",
-    price: "Free Tea Plantation Views",
-    ratingScore: 4.7,
-  },
-];
+/** 首页展示的官方认证地点数量（与模块 03 每行 4 张 × 2 行一致） */
+const RATED_PLACES_LIMIT = 8;
 
-// ─── 2. TRENDING MALAYSIAN DESTINATION CHIPS ───
-const TRENDING_CHIPS = [
-  { label: "🍜 Penang Street Food", query: "Penang" },
-  { label: "🏖️ Langkawi Beaches", query: "Langkawi" },
-  { label: "🏙️ Kuala Lumpur", query: "Kuala Lumpur" },
-  { label: "⛰️ Mount Kinabalu", query: "Sabah" },
-  { label: "🏛️ Melaka Heritage", query: "Melaka" },
-  { label: "🍓 Cameron Highlands", query: "Cameron Highlands" },
-];
-
-// ─── 3. WANDERLOG-STYLE INTERACTIVE FEATURE TABS ───
-type FeatureTabKey = "itinerary" | "discovery" | "routes" | "collab";
-
-interface FeatureTabInfo {
-  id: FeatureTabKey;
+// ---------------------------------------------------------------------------
+// 五大功能模块入口（真实能力描述，可对照各模块页面核验）
+// ---------------------------------------------------------------------------
+interface ModuleEntry {
+  num: string;
   title: string;
-  subtitle: string;
-  modulePill: string;
-  badge: string;
+  tagline: string;
   description: string;
   points: string[];
+  href: string;
+  icon: ComponentType<{ size?: number; className?: string }>;
 }
 
-const FEATURE_TABS: FeatureTabInfo[] = [
+const MODULES: ModuleEntry[] = [
   {
-    id: "itinerary",
-    title: "Itinerary & Timetable",
-    subtitle: "Module 02: Trip Planning",
-    modulePill: "Module 02",
-    badge: "Drag & Drop",
+    num: "01",
+    title: "Accounts",
+    tagline: "Sign in & keep your data yours",
     description:
-      "Organize every day with exact start hours, custom notes, ticket details, and flexible reordering. Keep stays, rides, and activities in one unified timeline.",
+      "Log in or register, restore your session, and manage your profile, security and account settings.",
     points: [
-      "Structured day-by-day timetable with custom start & end hours",
-      "Attach reservation notes, check-in reminders & ticket prices",
-      "Flexible stop reordering that synchronizes live across your group",
+      "Sign in / register with session restore",
+      "Profile, security & account settings",
     ],
+    href: ACCOUNT_ROUTE,
+    icon: UserRound,
   },
   {
-    id: "discovery",
-    title: "Official Quality POIs",
-    subtitle: "Module 03: Destination Discovery",
-    modulePill: "Module 03",
-    badge: "Tourism Malaysia Verified",
+    num: "02",
+    title: "Trip Planning",
+    tagline: "Day-by-day itineraries",
     description:
-      "Discover verified attractions backed by official Malaysian Tourism Quality Ratings (Platinum, Gold, Silver), operating hours, and accurate ticket prices.",
+      "Create trips, structure each day with activities and notes, and add places you discovered — all scoped to Malaysia.",
     points: [
-      "Official Malaysian Tourism Quality rating badges on top spots",
-      "Ticket costs, operating hours & recommended visiting windows",
-      "1-Click 'Add to Itinerary' directly connects to your trips",
+      "Create & edit trips with daily schedules",
+      "Attach notes and reminders to items",
     ],
+    href: TRIPS_ROUTE,
+    icon: CalendarDays,
   },
   {
-    id: "routes",
-    title: "Route & Logistics View",
-    subtitle: "Module 04: Travel Logistics",
-    modulePill: "Module 04",
-    badge: "Map & Navigation",
+    num: "03",
+    title: "Destination Discovery",
+    tagline: "Real places, official quality ratings",
     description:
-      "Visualize your road trip stops along Malaysia's North-South Expressway (PLUS) with accurate driving times and mileage calculations.",
+      "Search real places across Malaysia, browse officially quality-rated listings (Platinum / Gold / Silver), and open photos with open-license attribution.",
     points: [
-      "Interactive map connecting all your daily itinerary pins",
-      "Estimated driving duration and highway distance breakdown",
-      "Optimized stop sequences to minimize transit time across states",
+      "Real map-based place search (Malaysia only)",
+      "Official quality-rated place register with validity dates",
     ],
+    href: MODULE_03_HOME,
+    icon: Compass,
   },
   {
-    id: "collab",
+    num: "04",
+    title: "Route & Logistics",
+    tagline: "Map it before you drive it",
+    description:
+      "Plot stops on an interactive map, estimate driving legs, and compare vehicle or public-transport profiles for your journey.",
+    points: [
+      "Interactive map with driving-time estimates",
+      "Vehicle profiles & public-transport legs",
+    ],
+    href: LOGISTICS_ROUTE,
+    icon: Route,
+  },
+  {
+    num: "05",
     title: "Group Co-Planning",
-    subtitle: "Module 05: Shared Planning",
-    modulePill: "Module 05",
-    badge: "Live SSE Sync",
+    tagline: "Plan together, stay in sync",
     description:
-      "Invite friends and family to your trip with Editor or Viewer roles. Real-time updates mean no more lost WhatsApp chats or conflicting spreadsheets.",
+      "Invite members with Owner / Editor / Viewer roles, receive live updates over Server-Sent Events, and export plans as JSON, CSV or .ics calendar files.",
     points: [
-      "Live co-editing via Server-Sent Events with zero plan conflicts",
-      "Role-based permissions: control who can edit stops vs. view",
-      "1-Click export to printable PDF, spreadsheet CSV, or calendar (.ics)",
+      "Invites with role-based access (Owner / Editor / Viewer)",
+      "Live updates (Server-Sent Events) & JSON / CSV / .ics export",
     ],
-  },
-];
-
-// ─── 4. SOCIAL PROOF / TRAVELER REVIEWS ───
-const TESTIMONIALS = [
-  {
-    name: "Farah Azman",
-    role: "Roadtripper • Kuala Lumpur",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
-    comment:
-      "Planning our road trip from KL up to Ipoh and Penang was so effortless with TravelSync. Having driving distances calculated alongside day-by-day food stops made our 4-day trip completely stress-free.",
-    rating: 5,
-    tag: "Road Trip",
-  },
-  {
-    name: "Dr. Darren Tan",
-    role: "Family Vacationer • Singapore",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
-    comment:
-      "The official quality ratings helped us pick the best family-friendly attractions in Sabah and Langkawi. Being able to export the whole plan to PDF and our Google Calendar was a lifesaver.",
-    rating: 5,
-    tag: "Family Holiday",
-  },
-  {
-    name: "Nurul Huda",
-    role: "Group Planner • Johor Bahru",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
-    comment:
-      "We had 6 friends planning a graduation trip to Melaka and Cameron Highlands. Inviting everyone with real-time sync meant no more confusion in our WhatsApp group chat!",
-    rating: 5,
-    tag: "Group Planning",
-  },
-];
-
-// ─── 5. WHY TRAVELSYNC HIGHLIGHTS ───
-const HIGHLIGHTS = [
-  {
-    title: "100% Dedicated to Malaysia",
-    description:
-      "Engineered specifically for exploring all 13 states and 3 federal territories with verified local data across Peninsular and Borneo.",
-    icon: Globe,
-  },
-  {
-    title: "Itinerary & Maps Together",
-    description:
-      "View your timeline and map stops in one consolidated screen. No more switching between spreadsheets, notes, and separate maps.",
-    icon: Map,
-  },
-  {
-    title: "Real-Time Group Collaboration",
-    description:
-      "Invite friends or family to edit or view. Live Server-Sent Events ensure everyone stays on the exact same page simultaneously.",
+    href: COLLAB_ROUTE,
     icon: Users,
   },
-  {
-    title: "1-Click Multi-Format Export",
-    description:
-      "Export your complete itinerary anytime as a clean printable PDF, spreadsheet CSV, or calendar iCal (.ics) for offline access.",
-    icon: FileDown,
-  },
-  {
-    title: "Lightweight & Edge-Powered",
-    description:
-      "Zero bloat and instant loading backed by Cloudflare edge architecture with privacy-first data handling.",
-    icon: Shield,
-  },
-  {
-    title: "Official Quality Badges",
-    description:
-      "Verified attraction data featuring Platinum, Gold, and Silver quality rankings from Malaysian tourism standards.",
-    icon: Award,
-  },
 ];
 
+// ---------------------------------------------------------------------------
+// 品质徽章展示（等级来自官方评级数据字段，非推断）
+// ---------------------------------------------------------------------------
+type QualityBadge = NonNullable<PoiItem["qualityBadge"]>;
+
+const BADGE_STYLES: Record<
+  QualityBadge,
+  { label: string; chip: string; dot: string }
+> = {
+  platinum: {
+    label: "Platinum",
+    chip: "bg-rose-50 text-rose-700 border-rose-200",
+    dot: "text-rose-400",
+  },
+  gold: {
+    label: "Gold",
+    chip: "bg-amber-50 text-amber-700 border-amber-200",
+    dot: "text-amber-400",
+  },
+  silver: {
+    label: "Silver",
+    chip: "bg-gray-100 text-gray-600 border-gray-200",
+    dot: "text-gray-400",
+  },
+};
+
+/** 在线统计：官方评级数据中 Platinum / Gold / Silver 各自数量（真实计数） */
+function countBadges(pois: PoiItem[]): Record<QualityBadge, number> {
+  const counts: Record<QualityBadge, number> = {
+    platinum: 0,
+    gold: 0,
+    silver: 0,
+  };
+  for (const poi of pois) {
+    if (poi.qualityBadge) counts[poi.qualityBadge] += 1;
+  }
+  return counts;
+}
+
+function QualityBadgeChip({ level }: { level: QualityBadge }) {
+  const style = BADGE_STYLES[level];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${style.chip}`}
+    >
+      <Star size={10} fill="currentColor" className={style.dot} />
+      {style.label}
+    </span>
+  );
+}
+
+/** 加载骨架（数据到达前的占位，不展示任何数字） */
+function SkeletonCard({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-base ${className}`}
+    >
+      <div className="h-44 animate-pulse bg-gray-100" />
+      <div className="space-y-2.5 p-5">
+        <div className="h-3 w-3/4 animate-pulse rounded-md bg-gray-100" />
+        <div className="h-3 w-1/2 animate-pulse rounded-md bg-gray-100" />
+        <div className="h-3 w-2/3 animate-pulse rounded-md bg-gray-100" />
+      </div>
+    </div>
+  );
+}
+
+/** 数据加载失败提示（含重试） */
+function LoadError({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center shadow-base">
+      <p className="text-sm text-gray-500">{message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-600 transition duration-150 hover:bg-gray-50 hover:text-gray-800 active:scale-95"
+      >
+        <RefreshCw size={13} />
+        Try again
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 页面
+// ---------------------------------------------------------------------------
 export default function HomePage() {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
 
-  // Search & Destination Suggestions State
+  // ---- 搜索联想（真实州/联邦直辖区建议 API）----
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<StateSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Active Feature Showcase Tab
-  const [activeTab, setActiveTab] = useState<FeatureTabKey>("itinerary");
-  const [activeItineraryDay, setActiveItineraryDay] = useState<1 | 2>(1);
+  // ---- 官方认证地点（真实数据：本应用维护的官方评级名录）----
+  const [ratedStatus, setRatedStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [ratedPois, setRatedPois] = useState<PoiItem[]>([]);
 
-  // Destination Category Filter
-  const [categoryFilter, setCategoryFilter] = useState<
-    "all" | "quality" | "heritage" | "nature" | "city" | "highlands"
-  >("all");
+  // ---- 州与联邦直辖区（真实州列表）----
+  const [stateStatus, setStateStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [states, setStates] = useState<StateInfo[]>([]);
 
-  // Dynamic Quality Rated POIs from Module 03
-  const [qualityPois, setQualityPois] = useState<PoiItem[]>([]);
+  /** 官方认证地点 / 州数据加载触发（初始与重试共用；setState 全部在异步回调中） */
+  const [ratedReload, setRatedReload] = useState(0);
+  const [stateReload, setStateReload] = useState(0);
 
-  // ─── Fetch Module 03 Quality Rated POIs ───
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
     discoveryService
       .getQualityRatedPois()
-      .then((data) => {
-        if (isMounted && data && data.length > 0) {
-          setQualityPois(data.slice(0, 6));
-        }
+      .then((pois) => {
+        if (cancelled) return;
+        setRatedPois(pois);
+        setRatedStatus("ready");
       })
       .catch(() => {
-        // Fallback to static list
+        if (cancelled) return;
+        setRatedPois([]);
+        setRatedStatus("error");
       });
-
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
-  }, []);
+  }, [ratedReload]);
 
-  // ─── Query Destination Suggestions (Module 02 API) ───
+  useEffect(() => {
+    let cancelled = false;
+    discoveryService
+      .getStateInfo()
+      .then((list) => {
+        if (cancelled) return;
+        setStates(list);
+        setStateStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStates([]);
+        setStateStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stateReload]);
+
+  /** 重试（事件处理器内允许同步置回加载态） */
+  const retryLoad = () => {
+    setRatedStatus("loading");
+    setStateStatus("loading");
+    setRatedReload((t) => t + 1);
+    setStateReload((t) => t + 1);
+  };
+
+  // ---- 搜索联想请求（真实 API，仅当有输入）----
   useEffect(() => {
     const trimmed = searchQuery.trim();
-    if (!trimmed) {
-      return;
-    }
-
+    if (!trimmed) return;
     let isCurrent = true;
-
     getStateSuggestions(trimmed)
       .then((results) => {
         if (isCurrent) {
@@ -366,13 +327,12 @@ export default function HomePage() {
       .catch(() => {
         if (isCurrent) setSuggestions([]);
       });
-
     return () => {
       isCurrent = false;
     };
   }, [searchQuery]);
 
-  // ─── Close suggestions when clicking outside ───
+  // ---- 点击搜索框外部时收起建议下拉 ----
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -386,77 +346,93 @@ export default function HomePage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ─── Trigger Trip Planning Flow (Navigates to Module 02) ───
-  const handleStartPlanning = (_prefillDest?: string) => {
+  /** 规划入口（保留现状：未登录 → 登录/账户页；已登录 → 行程管理页） */
+  const handleStartPlanning = () => {
     if (!isLoggedIn) {
-      router.push("/01_User_&_Account_Management");
+      router.push(ACCOUNT_ROUTE);
       return;
     }
-    router.push("/02_Trip_Planning_&_Itinerary_Management");
+    router.push(TRIPS_ROUTE);
   };
 
-  // Filtered featured destinations (combines static curated + Module 03 quality POIs)
-  const filteredDestinations = useMemo(() => {
-    if (categoryFilter === "quality" && qualityPois.length > 0) {
-      return qualityPois.map((poi) => ({
-        id: poi.id,
-        name: poi.name,
-        state: poi.state || "Malaysia",
-        tag: poi.experienceType || "Official Quality POI",
-        category: "heritage" as const,
-        description:
-          poi.formatted ||
-          "Verified Malaysian attraction certified under national tourism quality standards.",
-        image:
-          poi.imageUrl ||
-          "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=1200&q=85",
-        badgeColor:
-          poi.qualityBadge === "platinum"
-            ? "bg-rose-50 text-rose-700 border-rose-200"
-            : "bg-amber-50 text-amber-700 border-amber-200",
-        qualityBadge: poi.qualityBadge || "gold",
-        duration: poi.suggestedDuration || "2-3 Hours",
-        bestTime: poi.bestVisitTime || "Year-Round",
-        price: poi.ticketPrice || "Free Entry / Ticketed",
-        ratingScore: 4.9,
-      }));
-    }
-    if (categoryFilter === "all") return FEATURED_DESTINATIONS;
-    return FEATURED_DESTINATIONS.filter(
-      (dest) => dest.category === categoryFilter
-    );
-  }, [categoryFilter, qualityPois]);
+  /** 提交搜索（回车 / 搜索按钮）→ 规划流程（与建议点击行为一致） */
+  const handleSearchSubmit = () => {
+    setShowSuggestions(false);
+    handleStartPlanning();
+  };
+
+  // ---- 首页展示的官方认证地点（前 N 条，其余在模块 03 查看）----
+  const visibleRated = useMemo(() => ratedPois.slice(0, RATED_PLACES_LIMIT), [
+    ratedPois,
+  ]);
+
+  // ---- 官方认证地点 / 州卡片图片（模块 03 统一图片链路 + 缓存）----
+  const ratedImages = usePlaceImages(visibleRated);
+  /** 州卡图片入参映射：usePlaceImages 以 id 为键，StateInfo 的键为 stateId */
+  const statePlaceItems = useMemo(
+    () =>
+      states.map((state) => ({
+        id: state.stateId,
+        name: state.name,
+        lat: state.lat,
+        lon: state.lon,
+      })),
+    [states]
+  );
+  const stateImages = usePlaceImages(statePlaceItems);
+
+  // ---- 真实徽章分布统计（供加载成功时展示，失败/为空则隐藏）----
+  const badgeCounts = useMemo(() => countBadges(ratedPois), [ratedPois]);
+  const hasRatedData = ratedStatus === "ready" && ratedPois.length > 0;
+  const hasStateData = stateStatus === "ready" && states.length > 0;
+
+  const ratedError = ratedStatus === "error";
+  const ratedEmpty = ratedStatus === "ready" && ratedPois.length === 0;
+  const ratedLoading = ratedStatus === "loading";
+  const stateError = stateStatus === "error";
+  const stateEmpty = stateStatus === "ready" && states.length === 0;
+  const stateLoading = stateStatus === "loading";
 
   return (
-    <div className="space-y-20 pb-20">
-      {/* ─── 1. MODERN MINIMALIST HERO SECTION (CLEAN & LIGHT) ─── */}
-      <section className="relative overflow-hidden rounded-3xl border border-gray-200/80 bg-gradient-to-b from-white via-gray-50/40 to-white px-6 py-16 text-center sm:px-10 sm:py-24">
-        <div className="mx-auto max-w-3xl space-y-7">
-          {/* Tag Pill */}
+    <div className="space-y-12 pb-12 sm:space-y-16">
+      {/* ═══════════════════════════════════════════════
+          1. HERO — 品牌定位 + 搜索（真实建议）+ 真实在线统计
+          ═══════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden rounded-3xl border border-gray-200/80 bg-gradient-to-b from-white via-gray-50/40 to-white px-6 py-12 text-center shadow-base sm:px-10 sm:py-16">
+        <div className="mx-auto max-w-3xl space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-1 text-xs font-medium text-gray-700 shadow-sm">
-            <span>🇲🇾</span>
-            <span>The all-in-one travel planner for Malaysia</span>
+            <Globe size={13} className="text-secondary-500" />
+            <span>
+              Malaysia&apos;s 13 states &amp; 3 federal territories — one
+              travel planner
+            </span>
           </div>
 
-          {/* Main Editorial Headline */}
-          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl sm:leading-[1.15]">
-            Plan your Malaysia journeys, <br className="hidden sm:inline" />
+          <h1 className="text-4xl font-bold tracking-tight text-gray-800 sm:text-5xl sm:leading-[1.15]">
+            Plan your Malaysia journey,{" "}
             <span className="text-primary-500">all in one place</span>.
           </h1>
 
-          {/* Clean Subtitle */}
-          <p className="mx-auto max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
-            Build day-by-day itineraries, explore official quality-rated attractions, optimize road trip routes, and collaborate with friends in real time.
+          <p className="mx-auto max-w-2xl text-base leading-relaxed text-gray-500 sm:text-lg">
+            Build day-by-day itineraries, discover officially quality-rated
+            places, estimate driving routes, and co-plan with your group in
+            real time.
           </p>
 
-          {/* Floating Search Pill Bar */}
+          {/* 搜索（联想数据来自真实州/联邦直辖区建议 API） */}
           <div
             ref={searchContainerRef}
-            className="relative mx-auto mt-8 max-w-xl text-left"
+            className="relative mx-auto mt-4 max-w-xl text-left"
           >
-            <div className="flex flex-col gap-2 rounded-full border border-gray-200 bg-white p-2 shadow-lg shadow-gray-200/50 transition sm:flex-row sm:items-center">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSearchSubmit();
+              }}
+              className="flex flex-col gap-2 rounded-full border border-gray-200 bg-white p-2 shadow-lg shadow-gray-200/50 transition sm:flex-row sm:items-center"
+            >
               <div className="flex flex-1 items-center gap-3 px-4 py-2 text-gray-800">
-                <Search size={19} className="text-gray-400 flex-shrink-0" />
+                <Search size={19} className="flex-shrink-0 text-gray-400" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -473,24 +449,23 @@ export default function HomePage() {
                   }}
                   placeholder="Where do you want to go? (e.g. Penang, Langkawi...)"
                   className="w-full bg-transparent text-sm font-medium text-gray-800 placeholder-gray-400 outline-none"
+                  aria-label="Search destinations or states"
                 />
               </div>
-
               <button
-                type="button"
-                onClick={() => handleStartPlanning(searchQuery)}
-                className="flex items-center justify-center gap-2 rounded-full bg-primary-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-95 sm:w-auto"
+                type="submit"
+                className="flex items-center justify-center gap-2 rounded-full bg-primary-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition duration-150 hover:bg-primary-500/90 active:scale-95 sm:w-auto"
               >
                 <span>Start planning</span>
                 <ArrowRight size={15} />
               </button>
-            </div>
+            </form>
 
-            {/* Suggestions Dropdown */}
+            {/* 真实建议下拉（州/联邦直辖区） */}
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-white p-2 text-gray-800 shadow-xl">
+              <div className="animate-fade-in absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-white p-2 text-gray-800 shadow-xl">
                 <p className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                  Destinations & States
+                  States &amp; Federal Territories
                 </p>
                 {suggestions.map((item) => (
                   <button
@@ -499,751 +474,407 @@ export default function HomePage() {
                     onClick={() => {
                       setSearchQuery(item.name);
                       setShowSuggestions(false);
-                      handleStartPlanning(item.name);
+                      handleStartPlanning();
                     }}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition hover:bg-gray-50 active:scale-[0.98]"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition duration-150 hover:bg-gray-50 active:scale-[0.98]"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <MapPin size={15} className="text-primary-500" />
-                      <span className="font-medium text-gray-800">
-                        {item.name}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-400">
-                      {item.stateId ? "State / Region" : "Spot"}
+                    <MapPin size={15} className="flex-shrink-0 text-primary-500" />
+                    <span className="font-medium text-gray-800">
+                      {item.name}
                     </span>
                   </button>
                 ))}
               </div>
             )}
-
-            {/* Trending Destination Pills */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-xs font-medium text-gray-400">Popular:</span>
-              {TRENDING_CHIPS.map((chip) => (
-                <button
-                  key={chip.label}
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery(chip.query);
-                    handleStartPlanning(chip.query);
-                  }}
-                  className="rounded-full border border-gray-200 bg-white px-3.5 py-1 text-xs font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-95"
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
           </div>
 
-          {/* Minimalist Trust Indicator Strip */}
-          <div className="grid grid-cols-2 gap-4 border-t border-gray-100 pt-8 sm:grid-cols-4">
-            <div className="space-y-0.5">
-              <p className="text-2xl font-bold text-gray-900">13+3</p>
-              <p className="text-xs text-gray-500">States & Territories</p>
-            </div>
-            <div className="space-y-0.5">
-              <p className="text-2xl font-bold text-primary-500">100%</p>
-              <p className="text-xs text-gray-500">Malaysia Focused</p>
-            </div>
-            <div className="space-y-0.5">
-              <p className="text-2xl font-bold text-gray-900">Real-time</p>
-              <p className="text-xs text-gray-500">Group Syncing</p>
-            </div>
-            <div className="space-y-0.5">
-              <p className="text-2xl font-bold text-gray-900">Verified</p>
-              <p className="text-xs text-gray-500">Quality Ratings</p>
-            </div>
+          {/* 真实在线统计（仅数据加载成功时展示；加载中骨架，失败隐藏） */}
+          <div className="flex flex-wrap items-start justify-center gap-x-10 gap-y-4 border-t border-gray-100 pt-6">
+            {hasRatedData && (
+              <div className="space-y-0.5">
+                <p className="text-2xl font-bold text-gray-800">
+                  {ratedPois.length}
+                </p>
+                <p className="text-xs text-gray-500">Quality-rated places</p>
+              </div>
+            )}
+            {hasStateData && (
+              <div className="space-y-0.5">
+                <p className="text-2xl font-bold text-gray-800">
+                  {states.length}
+                </p>
+                <p className="text-xs text-gray-500">
+                  States &amp; territories
+                </p>
+              </div>
+            )}
+            {hasRatedData &&
+              (["platinum", "gold", "silver"] as QualityBadge[]).map(
+                (level) => (
+                  <div key={level} className="space-y-0.5">
+                    <p className="text-2xl font-bold text-gray-800">
+                      {badgeCounts[level]}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {BADGE_STYLES[level].label}
+                    </p>
+                  </div>
+                )
+              )}
+            {ratedLoading && (
+              <>
+                <div className="space-y-1.5">
+                  <div className="h-7 w-12 animate-pulse rounded-lg bg-gray-100" />
+                  <div className="h-3 w-20 animate-pulse rounded-md bg-gray-100" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-7 w-12 animate-pulse rounded-lg bg-gray-100" />
+                  <div className="h-3 w-20 animate-pulse rounded-md bg-gray-100" />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      {/* ─── 2. INTERACTIVE SPLIT WORKSPACE PREVIEW (WANDERLOG STYLE) ─── */}
-      <section className="space-y-6">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
+      {/* ═══════════════════════════════════════════════
+          2. 五大功能模块（真实能力入口）
+          ═══════════════════════════════════════════════ */}
+      <section className="space-y-5">
+        <div className="max-w-2xl space-y-1.5">
           <p className="text-xs font-bold uppercase tracking-widest text-primary-500">
-            Workspace Preview
+            The Toolkit
           </p>
-          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl lg:text-4xl">
-            Your itinerary and your map in one view
+          <h2 className="text-2xl font-semibold text-gray-800 sm:text-3xl">
+            Five modules, one journey
           </h2>
           <p className="text-sm text-gray-500">
-            Keep everything organized on a single clean canvas. Switch between tabs to explore each module.
+            Every module below is a working part of TravelSync — open it and
+            start using the real tools.
           </p>
         </div>
 
-        {/* Clean Pill Tab Switcher */}
-        <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-gray-100 p-1.5">
-          {FEATURE_TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3">
+          {MODULES.map((mod) => {
+            const Icon = mod.icon;
             return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
-                  isActive
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-900"
-                }`}
+              <Link
+                key={mod.num}
+                href={mod.href}
+                className="group flex flex-col justify-between rounded-3xl border border-gray-200/80 bg-white p-6 shadow-base transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-hover"
               >
-                <span>{tab.title}</span>
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] ${
-                    isActive
-                      ? "bg-rose-50 text-primary-500 font-bold"
-                      : "bg-gray-200/70 text-gray-500 font-medium"
-                  }`}
-                >
-                  {tab.modulePill}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-secondary-500 shadow-sm transition duration-300 group-hover:bg-secondary-500 group-hover:text-white">
+                      <Icon size={20} />
+                    </div>
+                    <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                      Module {mod.num}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-gray-800">
+                      {mod.title}
+                    </h3>
+                    <p className="text-xs font-medium text-secondary-500">
+                      {mod.tagline}
+                    </p>
+                  </div>
+                  <p className="text-xs leading-relaxed text-gray-500">
+                    {mod.description}
+                  </p>
+                  <ul className="space-y-1.5 pt-1">
+                    {mod.points.map((point) => (
+                      <li
+                        key={point}
+                        className="flex items-start gap-2 text-xs font-medium text-gray-600"
+                      >
+                        <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-primary-500" />
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 transition-colors duration-150 group-hover:text-primary-500">
+                  Open module
+                  <ArrowRight
+                    size={13}
+                    className="transition-transform duration-300 group-hover:translate-x-0.5"
+                  />
                 </span>
-              </button>
+              </Link>
             );
           })}
         </div>
-
-        {/* Modern Clean Browser Frame */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          {/* Subtle Browser Window Header */}
-          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-5 py-3">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-              <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-              <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-              <span className="ml-3 font-mono text-[11px] text-gray-400">
-                travelsync.my/trips/penang-unesco-trail
-              </span>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-              ● Live Sync
-            </span>
-          </div>
-
-          {/* Split Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-12">
-            {/* Left Panel: Description & Features */}
-            <div className="flex flex-col justify-between p-6 sm:p-8 lg:col-span-5 lg:border-r lg:border-gray-100 space-y-6">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
-                  <Sparkles size={13} className="text-secondary-500" />
-                  <span>{FEATURE_TABS.find((t) => t.id === activeTab)?.badge}</span>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900">
-                  {FEATURE_TABS.find((t) => t.id === activeTab)?.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-gray-600">
-                  {FEATURE_TABS.find((t) => t.id === activeTab)?.description}
-                </p>
-
-                <ul className="space-y-3 pt-2">
-                  {FEATURE_TABS.find((t) => t.id === activeTab)?.points.map(
-                    (pt, idx) => (
-                      <li
-                        key={idx}
-                        className="flex items-start gap-2.5 text-xs text-gray-700 sm:text-sm font-medium"
-                      >
-                        <CheckCircle2
-                          size={16}
-                          className="mt-0.5 flex-shrink-0 text-secondary-500"
-                        />
-                        <span>{pt}</span>
-                      </li>
-                    )
-                  )}
-                </ul>
-              </div>
-
-              <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => handleStartPlanning()}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-95"
-                >
-                  <span>Build This Itinerary</span>
-                  <ArrowRight size={14} />
-                </button>
-                <span className="text-xs text-gray-400">
-                  Free & no setup
-                </span>
-              </div>
-            </div>
-
-            {/* Right Panel: Clean Simulated Mockup */}
-            <div className="bg-gray-50/50 p-6 sm:p-8 lg:col-span-7">
-              {activeTab === "itinerary" && (
-                <div className="space-y-4">
-                  {/* Day Switcher */}
-                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setActiveItineraryDay(1)}
-                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition active:scale-[0.98] ${
-                          activeItineraryDay === 1
-                            ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                            : "text-gray-500 hover:text-gray-900"
-                        }`}
-                      >
-                        Day 1: George Town
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveItineraryDay(2)}
-                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition active:scale-[0.98] ${
-                          activeItineraryDay === 2
-                            ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                            : "text-gray-500 hover:text-gray-900"
-                        }`}
-                      >
-                        Day 2: Penang Hill
-                      </button>
-                    </div>
-                    <span className="text-xs text-gray-400">
-                      {activeItineraryDay === 1 ? "3 Stops • 14 km" : "2 Stops • 18 km"}
-                    </span>
-                  </div>
-
-                  {/* Timetable Items */}
-                  {activeItineraryDay === 1 ? (
-                    <div className="space-y-3">
-                      <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
-                              09:00 AM
-                            </span>
-                            <div>
-                              <h4 className="text-xs font-bold text-gray-900">
-                                Toh Soon Cafe (Traditional Breakfast)
-                              </h4>
-                              <p className="text-[11px] text-gray-500">
-                                Campbell Street • Charcoal kaya toast & coffee
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                            Food
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 px-4 text-[11px] font-medium text-gray-400">
-                        <Car size={13} className="text-secondary-500" />
-                        <span>12 mins drive • 3.8 km</span>
-                      </div>
-
-                      <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
-                              11:30 AM
-                            </span>
-                            <div>
-                              <h4 className="text-xs font-bold text-gray-900">
-                                Pinang Peranakan Mansion
-                              </h4>
-                              <p className="text-[11px] text-gray-500">
-                                Church Street • UNESCO World Heritage museum
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                            Culture
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 px-4 text-[11px] font-medium text-gray-400">
-                        <Car size={13} className="text-secondary-500" />
-                        <span>18 mins drive • 6.4 km</span>
-                      </div>
-
-                      <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
-                              06:30 PM
-                            </span>
-                            <div>
-                              <h4 className="text-xs font-bold text-gray-900">
-                                Gurney Drive Hawker Center
-                              </h4>
-                              <p className="text-[11px] text-gray-500">
-                                Char Kway Teow, Penang Asam Laksa & Cendol
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                            Dinner
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
-                              10:00 AM
-                            </span>
-                            <div>
-                              <h4 className="text-xs font-bold text-gray-900">
-                                Kek Lok Si Buddhist Temple
-                              </h4>
-                              <p className="text-[11px] text-gray-500">
-                                Air Itam • Pagoda of Ten Thousand Buddhas
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                            Culture
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 px-4 text-[11px] font-medium text-gray-400">
-                        <Car size={13} className="text-secondary-500" />
-                        <span>8 mins drive • 2.1 km</span>
-                      </div>
-
-                      <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
-                              02:30 PM
-                            </span>
-                            <div>
-                              <h4 className="text-xs font-bold text-gray-900">
-                                Penang Hill Funicular & The Habitat
-                              </h4>
-                              <p className="text-[11px] text-gray-500">
-                                Canopy walkway & panoramic island views
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-800">
-                            Nature
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeTab === "discovery" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Award size={16} className="text-amber-500" />
-                      <span className="font-bold text-gray-800 text-sm">
-                        Official Tourism Quality Certified
-                      </span>
-                    </div>
-                    <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                      Module 03
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="rounded-md bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200/80">
-                          ★ PLATINUM
-                        </span>
-                        <span className="text-[11px] text-gray-400">Kuala Lumpur</span>
-                      </div>
-                      <h4 className="text-xs font-bold text-gray-900">
-                        Petronas Twin Towers Skybridge
-                      </h4>
-                      <p className="text-[11px] text-gray-500">
-                        Observation deck on Level 86 with skyline vistas.
-                      </p>
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-600">
-                        <span>1.5 Hours</span>
-                        <span className="font-semibold text-primary-500">RM35-98</span>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200/80">
-                          ★ GOLD
-                        </span>
-                        <span className="text-[11px] text-gray-400">Selangor</span>
-                      </div>
-                      <h4 className="text-xs font-bold text-gray-900">
-                        Batu Caves Limestone Sanctuary
-                      </h4>
-                      <p className="text-[11px] text-gray-500">
-                        272 rainbow steps leading to an ancient cave shrine.
-                      </p>
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-600">
-                        <span>2 Hours</span>
-                        <span className="font-semibold text-emerald-600">Free Entry</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "routes" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Route size={16} className="text-secondary-500" />
-                      <span className="font-bold text-gray-800 text-sm">
-                        PLUS Highway E1 Driving Plan
-                      </span>
-                    </div>
-                    <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                      Module 04
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-teal-50 text-secondary-500 font-bold text-xs">
-                        1
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-xs font-bold text-gray-900">
-                          Kuala Lumpur → Ipoh Old Town
-                        </h4>
-                        <p className="text-[11px] text-gray-500">
-                          205 km • 2h 15m via PLUS E1 • Tapah R&R Stop
-                        </p>
-                      </div>
-                      <span className="text-xs font-medium text-gray-500">
-                        Toll ~RM26
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-teal-50 text-secondary-500 font-bold text-xs">
-                        2
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-xs font-bold text-gray-900">
-                          Ipoh → George Town, Penang
-                        </h4>
-                        <p className="text-[11px] text-gray-500">
-                          160 km • 1h 45m across the Penang Bridge
-                        </p>
-                      </div>
-                      <span className="text-xs font-medium text-gray-500">
-                        Toll ~RM21
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "collab" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Users size={16} className="text-blue-500" />
-                      <span className="font-bold text-gray-800 text-sm">
-                        Live Group Co-Planning
-                      </span>
-                    </div>
-                    <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                      Module 05
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-white">
-                          FA
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-gray-900">
-                            Farah Azman (Editor)
-                          </h4>
-                          <p className="text-[11px] text-emerald-600">
-                            Added &ldquo;Batu Ferringhi Night Market&rdquo; to Day 2
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-gray-400">Just now</span>
-                    </div>
-
-                    <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-500 text-xs font-bold text-white">
-                          DT
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-gray-900">
-                            Darren Tan (Viewer)
-                          </h4>
-                          <p className="text-[11px] text-gray-500">
-                            Exported itinerary to Google Calendar (.ics)
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-gray-400">4 mins ago</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </section>
 
-      {/* ─── 3. FEATURED DESTINATIONS & QUALITY POIS ─── */}
-      <section className="space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-1">
+      {/* ═══════════════════════════════════════════════
+          3. 官方认证地点（真实数据：官方评级名录）
+          ═══════════════════════════════════════════════ */}
+      <section className="space-y-5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl space-y-1.5">
             <p className="text-xs font-bold uppercase tracking-widest text-primary-500">
-              Explore Malaysia
+              Quality Rated Places
             </p>
-            <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              Featured Destinations & Quality POIs
+            <h2 className="text-2xl font-semibold text-gray-800 sm:text-3xl">
+              Officially quality-rated places
             </h2>
-            <p className="text-xs text-gray-500 sm:text-sm">
-              Discover top spots across all 13 states with official tourism quality ratings.
+            <p className="text-sm text-gray-500">
+              These entries come from the app&apos;s maintained official
+              quality-rating register — name, address, contact and the rating
+              period shown are the register&apos;s own fields, not editorial
+              guesses.
             </p>
           </div>
-
-          {/* Clean Category Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-gray-100 p-1">
-            {(
-              [
-                { id: "all", label: "All Regions" },
-                { id: "quality", label: "★ Official Quality" },
-                { id: "heritage", label: "Heritage & Food" },
-                { id: "nature", label: "Islands & Nature" },
-                { id: "city", label: "City Skylines" },
-                { id: "highlands", label: "Highlands" },
-              ] as const
-            ).map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setCategoryFilter(cat.id)}
-                className={`rounded-lg px-3 py-1 text-xs font-medium transition active:scale-[0.98] ${
-                  categoryFilter === cat.id
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-900"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
+          {hasRatedData && (
+            <Link
+              href={MODULE_03_HOME}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 text-xs font-semibold text-gray-700 transition-colors duration-150 hover:text-primary-500"
+            >
+              View all in Destination Discovery
+              <ExternalLink size={12} />
+            </Link>
+          )}
         </div>
 
-        {/* Clean Destination Cards Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredDestinations.map((dest) => (
-            <div
-              key={dest.id}
-              className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm transition hover:border-gray-300 hover:shadow-md"
-            >
-              <div>
-                {/* Image Container */}
-                <div className="relative h-48 w-full overflow-hidden bg-gray-100">
-                  <img
-                    src={dest.image}
-                    alt={dest.name}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        {ratedLoading && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
 
-                  {/* Top Badges */}
-                  <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                    <span
-                      className={`rounded-md border px-2.5 py-0.5 text-[10px] font-bold backdrop-blur-md shadow-sm ${dest.badgeColor}`}
-                    >
-                      {dest.tag}
-                    </span>
-                    {dest.qualityBadge && (
-                      <span className="rounded-md border border-amber-300 bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-gray-900">
-                        ★ {dest.qualityBadge.toUpperCase()}
-                      </span>
+        {ratedError && (
+          <LoadError
+            message="We couldn't load the quality-rated places right now."
+            onRetry={retryLoad}
+          />
+        )}
+
+        {ratedEmpty && (
+          <div className="rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center shadow-base">
+            <p className="text-sm text-gray-500">
+              No officially rated places available yet.
+            </p>
+            <Link
+              href={MODULE_03_HOME}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary-500"
+            >
+              Open Destination Discovery
+              <ArrowRight size={12} />
+            </Link>
+          </div>
+        )}
+
+        {hasRatedData && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-4">
+            {visibleRated.map((poi) => {
+              const image = ratedImages[poi.id];
+              const imageUrl = image?.url ? safeHttpUrl(image.url) : "";
+              return (
+                <a
+                  key={poi.id}
+                  href={googleMapsUrl(`${poi.name} ${poi.formatted ?? ""}`.trim())}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-base transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-hover"
+                  aria-label={`Open ${poi.name} on Google Maps`}
+                >
+                  {/* 图片区（真实图片；无图以 Icon 占位）+ 开源署名 */}
+                  <div className="relative m-2 h-40 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
+                    {imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={imageUrl}
+                        alt={poi.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ImageOff
+                          size={28}
+                          className="text-gray-300"
+                          aria-label="No image available"
+                        />
+                      </div>
+                    )}
+                    {imageUrl && (
+                      <PlaceImageAttribution attribution={image.attribution} />
+                    )}
+                    {poi.qualityBadge && (
+                      <div className="absolute left-2.5 top-2.5">
+                        <QualityBadgeChip level={poi.qualityBadge} />
+                      </div>
                     )}
                   </div>
 
-                  {/* Rating Top Right */}
-                  <div className="absolute right-3 top-3">
-                    <div className="inline-flex items-center gap-1 rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-bold text-gray-800 backdrop-blur-md shadow-sm">
-                      <Star size={11} className="fill-amber-400 text-amber-400" />
-                      <span>{dest.ratingScore.toFixed(1)}</span>
-                    </div>
-                  </div>
-
-                  {/* Bottom Text Over Image */}
-                  <div className="absolute bottom-2.5 left-3.5 right-3.5">
-                    <h3 className="text-base font-bold text-white drop-shadow-sm sm:text-lg">
-                      {dest.name}
+                  {/* 登记信息（全部来自评级名录字段） */}
+                  <div className="flex flex-1 flex-col gap-2 p-5 pt-3">
+                    <h3 className="text-sm font-semibold leading-snug text-gray-800">
+                      {poi.name}
                     </h3>
-                    <p className="flex items-center gap-1 text-[11px] font-medium text-gray-200">
-                      <MapPin size={11} className="text-secondary-500" />
-                      <span>{dest.state}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card Body */}
-                <div className="p-4 space-y-2.5">
-                  <p className="text-xs leading-relaxed text-gray-500 line-clamp-2">
-                    {dest.description}
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-2 border-y border-gray-100 py-2 text-[11px] text-gray-500">
-                    <div className="flex items-center gap-1.5">
-                      <Clock size={12} className="text-gray-400" />
-                      <span>{dest.duration}</span>
+                    {poi.formatted && (
+                      <p className="line-clamp-2 text-xs leading-relaxed text-gray-500">
+                        {poi.formatted}
+                      </p>
+                    )}
+                    <div className="mt-auto space-y-1.5 border-t border-gray-100 pt-2.5 text-xs text-gray-500">
+                      {poi.phone && (
+                        <p className="flex items-center gap-1.5">
+                          <Phone size={12} className="text-gray-400" />
+                          <span className="truncate">{poi.phone}</span>
+                        </p>
+                      )}
+                      {poi.ratingDuration && (
+                        <p className="flex items-center gap-1.5">
+                          <ShieldCheck
+                            size={12}
+                            className="flex-shrink-0 text-secondary-500"
+                          />
+                          <span className="truncate">
+                            Valid {poi.ratingDuration}
+                          </span>
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Ticket size={12} className="text-gray-400" />
-                      <span className="truncate">{dest.price}</span>
-                    </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => handleStartPlanning(dest.name)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-95"
-                >
-                  <span>Plan Here</span>
-                  <ArrowRight size={12} />
-                </button>
-                <Link
-                  href="/03_Destination_Discovery_&_Inspiration"
-                  className="text-xs font-medium text-gray-500 transition hover:text-gray-800 active:opacity-70"
-                >
-                  Explore Guide
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
+                </a>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* ─── 4. WHY TRAVELSYNC (MINIMALIST BENTO GRID) ─── */}
-      <section className="rounded-3xl border border-gray-200/80 bg-white p-8 md:p-12 shadow-sm">
-        <div className="max-w-xl space-y-1.5">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary-500">
-            Why TravelSync
+      {/* ═══════════════════════════════════════════════
+          4. 按州探索（真实州/联邦直辖区列表）
+          ═══════════════════════════════════════════════ */}
+      <section className="space-y-5">
+        <div className="max-w-2xl space-y-1.5">
+          <p className="text-xs font-bold uppercase tracking-widest text-secondary-500">
+            Explore by State
           </p>
-          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            Built for modern Malaysian travel
+          <h2 className="text-2xl font-semibold text-gray-800 sm:text-3xl">
+            All of Malaysia&apos;s states &amp; territories
           </h2>
           <p className="text-sm text-gray-500">
-            A focused toolchain designed to make planning your trip simple, fast, and cooperative.
+            Pick any state or federal territory to start planning there.
           </p>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {HIGHLIGHTS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.title}
-                className="rounded-2xl border border-gray-100 bg-gray-50/50 p-6 space-y-3 transition hover:bg-white hover:border-gray-200 hover:shadow-sm"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-secondary-500 shadow-sm border border-gray-100">
-                  <Icon size={20} />
-                </div>
-                <h3 className="text-sm font-bold text-gray-900">
-                  {item.title}
-                </h3>
-                <p className="text-xs leading-relaxed text-gray-500">
-                  {item.description}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+        {stateLoading && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
 
-      {/* ─── 5. TRAVELER TESTIMONIALS / SOCIAL PROOF ─── */}
-      <section className="space-y-6">
-        <div className="text-center max-w-xl mx-auto space-y-1.5">
-          <p className="text-xs font-bold uppercase tracking-widest text-secondary-500">
-            Community Stories
-          </p>
-          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            Loved by travelers across Malaysia
-          </h2>
-        </div>
+        {stateError && (
+          <LoadError
+            message="We couldn't load the list of states right now."
+            onRetry={retryLoad}
+          />
+        )}
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {TESTIMONIALS.map((t, idx) => (
-            <div
-              key={idx}
-              className="flex flex-col justify-between rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm space-y-4"
-            >
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-1 text-amber-400">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={i} size={14} fill="currentColor" />
-                  ))}
-                </div>
-                <p className="text-xs leading-relaxed text-gray-600 italic">
-                  &ldquo;{t.comment}&rdquo;
-                </p>
-              </div>
+        {stateEmpty && (
+          <div className="rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center shadow-base">
+            <p className="text-sm text-gray-500">
+              The list of Malaysian states is not available right now.
+            </p>
+          </div>
+        )}
 
-              <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                <div className="flex items-center gap-2.5">
-                  <img
-                    src={t.avatar}
-                    alt={t.name}
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-800">{t.name}</h4>
-                    <p className="text-[10px] text-gray-400">{t.role}</p>
+        {hasStateData && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+            {states.map((state) => {
+              const image = stateImages[state.stateId];
+              const imageUrl = image?.url ? safeHttpUrl(image.url) : "";
+              return (
+                <button
+                  key={state.stateId}
+                  type="button"
+                  onClick={() => handleStartPlanning()}
+                  className="group flex flex-col overflow-hidden rounded-3xl border border-gray-200/80 bg-white text-left shadow-base transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-hover active:translate-y-0 active:scale-[0.99]"
+                  aria-label={`Start planning in ${state.name}`}
+                >
+                  <div className="relative m-2 h-24 overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-100 to-gray-50">
+                    {imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={imageUrl}
+                        alt={state.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <MapPin
+                          size={20}
+                          className="text-gray-300 transition duration-300 group-hover:text-secondary-500"
+                          aria-label="No image available"
+                        />
+                      </div>
+                    )}
+                    {imageUrl && (
+                      <PlaceImageAttribution attribution={image.attribution} />
+                    )}
                   </div>
-                </div>
-                <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
-                  {t.tag}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+                  <div className="flex items-center justify-between px-5 py-4">
+                    <h3 className="text-sm font-semibold text-gray-800">
+                      {state.name}
+                    </h3>
+                    <ArrowRight
+                      size={14}
+                      className="text-gray-300 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-primary-500"
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* ─── 6. MINIMALIST BOTTOM CTA ─── */}
-      <section className="rounded-3xl border border-gray-200/80 bg-gradient-to-b from-gray-50 to-white px-8 py-12 text-center shadow-sm md:py-16">
+      {/* ═══════════════════════════════════════════════
+          5. 底部 CTA + 数据披露
+          ═══════════════════════════════════════════════ */}
+      <section className="rounded-3xl border border-gray-200/80 bg-gradient-to-b from-gray-50 to-white px-8 py-12 text-center shadow-base md:py-14">
         <div className="mx-auto max-w-xl space-y-4">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-            Ready to plan your next Malaysian holiday?
+          <h2 className="text-2xl font-semibold tracking-tight text-gray-800 sm:text-3xl">
+            Ready to plan your next Malaysian trip?
           </h2>
-          <p className="text-xs leading-relaxed text-gray-500 sm:text-sm">
-            Create your itinerary in minutes, invite friends or family, and explore Malaysia with TravelSync.
+          <p className="text-sm leading-relaxed text-gray-500">
+            Create your itinerary, invite friends or family, and explore
+            Malaysia with TravelSync.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               type="button"
               onClick={() => handleStartPlanning()}
-              className="inline-flex items-center gap-2 rounded-full bg-primary-500 px-6 py-3 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-500/90 active:scale-95"
+              className="inline-flex items-center gap-2 rounded-full bg-primary-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition duration-150 hover:bg-primary-500/90 active:scale-95"
             >
-              <span>Start planning — It&apos;s free</span>
+              Start planning
               <ArrowRight size={14} />
             </button>
             <Link
-              href="/03_Destination_Discovery_&_Inspiration"
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-3 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95"
+              href={MODULE_03_HOME}
+              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-700 shadow-sm transition duration-150 hover:bg-gray-50 active:scale-95"
             >
               <Compass size={14} />
-              <span>Browse Destinations</span>
+              Browse destinations
             </Link>
           </div>
+          <p className="mx-auto max-w-lg pt-2 text-[11px] leading-relaxed text-gray-400">
+            About this page&apos;s data: quality-rated places and the state list
+            come from this app&apos;s maintained data; place photos come from
+            Wikimedia / Mapillary under open licenses (attribution shown where
+            required); search suggestions come from the app&apos;s state list.
+            No ratings, prices, distances or user reviews on this page are
+            fabricated.
+          </p>
         </div>
       </section>
     </div>
