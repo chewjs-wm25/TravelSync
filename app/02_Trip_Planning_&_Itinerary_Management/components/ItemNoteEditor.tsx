@@ -16,7 +16,8 @@ export type ItemNoteEditorProps = {
   initialPosition?: number;
   initialStartTime?: string;
   initialEndTime?: string;
-  previousEndTime?: string; // ADD THIS
+  previousEndTime?: string;
+  travelTimeMinutes?: number;
   onSaveItem: (payload: ItemEditPayload) => void | Promise<void>;
   onCancel: () => void;
 };
@@ -27,7 +28,8 @@ export function ItemNoteEditor({
   initialPosition,
   initialStartTime,
   initialEndTime,
-  previousEndTime, // ADD THIS
+  previousEndTime,
+  travelTimeMinutes,
   onSaveItem,
   onCancel,
 }: ItemNoteEditorProps) {
@@ -69,10 +71,30 @@ export function ItemNoteEditor({
       setErrorMessage("End time must be in HH:MM format");
       return;
     }
-    if (tempStartTime && previousEndTime && tempStartTime < previousEndTime) {
-  setErrorMessage(`Start time cannot be earlier than previous item end time (${previousEndTime})`);
-  return;
-}
+    if (tempStartTime && previousEndTime) {
+      const [previousHours, previousMinutes] = previousEndTime
+        .split(":")
+        .map(Number);
+      const [startHours, startMinutes] = tempStartTime.split(":").map(Number);
+      const previousEndWithTravel =
+        previousHours * 60 +
+        previousMinutes +
+        (travelTimeMinutes ?? 0);
+      const startTimeInMinutes = startHours * 60 + startMinutes;
+
+      if (startTimeInMinutes < previousEndWithTravel) {
+        const totalMinutes = Math.round(previousEndWithTravel);
+        const requiredHours = Math.floor(totalMinutes / 60) % 24;
+        const requiredMinutes = totalMinutes % 60;
+        const requiredStartTime = `${String(requiredHours).padStart(2, "0")}:${String(requiredMinutes).padStart(2, "0")}`;
+        setErrorMessage(
+          travelTimeMinutes
+            ? `Start time must be at or after ${requiredStartTime} to allow ${Math.round(travelTimeMinutes)} minutes of travel`
+            : `Start time cannot be earlier than previous item end time (${previousEndTime})`
+        );
+        return;
+      }
+    }
 
     setErrorMessage(null);
     setIsSaving(true);

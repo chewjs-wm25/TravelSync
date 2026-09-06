@@ -105,6 +105,14 @@ function sortDayItems(items: DayItinerary["items"]) {
   });
 }
 
+function reindexDayItems(items: DayItinerary["items"]) {
+  return sortDayItems(items).map((item, index) => ({
+    ...item,
+    position: index + 1,
+    order_index: index + 1,
+  }));
+}
+
 function mapItemResponse(
   item: ItemApiPayload,
   fallbackName: string,
@@ -597,6 +605,16 @@ const handleSelectSuggestion = useCallback(
     const resolvedLat = selectedSuggestion?.lat ?? resolvedPlaceDetail?.lat ?? null;
     const resolvedLon = selectedSuggestion?.lon ?? resolvedPlaceDetail?.lon ?? null;
 
+    if (
+      typeof resolvedLat !== "number" ||
+      !Number.isFinite(resolvedLat) ||
+      typeof resolvedLon !== "number" ||
+      !Number.isFinite(resolvedLon)
+    ) {
+      setToastMessage("Invalid place: latitude and longitude are required");
+      return;
+    }
+
     if (dayId.startsWith("local-")) {
       setDayCards((previous) =>
         previous.map((day) => {
@@ -699,7 +717,9 @@ const handleSelectSuggestion = useCallback(
 
           return {
             ...day,
-            items: day.items.filter((item) => item.id !== itemId),
+            items: reindexDayItems(
+              day.items.filter((item) => item.id !== itemId)
+            ),
           };
         })
       );
@@ -721,10 +741,13 @@ const handleSelectSuggestion = useCallback(
 
           return {
             ...day,
-            items: day.items.filter((item) => item.id !== itemId),
+            items: reindexDayItems(
+              day.items.filter((item) => item.id !== itemId)
+            ),
           };
         })
       );
+      setRefreshCounter((previous) => previous + 1);
       setToastMessage("Item removed from itinerary!");
     } catch (error) {
       setToastMessage(
@@ -770,6 +793,14 @@ const handleSelectSuggestion = useCallback(
 
     if (!trimmedTitle) {
       setToastMessage("Itinerary title is required");
+      return;
+    }
+
+    const hasConflictingDate = dayCards.some(
+      (day) => day.id !== dayId && day.date === normalizedDate
+    );
+    if (hasConflictingDate) {
+      setToastMessage("An itinerary day already exists for that date");
       return;
     }
 
@@ -1112,6 +1143,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
                   type="date"
                   value={draftStartDate}
                   onChange={(e) => setDraftStartDate(e.target.value)}
+                  max={draftEndDate || undefined}
                   className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20"
                 />
                 <span className="text-sm text-gray-500">—</span>
@@ -1119,6 +1151,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
                   type="date"
                   value={draftEndDate}
                   onChange={(e) => setDraftEndDate(e.target.value)}
+                  min={draftStartDate || undefined}
                   className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20"
                 />
 
@@ -1213,7 +1246,7 @@ if (effectiveStartTime && effectiveEndTime && effectiveEndTime < effectiveStartT
 
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(true)}
+                  onClick={() => void handleAddDay("after")}
                   disabled={!canCreateItinerary}
                   className="bg-primary-500 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                   title="Add a new itinerary day"

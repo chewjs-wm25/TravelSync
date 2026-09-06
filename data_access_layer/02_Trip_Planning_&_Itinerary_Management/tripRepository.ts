@@ -6,6 +6,7 @@ export type TripRecord = {
   end_date: string | null;
   trip_note: string | null;
   image_url: string | null;
+  locations_count?: number;
 };
 
 export type CreateTripInput = {
@@ -79,7 +80,14 @@ export async function listTripsByUser(db: D1Database, userId: string) {
         start_date,
         end_date,
         trip_note,
-        image_url
+        image_url,
+        (
+          SELECT COUNT(*)
+          FROM itinerary_items
+          INNER JOIN itineraries
+            ON itineraries.itinerary_id = itinerary_items.itinerary_id
+          WHERE itineraries.trip_id = trips.trip_id
+        ) AS locations_count
       FROM trips
       WHERE user_id = ?
       ORDER BY
@@ -104,7 +112,14 @@ export async function getTripById(db: D1Database, tripId: string) {
         start_date,
         end_date,
         trip_note,
-        image_url
+        image_url,
+        (
+          SELECT COUNT(*)
+          FROM itinerary_items
+          INNER JOIN itineraries
+            ON itineraries.itinerary_id = itinerary_items.itinerary_id
+          WHERE itineraries.trip_id = trips.trip_id
+        ) AS locations_count
       FROM trips
       WHERE trip_id = ?`
     )
@@ -151,7 +166,14 @@ export async function updateTrip(
         start_date,
         end_date,
         trip_note,
-        image_url
+        image_url,
+        (
+          SELECT COUNT(*)
+          FROM itinerary_items
+          INNER JOIN itineraries
+            ON itineraries.itinerary_id = itinerary_items.itinerary_id
+          WHERE itineraries.trip_id = trips.trip_id
+        ) AS locations_count
       FROM trips
       WHERE trip_id = ?`
     )

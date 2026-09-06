@@ -26,7 +26,7 @@ export async function POST(
 
     const result = await importPlacesAction(itineraryId, items as any);
 
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(result, { status: result.success ? 201 : 400 });
   } catch (error) {
     const typedError = error as Error & { status?: number };
     return NextResponse.json(

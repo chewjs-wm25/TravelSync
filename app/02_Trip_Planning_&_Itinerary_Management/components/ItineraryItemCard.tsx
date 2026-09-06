@@ -22,7 +22,8 @@ export type ItineraryItem = {
 
 type ItineraryItemCardProps = {
   item: ItineraryItem;
-  previousEndTime?: string; // ADD THIS
+  previousEndTime?: string;
+  travelTimeMinutes?: number;
   onDelete: () => void | Promise<void>;
   onToggleEdit: () => void;
   onSaveItem: (payload: {
@@ -36,7 +37,8 @@ type ItineraryItemCardProps = {
 
 export function ItineraryItemCard({
   item,
-  previousEndTime, // ADD THIS
+  previousEndTime,
+  travelTimeMinutes,
   onDelete,
   onToggleEdit,
   onSaveItem,
@@ -135,7 +137,8 @@ export function ItineraryItemCard({
           initialPosition={resolvedPosition}
           initialStartTime={item.start_time}
           initialEndTime={item.end_time}
-          previousEndTime={previousEndTime} // PASS THIS
+          previousEndTime={previousEndTime}
+          travelTimeMinutes={travelTimeMinutes}
           onSaveItem={onSaveItem}
           onCancel={onToggleEdit}
         />

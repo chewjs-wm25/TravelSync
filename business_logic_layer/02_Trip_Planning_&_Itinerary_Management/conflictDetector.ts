@@ -2,6 +2,8 @@ export type ScheduleInterval = {
   id?: string | null;
   start_time?: string | null; // expect ISO date-time or "YYYY-MM-DD HH:MM"
   end_time?: string | null;   // same format as start_time
+  /** Travel time required after this item before the next item can start. */
+  travel_time_minutes?: number | null;
 };
 
 export type Conflict = {
@@ -67,6 +69,7 @@ export function detectConflictSchedule(items: ScheduleInterval[]): DetectConflic
     rawEnd: string;
     startMs: number | null;
     endMs: number | null;
+    travelTimeMs: number;
   }> = [];
 
   for (const it of items) {
@@ -74,8 +77,19 @@ export function detectConflictSchedule(items: ScheduleInterval[]): DetectConflic
     const rawEnd = it.end_time ?? "";
     const startMs = tryParseDateTime(rawStart);
     const endMs = tryParseDateTime(rawEnd);
+    const travelTimeMinutes = it.travel_time_minutes ?? 0;
 
-    parsed.push({ id: it.id ?? null, rawStart, rawEnd, startMs, endMs });
+    parsed.push({
+      id: it.id ?? null,
+      rawStart,
+      rawEnd,
+      startMs,
+      endMs,
+      travelTimeMs:
+        Number.isFinite(travelTimeMinutes) && travelTimeMinutes > 0
+          ? travelTimeMinutes * 60_000
+          : 0,
+    });
   }
 
   const conflicts: Conflict[] = [];
@@ -89,7 +103,14 @@ export function detectConflictSchedule(items: ScheduleInterval[]): DetectConflic
       const b = parsed[j];
       if (b.startMs === null || b.endMs === null) continue;
 
-      if (intervalsOverlap(a.startMs, a.endMs, b.startMs, b.endMs)) {
+      if (
+        intervalsOverlap(
+          a.startMs,
+          a.endMs + a.travelTimeMs,
+          b.startMs,
+          b.endMs
+        )
+      ) {
         conflicts.push({
           aId: a.id ?? null,
           bId: b.id ?? null,

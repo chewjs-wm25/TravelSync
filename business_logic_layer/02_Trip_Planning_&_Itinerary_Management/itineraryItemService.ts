@@ -1,5 +1,6 @@
 import {
   addItineraryItem,
+  compactItineraryItemPositions,
   deleteItineraryItem,
   getItineraryItemById,
   getItineraryItemsByItineraryId,
@@ -100,6 +101,18 @@ function normalizeUpdatePosition(
   return parsed;
 }
 
+function hasValidCoordinates(
+  lat: number | null | undefined,
+  lon: number | null | undefined
+): boolean {
+  return (
+    typeof lat === "number" &&
+    Number.isFinite(lat) &&
+    typeof lon === "number" &&
+    Number.isFinite(lon)
+  );
+}
+
 export function validateItineraryItemPayload(
   itineraryId: string | null,
   input: ItineraryItemServiceInput
@@ -141,6 +154,14 @@ export function validateItineraryItemPayload(
       success: false,
       status: 400,
       message: "Place Not Found!",
+    };
+  }
+
+  if (!hasValidCoordinates(input.lat, input.lon)) {
+    return {
+      success: false,
+      status: 400,
+      message: "Place not found",
     };
   }
 
@@ -473,6 +494,16 @@ export async function deleteItineraryItemById(
     };
   }
 
+  try {
+    await compactItineraryItemPositions(db, existingItem.itinerary_id);
+  } catch {
+    return {
+      success: false,
+      status: 500,
+      message: "Failed to rearrange itinerary items",
+    };
+  }
+
   // Trigger itinerary change notification (module 02 event bus)
   try {
     const events = await import("./events");
@@ -520,6 +551,13 @@ export async function importPlaces(
   const existingItinerary = await getItineraryById(db, resolvedItineraryId);
   if (!existingItinerary) {
     return { success: false, importedCount: 0 };
+  }
+
+  for (const entry of items) {
+    const name = normalizeText(entry.name);
+    if (name && !hasValidCoordinates(entry.lat, entry.lon)) {
+      return { success: false, importedCount: 0 };
+    }
   }
 
   let importedCount = 0;

@@ -97,20 +97,38 @@ export function DayItineraryCard({
   const [suggestions, setSuggestions] = useState<LocalSuggestionItem[]>([]);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
-  // Route segments: key = "fromId->toId", value = summary or null (unavailable)
+  // Route segments are temporary page-session results. They must not survive
+  // an item-list change because the adjacent pairs may have changed.
   type RouteSegment = { distanceKm: number; timeMinutes: number } | null;
-  const [routeSegments, setRouteSegments] = useState<Record<string, RouteSegment>>({});
-  const [loadingSegmentKeys, setLoadingSegmentKeys] = useState<Set<string>>(new Set());
+  const [routeSegmentState, setRouteSegmentState] = useState<{
+    itemCalculationKey: string;
+    segments: Record<string, RouteSegment>;
+  }>({ itemCalculationKey: "", segments: {} });
+  const [loadingSegmentState, setLoadingSegmentState] = useState<{
+    itemCalculationKey: string;
+    keys: Set<string>;
+  }>({ itemCalculationKey: "", keys: new Set() });
+  const segmentCacheRef = useRef<{
+    itemCalculationKey: string;
+    segments: Record<string, RouteSegment>;
+  }>({ itemCalculationKey: "", segments: {} });
 
-  // Recalculate all connectors whenever the item list changes (add or delete)
+  const itemCalculationKey = day.items
+    .map((item) => `${item.id}:${item.lat ?? ""}:${item.lon ?? ""}`)
+    .join("|");
+
+  // Calculate each adjacent pair once for the current item list. The local
+  // state is intentionally discarded on unmount when navigating away.
   useEffect(() => {
-    if (day.items.length < 2) {
-      setRouteSegments({});
-      setLoadingSegmentKeys(new Set());
-      return;
+    let cancelled = false;
+
+    if (segmentCacheRef.current.itemCalculationKey !== itemCalculationKey) {
+      segmentCacheRef.current = { itemCalculationKey, segments: {} };
     }
 
-    let cancelled = false;
+    if (day.items.length < 2) {
+      return;
+    }
 
     const calculateSegments = async () => {
       for (let i = 0; i < day.items.length - 1; i++) {
@@ -125,41 +143,92 @@ export function DayItineraryCard({
           from.lat == null || from.lon == null ||
           to.lat == null || to.lon == null
         ) {
+          segmentCacheRef.current.segments[key] = null;
           if (!cancelled) {
-            setRouteSegments((prev) => ({ ...prev, [key]: null }));
+            setRouteSegmentState((previous) => ({
+              itemCalculationKey,
+              segments: {
+                ...(previous.itemCalculationKey === itemCalculationKey
+                  ? previous.segments
+                  : {}),
+                [key]: null,
+              },
+            }));
+          }
+          continue;
+        }
+
+        const cachedSegment = segmentCacheRef.current.segments[key];
+        if (cachedSegment !== undefined) {
+          if (!cancelled) {
+            setRouteSegmentState((previous) => ({
+              itemCalculationKey,
+              segments: {
+                ...(previous.itemCalculationKey === itemCalculationKey
+                  ? previous.segments
+                  : {}),
+                [key]: cachedSegment,
+              },
+            }));
           }
           continue;
         }
 
         // Mark as loading
         if (!cancelled) {
-          setLoadingSegmentKeys((prev) => new Set(prev).add(key));
+          setLoadingSegmentState((previous) => ({
+            itemCalculationKey,
+            keys: new Set(
+              previous.itemCalculationKey === itemCalculationKey
+                ? previous.keys
+                : []
+            ).add(key),
+          }));
         }
 
         try {
           const fromStop: Stop = { id: from.id, name: from.name, lat: from.lat, lng: from.lon };
           const toStop: Stop = { id: to.id, name: to.name, lat: to.lat, lng: to.lon };
-          console.log(from.lat, from.lon, to.lat, to.lon)
           const result = await generateRoute(fromStop, toStop, 'car', 'fastest');
 
           if (!cancelled) {
-            setRouteSegments((prev) => ({
-              ...prev,
-              [key]: result.success
-                ? { distanceKm: result.summary.distanceKm, timeMinutes: result.summary.timeMinutes }
-                : null,
+            const nextSegment = result.success
+              ? { distanceKm: result.summary.distanceKm, timeMinutes: result.summary.timeMinutes }
+              : null;
+            segmentCacheRef.current.segments[key] = nextSegment;
+            setRouteSegmentState((previous) => ({
+              itemCalculationKey,
+              segments: {
+                ...(previous.itemCalculationKey === itemCalculationKey
+                  ? previous.segments
+                  : {}),
+                [key]: nextSegment,
+              },
             }));
           }
         } catch {
           if (!cancelled) {
-            setRouteSegments((prev) => ({ ...prev, [key]: null }));
+            segmentCacheRef.current.segments[key] = null;
+            setRouteSegmentState((previous) => ({
+              itemCalculationKey,
+              segments: {
+                ...(previous.itemCalculationKey === itemCalculationKey
+                  ? previous.segments
+                  : {}),
+                [key]: null,
+              },
+            }));
           }
         } finally {
           if (!cancelled) {
-            setLoadingSegmentKeys((prev) => {
-              const next = new Set(prev);
+            setLoadingSegmentState((previous) => {
+              const next = new Set(
+                previous.itemCalculationKey === itemCalculationKey
+                  ? previous.keys
+                  : []
+              );
               next.delete(key);
-              return next;
+              return { itemCalculationKey, keys: next };
             });
           }
         }
@@ -172,7 +241,16 @@ export function DayItineraryCard({
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day.items.map((item) => item.id).join(",")]);
+  }, [itemCalculationKey]);
+
+  const routeSegments =
+    routeSegmentState.itemCalculationKey === itemCalculationKey
+      ? routeSegmentState.segments
+      : {};
+  const loadingSegmentKeys =
+    loadingSegmentState.itemCalculationKey === itemCalculationKey
+      ? loadingSegmentState.keys
+      : new Set<string>();
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -596,6 +674,7 @@ export function DayItineraryCard({
                     <ItineraryItemCard
                       item={item}
                       previousEndTime={previousEndTime}
+                      travelTimeMinutes={segment?.timeMinutes}
                       onDelete={() => onDeleteItem(item.id)}
                       onToggleEdit={() => onToggleItemEdit(item.id)}
                       onSaveItem={(payload) => onSaveItem(item.id, payload)}

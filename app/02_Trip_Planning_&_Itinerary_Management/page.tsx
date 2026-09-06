@@ -22,6 +22,7 @@ type TripRecord = {
   end_date: string | null;
   trip_note: string | null;
   image_url: string | null;
+  locations_count?: number;
 };
 
 
@@ -198,7 +199,7 @@ export default function PlanningPage() {
         ) : trips.length === 0 ? (
           !isLoggedIn ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center">
-              <p className="mb-3 text-lg font-semibold text-gray-800">Module locked</p>
+              <p className="mb-3 text-lg font-semibold text-gray-800">Account Not Found</p>
               <p className="mb-4 text-sm text-gray-600">Please sign in to access your trips and create new itineraries.</p>
               <a
                 href="/01_User_&_Account_Management"
@@ -223,7 +224,7 @@ export default function PlanningPage() {
                 image={trip.image_url ?? undefined}
                 startDate={formatTripDate(trip.start_date)}
                 endDate={formatTripDate(trip.end_date)}
-                locationsCount={0}
+                locationsCount={trip.locations_count ?? 0}
                 onEdit={() => setEditingTrip(trip)}
                 onDelete={() => handleTripDeleted(trip.trip_id)}
               />

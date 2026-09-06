@@ -101,6 +101,13 @@ export default function TripCard({
     router.push("/02_Trip_Planning_&_Itinerary_Management/" + tripId);
   };
 
+  const handleShare = () => {
+    setIsOpen(false);
+    router.push(
+      `/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(tripId)}`
+    );
+  };
+
   const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -233,10 +240,7 @@ export default function TripCard({
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    setIsOpen(false);
-                    router.push(
-                      `/05_Collaboration_&_Shared_Planning?trip=${encodeURIComponent(tripId)}`
-                    );
+                    handleShare();
                   }}
                   title="Open this trip in Shared Planning"
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"

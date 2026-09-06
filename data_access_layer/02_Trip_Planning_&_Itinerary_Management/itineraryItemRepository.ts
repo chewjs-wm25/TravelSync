@@ -295,6 +295,33 @@ export async function deleteItineraryItem(
   return wasD1MutationSuccessful(result);
 }
 
+export async function compactItineraryItemPositions(
+  db: D1Database,
+  itineraryId: string
+): Promise<void> {
+  const items = await getItineraryItemsByItineraryId(db, itineraryId);
+  const updates = items.flatMap((item, index) => {
+    const position = index + 1;
+    const currentPosition = item.position ?? item.order_index;
+
+    return currentPosition === position
+      ? []
+      : [
+          db
+            .prepare(
+              `UPDATE itinerary_items
+              SET position = ?
+              WHERE item_id = ? AND itinerary_id = ?`
+            )
+            .bind(position, item.item_id, itineraryId),
+        ];
+  });
+
+  if (updates.length > 0) {
+    await db.batch(updates);
+  }
+}
+
 export async function getItineraryItemsByItineraryId(
   db: D1Database,
   itineraryId: string

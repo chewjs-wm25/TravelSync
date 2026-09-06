@@ -503,6 +503,20 @@ export async function updateItinerary(
     };
   }
 
+  const itineraries = await getItinerariesByTripId(db, existingItinerary.trip_id);
+  if (
+    itineraries.some(
+      (itinerary) =>
+        itinerary.itinerary_id !== tripId && itinerary.date === date
+    )
+  ) {
+    return {
+      success: false,
+      status: 409,
+      message: "An itinerary day already exists for that date",
+    };
+  }
+
   const wasUpdated = await updateItineraryInRepository(
     db,
     tripId,
