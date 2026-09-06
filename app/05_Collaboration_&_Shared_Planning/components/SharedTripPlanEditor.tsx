@@ -163,13 +163,20 @@ export default function SharedTripPlanEditor() {
   const isFirstLoadRef = useRef(true);
   const isSyncingRef = useRef(false);
   const activeTripRef = useRef(activeTrip);
+  const lastDataHashRef = useRef<string>("");
+  const searchInputsRef = useRef(searchInputs);
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
   }, [activeTrip]);
 
   useEffect(() => {
+    searchInputsRef.current = searchInputs;
+  }, [searchInputs]);
+
+  useEffect(() => {
     isFirstLoadRef.current = true;
+    lastDataHashRef.current = "";
   }, [targetTripId]);
 
   const showToast = (msg: string) => {
@@ -177,22 +184,30 @@ export default function SharedTripPlanEditor() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleSelectSuggestion = useCallback(
-    (
-      dayId: string,
-      sugg?: {
-        placeId: string;
-        formatted: string;
-        name?: string;
-        imageUrl?: string;
-        lat?: number;
-        lon?: number;
-      }
-    ) => {
-      setSelectedSuggestions((prev) => ({ ...prev, [dayId]: sugg }));
-    },
-    []
-  );
+  const selectSuggestionHandlersRef = useRef<
+    Record<
+      string,
+      (
+        sugg?: {
+          placeId: string;
+          formatted: string;
+          name?: string;
+          imageUrl?: string;
+          lat?: number;
+          lon?: number;
+        }
+      ) => void
+    >
+  >({});
+
+  const getSelectSuggestionHandler = useCallback((dayId: string) => {
+    if (!selectSuggestionHandlersRef.current[dayId]) {
+      selectSuggestionHandlersRef.current[dayId] = (sugg) => {
+        setSelectedSuggestions((prev) => ({ ...prev, [dayId]: sugg }));
+      };
+    }
+    return selectSuggestionHandlersRef.current[dayId];
+  }, []);
 
   // Load itinerary data from Module 02 API (SWR 模式：初次加载有菊花图，后续自动刷新为静态静默刷新)
   useEffect(() => {
@@ -237,6 +252,43 @@ export default function SharedTripPlanEditor() {
         );
 
         if (!isMounted) return;
+
+        // 计算远端数据指纹：如果静默刷新且远端数据完全没有变动，不触发任何 React 状态更新
+        const serverHash = JSON.stringify({
+          trip: tripData ? { id: tripData.trip_id, note: tripData.trip_note } : null,
+          itineraries: tripItineraries.map((it) => ({
+            id: it.itinerary_id,
+            title: it.title,
+            date: it.date,
+            note: it.note,
+          })),
+          items: persistedItems.map((items) =>
+            items.map((i) => ({
+              id: i.item_id,
+              name: i.item_name,
+              note: i.itinerary_item_note,
+              pos: i.position ?? i.order_index,
+              lat: i.lat,
+              lon: i.lon,
+            }))
+          ),
+        });
+
+        if (silent && lastDataHashRef.current === serverHash) {
+          // 数据未变，跳过更新，杜绝重复渲染导致的下拉框闪烁
+          return;
+        }
+
+        // 输入保护：如果用户当前正在搜索框输入或浏览建议，暂缓静默重绘卡片结构
+        const isUserTyping = Object.values(searchInputsRef.current).some(
+          (text) => Boolean(text && text.trim().length > 0)
+        );
+        if (silent && isUserTyping) {
+          lastDataHashRef.current = serverHash;
+          return;
+        }
+
+        lastDataHashRef.current = serverHash;
 
         setTrip(tripData);
         setItineraries(tripItineraries);
@@ -374,6 +426,41 @@ export default function SharedTripPlanEditor() {
         }
       } catch {
         // Ignore suggestions lookup error
+      }
+    }
+
+    // OpenStreetMap Nominatim 兜底解析（无需 API key，确保用户直接输入并点击加号也能解析出经纬度）
+    if (
+      typeof finalLat !== "number" ||
+      !Number.isFinite(finalLat) ||
+      typeof finalLon !== "number" ||
+      !Number.isFinite(finalLon)
+    ) {
+      try {
+        const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=my&limit=1&q=${encodeURIComponent(
+          query
+        )}`;
+        const res = await fetch(nominatimUrl);
+        if (res.ok) {
+          const data = (await res.json()) as Array<{
+            lat: string;
+            lon: string;
+            display_name?: string;
+          }>;
+          if (data && data.length > 0) {
+            const parsedLat = parseFloat(data[0].lat);
+            const parsedLon = parseFloat(data[0].lon);
+            if (Number.isFinite(parsedLat) && Number.isFinite(parsedLon)) {
+              finalLat = parsedLat;
+              finalLon = parsedLon;
+              if (!finalItemName || finalItemName === query) {
+                finalItemName = data[0].display_name?.split(",")[0]?.trim() || query;
+              }
+            }
+          }
+        }
+      } catch {
+        // 忽略兜底解析错误
       }
     }
 
@@ -823,7 +910,7 @@ export default function SharedTripPlanEditor() {
                   setSelectedSuggestions((prev) => ({ ...prev, [day.id]: undefined }));
                 }
               }}
-              onSelectSuggestion={(sugg) => handleSelectSuggestion(day.id, sugg)}
+              onSelectSuggestion={getSelectSuggestionHandler(day.id)}
               onAddItem={() => handleAddItem(day.id)}
               onDeleteItem={(itemId) => void handleDeleteItem(day.id, itemId)}
               onDeleteDay={() => void handleDeleteDay(day.id)}
