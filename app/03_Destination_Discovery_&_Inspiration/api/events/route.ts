@@ -10,8 +10,8 @@
  * 端点：
  *   - GET（公开读）保持匿名可访问：返回全部节日/活动条目（数据源为官网活动，
  *     由 POST …/events/sync 服务端爬取同步入 D1）；
- *   - DELETE（清空）为 DEV 工具清空入口，不再要求管理员会话（原 requireAdmin
- *     限制已移除）。
+ *   - DELETE（清空）为 Admin Panel 清空入口，要求管理员会话（401/403，
+ *     requireAdmin）。
  *   - 原 POST（批量 upsert JSON items）已废弃移除：活动写入改由
  *     events/sync（服务端官网爬取）承担，避免双入口。
  *
@@ -21,6 +21,7 @@
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { D1EventRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1EventRepository";
+import { requireAdmin } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
 
 /** 以当前环境 D1 binding 构建仓储实例 */
 async function eventRepo(): Promise<D1EventRepository> {
@@ -35,8 +36,11 @@ export async function GET() {
   return Response.json(items);
 }
 
-/** DELETE /03_Destination_Discovery_&_Inspiration/api/events → 清空全部活动数据，返回 { cleared }（DEV 清空入口，无会话授权） */
-export async function DELETE() {
+/** DELETE /03_Destination_Discovery_&_Inspiration/api/events → 清空全部活动数据，返回 { cleared }（Admin Panel 清空入口，管理员会话） */
+export async function DELETE(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+
   const repo = await eventRepo();
   const cleared = await repo.clearAll();
   return Response.json({ cleared });

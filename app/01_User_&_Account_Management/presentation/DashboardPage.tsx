@@ -5,7 +5,7 @@ import ProfileTab from "./ProfileTab";
 import SecurityTab from "./SecurityTab";
 import SettingsTab, { AccountSettings } from "./SettingsTab";
 import DeleteAccountTab from "./DeleteAccountTab";
-import { useAuthStore, mapAccountUser } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore, mapAccountUser } from "@/app/Admin_Panel/authUser";
 
 export interface DashboardUser {
   id: string;

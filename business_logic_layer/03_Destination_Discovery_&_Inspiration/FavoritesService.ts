@@ -17,7 +17,7 @@
 
 import type { FavoritesRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository";
 import { RemoteFavoritesRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/RemoteFavoritesRepository";
-import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
 import {
   RoutePlannerBridge,
   routePlannerBridge,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
 
 import {
   deleteTripAction,

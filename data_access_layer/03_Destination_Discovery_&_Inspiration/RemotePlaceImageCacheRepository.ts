@@ -70,7 +70,15 @@ export class RemotePlaceImageCacheRepository implements PlaceImageCacheRepositor
       headers: sessionAuthHeaders(),
     });
     if (!res.ok) {
-      throw new Error(`Failed to clear place image cache (HTTP ${res.status})`);
+      const detail = (await res.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+      } | null;
+      throw new Error(
+        detail?.message ??
+          detail?.error ??
+          `Failed to clear place image cache (HTTP ${res.status})`
+      );
     }
     const data = (await res.json()) as { cleared?: number };
     return data.cleared ?? 0;

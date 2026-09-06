@@ -16,7 +16,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import DashboardPage, { DashboardUser } from "./presentation/DashboardPage";
-import { useAuthStore, mapAccountUser } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore, mapAccountUser } from "@/app/Admin_Panel/authUser";
 
 type AuthUser = DashboardUser;
 

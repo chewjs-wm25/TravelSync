@@ -2,7 +2,7 @@
  * QualityRatingSyncService — 模块 03 官方品质评级同步业务逻辑（Business Logic Layer, 浏览器端）
  *
  * 职责（单一）：
- *   - syncQualityRatings（全量，DEV 按钮）：两阶段——
+ *   - syncQualityRatings（全量，Admin Panel 按钮）：两阶段——
  *     ① 委托 RemoteQualityRatingRepository.syncFromWeb() 触发服务端 Route API
  *        "MOTAC 官网爬取 → upsert D1 →（跳过率 ≤25% 时）镜像清理"（浏览器端无法
  *        直连官网：跨域被 CORS 拦截，爬虫只能在 Cloudflare Worker 内执行）；
@@ -188,7 +188,7 @@ export class QualityRatingSyncService {
   }
 
   /**
-   * 清空全部官方评级数据（DEV 工具）：调远程仓储 DELETE 全部 D1
+   * 清空全部官方评级数据（Admin Panel 工具）：调远程仓储 DELETE 全部 D1
    * official_quality_ratings 记录，返回实际删除条数。失败时抛错由调用方反馈。
    */
   async clearQualityRatings(): Promise<number> {

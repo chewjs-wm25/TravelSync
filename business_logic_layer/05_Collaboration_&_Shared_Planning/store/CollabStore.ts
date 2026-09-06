@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab";
 import { buildFallbackTrip } from "./fallbackTrip";
-import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
 import type {
   CollabRole,
   InviteRole,

@@ -156,7 +156,7 @@ graph TD
 
 - **`FavoritesService.ts`** — 收藏夹业务服务：提供当前用户（`currentUserId()`，从账号状态会话读取，未登录返回 `null`）收藏条目的查询（`getSavedItems`）、删除（`removeSavedItem`）、收藏状态判定（`isPoiFavourite`）与切换（`togglePoiFavourite`，收藏时保存 placeId 与体验类型）；未登录时读操作返回空收藏集、写操作抛"请先登录"；并承担跨模块数据交流——`addToTrip` 将地点加入行程（模块 02），经 `RoutePlannerBridge` 调用模块 02 真实导入接口（跨模块编排属于 BL 而非 API Layer）。模块内所有服务共享 `sharedFavoritesRepository` 单例（浏览器端经 Route API → D1 持久化，携带会话凭证，服务端以会话为准解析用户 ID），保证数据一致。
 
-- **`EventSyncService.ts`** — 节日/活动同步业务服务（DEV 工具链路）：编排"parsed_events.json 硬编码数据 → 写入 Cloudflare D1"全流程，按 id（title 生成 slug）幂等 upsert，重复执行仅覆盖更新；`clearEvents` 清空全部 D1 events 记录。无外部 API 依赖（活动数据为官方爬取结果）。供 DEV-ACCOUNT-STATE 页面按钮调用，活动展示走 `DiscoveryService.getEventFeed`。
+- **`EventSyncService.ts`** — 节日/活动同步业务服务（DEV 工具链路）：编排"parsed_events.json 硬编码数据 → 写入 Cloudflare D1"全流程，按 id（title 生成 slug）幂等 upsert，重复执行仅覆盖更新；`clearEvents` 清空全部 D1 events 记录。无外部 API 依赖（活动数据为官方爬取结果）。供 Admin Panel 页面按钮调用，活动展示走 `DiscoveryService.getEventFeed`。
 
 - **`QualityRatingSyncService.ts`** — 官方品质评级同步业务服务（浏览器端 DEV 入口，两阶段）：①经 `RemoteQualityRatingRepository.syncFromWeb()` 触发服务端 Route API `/official-quality-ratings/sync`，由服务端完成"MOTAC 官网 admin-ajax 爬取（`MotacMyTqaApi`）→ 按 jsonId（公司名+地址哈希）幂等 upsert → 跳过率 ≤25% 时镜像清理 D1"；②对 D1 中经纬度缺失的行逐条调 Nominatim 地理编码补全（限定马来西亚、免费无 key、内置"逗号递减"降级与 1s 限速），单条失败不阻塞（lat/lon 保持 null 照常入库），失败明细经 `failures` 返回并在终端逐条打印；另提供 `syncQualityRatingsSample(count)` 快速测试模式：仅导入官网前 count 条、无清理、无地理编码，秒级验证链路；模块级 `running` 标志拒绝并发；可选 `onProgress` 进度回调。原 hardcode JSON 已退出链路（文件保留不引用，镜像 EventSyncService 先例）。
 

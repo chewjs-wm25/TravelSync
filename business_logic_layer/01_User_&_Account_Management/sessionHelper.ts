@@ -5,7 +5,9 @@
  * Extracts the `travelsync_session` cookie from the request and verifies
  * it using the 01 module's AuthService (D1-backed session table).
  *
- * Replaces the old DEV-ACCOUNT-STATE/api/session.ts approach.
+ * Replaces the old app/DEV-ACCOUNT-STATE/api/session.ts compat shim
+ * (removed together with the DEV-ACCOUNT-STATE → Admin_Panel folder rename);
+ * all Route APIs import from this helper directly.
  */
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";

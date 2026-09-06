@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { can } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
 import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
-import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
 
 // Direct imports from Module 02 components (zero modification to module 02)
 import {

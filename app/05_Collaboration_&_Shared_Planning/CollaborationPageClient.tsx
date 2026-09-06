@@ -37,7 +37,7 @@ import {
 } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/InvitationService";
 import { exportTripToJSONString } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/PlanImportExportService";
 import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
-import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
 import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab";
 import type { CollabTrip } from "@/api_layer/05_Collaboration_&_Shared_Planning/types";
 

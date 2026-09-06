@@ -3,7 +3,7 @@
  *
  * 职责（单一）：
  *   - 封装"官方品质评级"数据的持久化读写（来源：MOTAC 官网 MyTQA 列表爬取
- *     （MotacMyTqaApi / 服务端 QualityRatingWebSyncService，每日 cron 与 DEV 按钮触发）
+ *     （MotacMyTqaApi / 服务端 QualityRatingWebSyncService，每日 cron 与 Admin Panel 按钮触发）
  *     或客户端补全经纬度后写入 Cloudflare D1）；
  *   - 不包含任何业务判断（匹配/回退策略由 Business Logic Layer 负责）。
  *

@@ -58,7 +58,7 @@ DELETE /03_Destination_Discovery_&_Inspiration/api/favourites?id=p1
 | --- | --- |
 | `../../../../data_access_layer/03_Destination_Discovery_&_Inspiration/D1FavoritesRepository` | D1 收藏仓储：`listItems` / `addItem` / `removeItem`（以 `env.TEST_DB` 与会话 userId 构造） |
 | `../../../../data_access_layer/03_Destination_Discovery_&_Inspiration/FavoritesRepository`（仅类型） | 实体类型 `FavoriteItemEntity` |
-| `../../../../app/DEV-ACCOUNT-STATE/api/session` | 会话工具 `getAuthSession`（解析 `Authorization: Bearer <token>` 为当前用户） |
+| `../../../../business_logic_layer/01_User_&_Account_Management/sessionHelper`（原 `app/DEV-ACCOUNT-STATE/api/session` shim） | 会话工具 `getAuthSession`（解析 HttpOnly cookie 会话 `travelsync_session` 为当前用户） |
 | 外部库：`@opennextjs/cloudflare`（`getCloudflareContext`） | 获取当前环境 D1 binding（`env.TEST_DB`） |
 
 ## 导出与函数明细

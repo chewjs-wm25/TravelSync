@@ -1,6 +1,6 @@
 "use client";
 /**
- * syncQualityRatings.tsx — DEV 页面按钮组（Presentation Layer）
+ * syncQualityRatings.tsx — Admin Panel 页面按钮组（Presentation Layer）
  *
  * 职责（单一）：触发"官方品质评级同步"并展示结果统计，仅调用 Business Logic Layer
  * 的 qualityRatingSyncService，不含任何业务/数据逻辑。包含两个按钮：
@@ -9,7 +9,7 @@
  *   - Sync first 3 (quick test)：仅导入官网前 3 条（无清理、无地理编码），
  *     秒级验证"爬虫解析 → D1 入库"链路，避免测试占用大量时间。
  *
- * 增强能力（DEV 工具体验）：
+ * 增强能力（Admin Panel 工具体验）：
  *  1. 超时警告：运行超过 WARN_AFTER_MS 后显示黄色警告（不中断进程），并周期性在
  *     终端（浏览器 Console）提醒，配合进度 X/total 判断是否卡死（仅全量模式有
  *     地理编码阶段，Nominatim 限速 1 请求/秒）；

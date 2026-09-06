@@ -1,6 +1,6 @@
 "use client";
 /**
- * clearImageCaches.tsx — DEV 页面按钮（Presentation Layer）
+ * clearImageCaches.tsx — Admin Panel 页面按钮（Presentation Layer）
  *
  * 职责（单一）：触发"清空全部地点图片缓存"（内存 + sessionStorage + Cloudflare KV），
  *              仅调用 Business Logic Layer 的 discoveryService.clearImageCaches

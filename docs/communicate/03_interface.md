@@ -9,9 +9,9 @@
 
 ## 2. 依赖项 (需要其他模块/环境支持)
 - **依赖接口/组件：**
-  - **模块 01 会话**：`useAuthStore`（`app/DEV-ACCOUNT-STATE/authUser.ts`，zustand persist）——`currentUserId()` 动态读取登录用户；服务端授权 `getAuthSession` / `requireUser` / `requireAdmin`（`app/DEV-ACCOUNT-STATE/api/session.ts`）——**收藏写**（favourites 的 POST/DELETE）与**图片缓存写**（place-image 的 PUT）依赖会话凭证（`Authorization: Bearer <token>`）；**事件/评级同步**（events / official-quality-ratings 的 POST/DELETE）为 DEV 同步/清空入口，原 requireAdmin 限制已移除、服务端不再校验会话（Remote 仓储仍携带凭证头仅为兼容保留，不影响匿名调用）。
+  - **模块 01 会话**：`useAuthStore`（`app/Admin_Panel/authUser.ts`（原 DEV-ACCOUNT-STATE），zustand persist）——`currentUserId()` 动态读取登录用户；服务端授权 `getAuthSession` / `requireUser` / `requireAdmin`（`business_logic_layer/01_User_&_Account_Management/sessionHelper.ts`，原 `app/DEV-ACCOUNT-STATE/api/session.ts` 兼容 shim 已随改名移除）——**收藏写**（favourites 的 POST/DELETE）与**图片缓存写**（place-image 的 PUT）依赖登录会话；**事件/评级同步与清空**（events / official-quality-ratings 的 POST/DELETE 与 /sync）为 **Admin Panel** 专属入口，服务端要求管理员会话（未登录 401 / 非 admin 403，见 sessionHelper.requireAdmin；普通用户与匿名调用一律拒绝）。每日 Cloudflare Cron 在 scheduled 处理器内直接调用模块 03 服务端同步服务（不经 HTTP 端点，故不受管理员校验影响）。
   - **模块 02 行程导入**：`RoutePlannerBridge.pushItem(item)`——收藏地点"加入行程"的跨模块调用（BL 层编排）。已接入真实接口：调用模块 02 的 `importPlaces` 的 HTTP 通道（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；目标行程日期（itineraryId）经 `routePlannerBridge.setTargetItinerary()` 注入（未注入时返回 `success: false`），上层签名与返回结构保持不变。
-  - **模块 01 侧 DEV 页面**（`app/DEV-ACCOUNT-STATE/`）会反向调用本模块的同步服务与清缓存接口（见 §3 暴露项）。
+  - **模块 01 侧 Admin Panel 页面**（`app/Admin_Panel/`，原 `app/DEV-ACCOUNT-STATE/`，仅管理员可访问）会反向调用本模块的同步服务与清缓存接口（见 §3 暴露项）。
 - **环境与 Context 依赖：**
   - `.env`（服务端 `process.env`，非 `NEXT_PUBLIC`）：`GEOAPIFY_API_KEY`（Geoapify 代理）、`MAPILLARY_ACCESS_TOKEN`（Mapillary 代理）；缺失时对应 Route API 返回 500，图片链路自动降级。
   - Cloudflare bindings（`wrangler.json`）：`TEST_DB`（D1：`favorite_items` / `events` / `official_quality_ratings` 表）、`PLACE_IMAGE_CACHE`（KV：地点图片缓存，键前缀 `module03:place-image:v5:`）。
@@ -21,15 +21,15 @@
 ## 3. 暴露项 (提供给其他模块使用)
 - **导出的组件/函数/API：**
   - **页面路由**（供 `Sidebar` 等导航）：`/03_Destination_Discovery_&_Inspiration`，子路由 `/search`、`/place/[placeId]`、`/collections/[collectionId]`；路径常量与链接构造函数见 `app/03_.../routes.ts`（`MODULE_03_HOME` / `SEARCH_PAGE` / `searchPagePath` / `placeDetailPath` / `collectionDetailPath` / `googleMapsUrl` / `WIKIVOYAGE_HOME`）。
-  - **BL 服务单例**（供 DEV-ACCOUNT-STATE 页面按钮等调用）：
+  - **BL 服务单例**（供 Admin Panel 页面按钮等调用）：
     - `eventSyncService.syncEvents(): Promise<EventSyncResult>`、`clearEvents(): Promise<number>`
     - `qualityRatingSyncService.syncQualityRatings(onProgress?): Promise<QualityRatingSyncResult>`、`syncQualityRatingsSample(count?): Promise<QualityRatingSyncResult>`（快速测试：仅导入官网前 N 条）、`clearQualityRatings(): Promise<number>`
     - `discoveryService.clearImageCaches(): Promise<number>`
   - **Route API**（HTTP 传输通道，浏览器端仓储经此读写 D1/KV；路径遵循 guideline §5）：
     - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/favourites` —— 收藏 CRUD（POST 需登录、DELETE 需登录；userId 一律由服务端会话解析）
-    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/events` —— 活动（GET 公开；POST 批量 upsert / DELETE 清空为 DEV 同步/清空入口，无会话授权）
-    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 官方评级（GET 公开；POST 批量 upsert（客户端地理编码回写） / DELETE 清空为 DEV 入口，无会话授权）
-    - `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings/sync` —— 官方评级服务端同步（body 可选 `{limit}`：未传=全量 MOTAC 官网爬取 → D1，跳过率 ≤25% 时镜像清理；传入=前 N 条快速测试，永不清库；DEV 按钮与每日 cron 触发，无会话授权）
+    - `GET/DELETE /03_Destination_Discovery_&_Inspiration/api/events` —— 活动（GET 公开读；DELETE 清空为 Admin Panel 清空入口，要求管理员会话 401/403）
+    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 官方评级（GET 公开读；POST 批量 upsert（客户端地理编码回写） / DELETE 清空为 Admin Panel 入口，要求管理员会话 401/403）
+    - `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings/sync` —— 官方评级服务端同步（body 可选 `{limit}`：未传=全量 MOTAC 官网爬取 → D1，跳过率 ≤25% 时镜像清理；传入=前 N 条快速测试，永不清库；Admin Panel 按钮触发，要求管理员会话 401/403；每日 cron 改为 scheduled 内直接调用 QualityRatingWebSyncService，不再经本端点）
     - `GET/PUT/DELETE /03_Destination_Discovery_&_Inspiration/api/place-image` —— 地点图片 KV 缓存（GET 公开；PUT 需登录；DELETE 清空需管理员）
     - `GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete|search&text&limit` —— Geoapify 代理，服务端注入密钥并强制 `filter=countrycode:my`
     - `GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=search|image&bbox|imageId` —— Mapillary 代理，服务端注入 token 并强制 bbox 落在马来西亚边界框内

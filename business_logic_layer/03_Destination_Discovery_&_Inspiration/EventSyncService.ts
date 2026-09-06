@@ -47,7 +47,7 @@ export class EventSyncService {
   }
 
   /**
-   * 清空全部活动数据（DEV 工具）：调远程仓储 DELETE 全部 D1 events 记录，
+   * 清空全部活动数据（Admin Panel 工具）：调远程仓储 DELETE 全部 D1 events 记录，
    * 返回实际删除条数。失败时抛错由调用方反馈。
    */
   async clearEvents(): Promise<number> {

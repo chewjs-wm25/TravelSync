@@ -1,6 +1,6 @@
 "use client";
 /**
- * clearRatedEvents.tsx — DEV 页面按钮（Presentation Layer）
+ * clearRatedEvents.tsx — Admin Panel 页面按钮（Presentation Layer）
  *
  * 职责（单一）：触发"清空所有 Quality Ratings 与 Events 数据"
  *              （D1 的 official_quality_ratings / events 表），

@@ -6,9 +6,12 @@
  *       （数据库操作由服务端 D1QualityRatingRepository 承担）；并提供 syncFromWeb() 触发
  *       "服务端爬取 MOTAC 官网 → D1"同步（爬虫在服务端执行，见 QualityRatingWebSyncService）。
  *
- * 授权：upsertAll / clearAll / syncFromWeb 仍携带当前会话凭证（Authorization: Bearer <token>，
- * 经 sessionAuthHeaders；未登录时为空头），服务端 Route API 不再做管理员会话校验
- * （原 requireAdmin 限制已移除），凭证头仅为兼容保留，不影响匿名调用。
+ * 授权（2026-09 安全更新）：upsertAll / clearAll / syncFromWeb 为 Admin Panel 操作，
+ * 携带当前会话凭证（Authorization: Bearer <token>，经 sessionAuthHeaders；同源请求
+ * 自动携带 HttpOnly cookie，会话实为 cookie 鉴权，凭证头仅为兼容保留），服务端
+ * Route API 要求管理员会话（未登录 401 / 非 admin 403，见 sessionHelper.requireAdmin）。
+ * 每日 Cloudflare Cron 改为在 scheduled 内直接调用 QualityRatingWebSyncService，
+ * 不再经本端点。
  *
  * 依赖方向：浏览器端 BL → 本类 → Route API → D1QualityRatingRepository → D1。
  */
@@ -77,7 +80,7 @@ export class RemoteQualityRatingRepository implements OfficialQualityRatingRepos
     return res.json();
   }
 
-  /** 批量 upsert（DEV 同步入口；携带会话凭证仅为兼容，服务端不再校验） */
+  /** 批量 upsert（Admin Panel 同步的地理编码补全阶段；携带会话凭证，服务端要求管理员会话） */
   async upsertAll(items: OfficialQualityRatingEntity[]): Promise<number> {
     const res = await fetch(QUALITY_RATINGS_API, {
       method: "POST",
@@ -88,23 +91,35 @@ export class RemoteQualityRatingRepository implements OfficialQualityRatingRepos
       body: JSON.stringify({ items }),
     });
     if (!res.ok) {
+      const detail = (await res.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+      } | null;
       throw new Error(
-        `Failed to sync official quality ratings (HTTP ${res.status})`
+        detail?.message ??
+          detail?.error ??
+          `Failed to sync official quality ratings (HTTP ${res.status})`
       );
     }
     const data = (await res.json()) as { synced?: number };
     return data.synced ?? 0;
   }
 
-  /** 清空全部官方评级数据（DELETE Route API，DEV 清空入口；服务端不再校验会话），返回删除条数 */
+  /** 清空全部官方评级数据（DELETE Route API，Admin Panel 清空入口，管理员会话），返回删除条数 */
   async clearAll(): Promise<number> {
     const res = await fetch(QUALITY_RATINGS_API, {
       method: "DELETE",
       headers: sessionAuthHeaders(),
     });
     if (!res.ok) {
+      const detail = (await res.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+      } | null;
       throw new Error(
-        `Failed to clear official quality ratings (HTTP ${res.status})`
+        detail?.message ??
+          detail?.error ??
+          `Failed to clear official quality ratings (HTTP ${res.status})`
       );
     }
     const data = (await res.json()) as { cleared?: number };

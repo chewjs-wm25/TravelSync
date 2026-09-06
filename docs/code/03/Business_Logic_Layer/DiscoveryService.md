@@ -96,7 +96,7 @@
 #### `clearImageCaches()`
 - 传入：无
 - 传出：`Promise<number>`（实际清除的 KV 条目数）
-- 用处：清空全部地点图片缓存（DEV 工具，供 DEV-ACCOUNT-STATE 页面调用）：KV 逐键删除（仅本模块键前缀）+ sessionStorage 各版本键 + 内存缓存。
+- 用处：清空全部地点图片缓存（Admin Panel 工具，供 Admin Panel 页面调用）：KV 逐键删除（仅本模块键前缀）+ sessionStorage 各版本键 + 内存缓存。
 
 #### `getQualityRatedPois()`
 - 传入：无

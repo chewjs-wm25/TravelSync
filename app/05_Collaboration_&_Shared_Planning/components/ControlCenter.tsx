@@ -18,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
-import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
 import { collabApi } from "@/api_layer/05_Collaboration_&_Shared_Planning/collab";
 import type { TripShareSummary } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/TripShareService";
 import LikePlanButton from "./LikePlanButton";

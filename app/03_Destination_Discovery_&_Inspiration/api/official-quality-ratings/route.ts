@@ -9,8 +9,8 @@
  *
  * 授权：
  *   - GET（公开读）保持匿名可访问；
- *   - POST（批量 upsert）/ DELETE（清空）为 DEV 工具同步/清空入口，
- *     不再要求管理员会话（原 requireAdmin 限制已移除），仅保留 items 非空校验。
+ *   - POST（批量 upsert，地理编码补全阶段使用）/ DELETE（清空）为 Admin Panel
+ *     工具同步/清空入口，要求管理员会话（401/403，requireAdmin）。
  *
  * 本文件不含任何 SQL / 数据库逻辑（数据库操作全部位于 Data Access 层
  * D1QualityRatingRepository 内）。
@@ -19,6 +19,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { D1QualityRatingRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1QualityRatingRepository";
 import type { OfficialQualityRatingEntity } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/OfficialQualityRatingRepository";
+import { requireAdmin } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
 
 /** 以当前环境 D1 binding 构建仓储实例 */
 async function qualityRatingRepo(): Promise<D1QualityRatingRepository> {
@@ -33,8 +34,11 @@ export async function GET() {
   return Response.json(items);
 }
 
-/** POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings  body: { items } → 批量 upsert（DEV 同步入口，无会话授权） */
+/** POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings  body: { items } → 批量 upsert（Admin Panel 同步入口，管理员会话） */
 export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+
   const body = (await request.json().catch(() => null)) as {
     items?: OfficialQualityRatingEntity[];
   } | null;
@@ -50,8 +54,11 @@ export async function POST(request: Request) {
   return Response.json({ synced }, { status: 201 });
 }
 
-/** DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings → 清空全部官方评级数据，返回 { cleared }（DEV 清空入口，无会话授权） */
-export async function DELETE() {
+/** DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings → 清空全部官方评级数据，返回 { cleared }（Admin Panel 清空入口，管理员会话） */
+export async function DELETE(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+
   const repo = await qualityRatingRepo();
   const cleared = await repo.clearAll();
   return Response.json({ cleared });

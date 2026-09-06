@@ -6,9 +6,11 @@
  *       不含任何 SQL / 数据库 / 爬虫逻辑（分别由服务端 D1EventRepository 与
  *       EventWebSyncService 承担）。
  *
- * 授权：syncFromWeb / clearAll 携带当前会话凭证（Authorization: Bearer <token>，
- * 经 sessionAuthHeaders；未登录时为空头），服务端 Route API 不做管理员会话校验
- * （原 requireAdmin 限制已移除），凭证头仅为兼容保留，不影响匿名调用。
+ * 授权（2026-09 安全更新）：syncFromWeb / clearAll 为 Admin Panel 操作，携带当前
+ * 会话凭证（Authorization: Bearer <token>，经 sessionAuthHeaders；同源请求自动携带
+ * HttpOnly cookie，会话实为 cookie 鉴权，凭证头仅为兼容保留），服务端 Route API
+ * 要求管理员会话（未登录 401 / 非 admin 403，见 sessionHelper.requireAdmin）。
+ * 每日 Cloudflare Cron 改为在 scheduled 内直接调用 EventWebSyncService，不再经本端点。
  *
  * 依赖方向：浏览器端 BL → 本类 → Route API → D1EventRepository / EventWebSyncService。
  */
@@ -66,14 +68,22 @@ export class RemoteEventRepository implements EventRepository {
     return res.json();
   }
 
-  /** 清空全部活动数据（DELETE Route API，DEV 清空入口；服务端不再校验会话），返回删除条数 */
+  /** 清空全部活动数据（DELETE Route API，Admin Panel 清空入口，管理员会话），返回删除条数 */
   async clearAll(): Promise<number> {
     const res = await fetch(EVENTS_API, {
       method: "DELETE",
       headers: sessionAuthHeaders(),
     });
     if (!res.ok) {
-      throw new Error(`Failed to clear events (HTTP ${res.status})`);
+      const detail = (await res.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+      } | null;
+      throw new Error(
+        detail?.message ??
+          detail?.error ??
+          `Failed to clear events (HTTP ${res.status})`
+      );
     }
     const data = (await res.json()) as { cleared?: number };
     return data.cleared ?? 0;

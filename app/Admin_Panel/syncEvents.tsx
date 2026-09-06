@@ -1,6 +1,6 @@
 "use client";
 /**
- * syncEvents.tsx — DEV 页面按钮（Presentation Layer）
+ * syncEvents.tsx — Admin Panel 页面按钮（Presentation Layer）
  *
  * 职责（单一）：触发"节日/活动同步"（parsed_events.json → D1），
  *              仅调用 Business Logic Layer 的 eventSyncService 并展示结果统计，

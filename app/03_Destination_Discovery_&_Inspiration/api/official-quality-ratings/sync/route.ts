@@ -10,9 +10,11 @@
  *     触发"MOTAC 官网爬取 → upsert → （跳过率 ≤25% 时）镜像清理 D1"全流程；
  *   - 序列化统计响应。
  *
- * 授权：DEV 同步入口，与既有 DEV 端点一致不做管理员会话校验（原 requireAdmin
- *       已移除），幂等且单次开销极小；每日 Cloudflare Cron（cron-worker.ts 的
- *       scheduled）与 DEV 页面 Sync Quality Ratings / Sync first 3 按钮均经本端点触发。
+ * 授权：管理员专属同步入口——POST 要求管理员会话（未登录 401 / 非 admin 403，
+ *       requireAdmin）。每日 Cloudflare Cron（cron-worker.ts 的 scheduled）改为
+ *       在 scheduled 处理器内直接调用 QualityRatingWebSyncService，不再经本 HTTP
+ *       端点；Admin Panel 页面 Sync Quality Ratings / Sync first 3 按钮经本端点触发
+ *       （同源 cookie 会话自动携带）。
  *
  * 本文件不含任何 SQL / 爬虫 / 业务逻辑（分别位于 Data Access 层
  * D1QualityRatingRepository / API 层 MotacMyTqaApi / Business Logic 层
@@ -22,6 +24,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { qualityRatingWebSyncService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/server/QualityRatingWebSyncService";
 import { D1QualityRatingRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1QualityRatingRepository";
+import { requireAdmin } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
 
 /** limit 合法上界：官网当前约 136 条，200 足以单次取全；防御异常大值 */
 const LIMIT_MAX = 200;
@@ -30,9 +33,12 @@ const LIMIT_MAX = 200;
  * POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings/sync
  * body（可选）：{ limit?: number } —— 未传 = 全量；1 ≤ limit ≤ 200 = 快速测试前 N 条。
  * → 爬取 MOTAC 官网并同步至 D1，返回 { total, synced, failed, pruned, skipped }。
- * 200 成功 / 409 并发同步中 / 502 爬取或写入失败（错误消息含原因，D1 数据不受影响）。
+ * 200 成功 / 401 未登录 / 403 非管理员 / 409 并发同步中 / 502 爬取或写入失败（错误消息含原因，D1 数据不受影响）。
  */
 export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+
   // 解析可选 limit：非法值（非整数 / 越界）一律视为未传 → 全量同步
   const body = (await request.json().catch(() => null)) as {
     limit?: unknown;

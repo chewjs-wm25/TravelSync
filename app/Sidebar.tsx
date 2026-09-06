@@ -6,13 +6,14 @@ import {
   MapPin,
   Users,
   Settings,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
 
 const emptySubscribe = () => () => {};
 const getClientSnapshot = () => true;
@@ -46,9 +47,16 @@ const MENU_ITEMS = [
   },
 ];
 
+/** Admin Panel 入口：仅管理员可见（useAuthStore.user.role === "admin" 时并入菜单） */
+const ADMIN_ITEM = {
+  name: "Admin Panel",
+  icon: ShieldCheck,
+  href: "/Admin_Panel",
+};
+
 export default function Sidebar() {
   const { isOpen, toggleSidebar } = useSidebarStore();
-  const { isLoggedIn } = useAuthStore();
+  const { isLoggedIn, user } = useAuthStore();
   const pathname = usePathname();
 
   const mounted = useSyncExternalStore(
@@ -61,6 +69,10 @@ export default function Sidebar() {
   if (!mounted || !isLoggedIn) {
     return null;
   }
+
+  // 管理员额外显示 Admin Panel 入口（role 由服务端会话投影提供）
+  const menuItems =
+    user?.role === "admin" ? [...MENU_ITEMS, ADMIN_ITEM] : MENU_ITEMS;
 
   return (
     <aside
@@ -78,7 +90,7 @@ export default function Sidebar() {
 
       {/* 菜单列表容器 */}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-6">
-        {MENU_ITEMS.map((item) => {
+        {menuItems.map((item) => {
           const isActive =
             item.href === "/"
               ? pathname === "/"

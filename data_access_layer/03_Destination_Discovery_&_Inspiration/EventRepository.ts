@@ -3,7 +3,7 @@
  *
  * 职责（单一）：
  *   - 封装"节日/活动"数据的持久化读写（来源：malaysia.travel 官网活动，由
- *     EventWebSyncService 在服务端爬取后写入 Cloudflare D1；每日 cron / DEV 按钮触发）；
+ *     EventWebSyncService 在服务端爬取后写入 Cloudflare D1；每日 cron / Admin Panel 按钮触发）；
  *   - 不包含任何业务判断（映射/编排由 Business Logic Layer 负责）。
  *
  * 实现类：

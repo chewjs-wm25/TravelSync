@@ -1112,7 +1112,7 @@ export class DiscoveryService {
   }
 
   /**
-   * 清空全部地点图片缓存（DEV 工具，供 DEV-ACCOUNT-STATE 页面按钮调用）：
+   * 清空全部地点图片缓存（Admin Panel 工具，供 Admin Panel 页面按钮调用）：
    *   1. Cloudflare KV（经 Route API 逐键删除，仅本模块键前缀范围）；
    *   2. 浏览器 sessionStorage 各版本缓存键（v1/v2/v3）；
    *   3. 内存引用/URL 短期缓存与进行中请求表。

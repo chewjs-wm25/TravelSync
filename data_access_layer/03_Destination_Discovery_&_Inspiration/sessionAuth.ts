@@ -12,7 +12,7 @@
  *           各 Remote 仓储调用点保持不变。
  */
 
-import { useAuthStore } from "@/app/DEV-ACCOUNT-STATE/authUser";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
 
 /**
  * 当前会话的请求头；未登录（无 token）返回空对象（请求不带 Authorization，

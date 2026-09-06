@@ -20,7 +20,7 @@
 | --- | --- |
 | `data_access_layer/.../FavoritesRepository` | 收藏仓储接口（类型） |
 | `data_access_layer/.../RemoteFavoritesRepository` | 浏览器端远程收藏仓储实现（经 Route API → D1，携带会话凭证） |
-| `app/DEV-ACCOUNT-STATE/authUser` | 账号状态 store（读取当前用户 ID，会话来源） |
+| `app/Admin_Panel/authUser`（原 `app/DEV-ACCOUNT-STATE/authUser`） | 账号状态 store（读取当前用户 ID，会话来源） |
 | `./RoutePlannerBridge` | `RoutePlannerBridge` 类 + `routePlannerBridge` 单例 + `PushToRoutePlannerResult` 类型（加入行程桥接） |
 | `./types` | `PoiItem`、`SavedItem` 领域类型 |
 

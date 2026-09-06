@@ -7,9 +7,11 @@
  *     "malaysia.travel 官网爬取 → upsert → 镜像清理 D1"全流程；
  *   - 序列化统计响应。
  *
- * 授权：DEV 同步入口，与既有 DEV 端点一致不做管理员会话校验（原 requireAdmin 已移除），
- *       幂等且单次开销极小；每日 Cloudflare Cron（cron-worker.ts 的 scheduled）与
- *       DEV 页面 Sync Events 按钮均经本端点触发。
+ * 授权：管理员专属同步入口——POST 要求管理员会话（未登录 401 / 非 admin 403，
+ *       requireAdmin，见 business_logic_layer/01_.../sessionHelper.ts）。每日
+ *       Cloudflare Cron（cron-worker.ts 的 scheduled）改为在 scheduled 处理器内
+ *       直接调用 EventWebSyncService，不再经本 HTTP 端点；Admin Panel 页面
+ *       Sync Events 按钮经本端点触发（同源 cookie 会话自动携带）。
  *
  * 本文件不含任何 SQL / 爬虫逻辑（分别位于 Data Access 层 D1EventRepository
  * 与 API 层 MalaysiaTravelEventsApi / Business Logic 层 EventWebSyncService）。
@@ -18,13 +20,17 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { eventWebSyncService } from "@/business_logic_layer/03_Destination_Discovery_&_Inspiration/server/EventWebSyncService";
 import { D1EventRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/D1EventRepository";
+import { requireAdmin } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
 
 /**
  * POST /03_Destination_Discovery_&_Inspiration/api/events/sync
  * → 爬取官网活动并同步至 D1，返回 { total, synced, failed, pruned, skipped }。
- * 200 成功 / 409 并发同步中 / 502 爬取或写入失败（错误消息含原因，D1 数据不受影响）。
+ * 200 成功 / 401 未登录 / 403 非管理员 / 409 并发同步中 / 502 爬取或写入失败（错误消息含原因，D1 数据不受影响）。
  */
-export async function POST() {
+export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+
   const { env } = await getCloudflareContext({ async: true });
   const repo = new D1EventRepository(env.TEST_DB);
   try {
