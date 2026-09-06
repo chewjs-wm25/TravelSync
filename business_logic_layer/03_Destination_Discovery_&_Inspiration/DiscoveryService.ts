@@ -22,7 +22,7 @@
  *     统一图片链路（与 Search&Filter 同一封装、同一缓存）；
  *   - 灵感合辑 → InspirationsService（Wikivoyage 主题自动发现与内容聚合）；
  *   - 筛选字典 → DiscoveryExternalApi（暂无免费数据源，mock 占位）。
- *   - 节日活动 → Cloudflare D1（parsed_events.json 经 DEV 按钮同步，Data Access 层读取）。
+ *   - 节日活动 → Cloudflare D1（malaysia.travel 官网爬虫经服务端同步，Data Access 层读取）。
  *
  * 依赖方向：Business Logic → API Layer（GeoapifyGeocodingApi / DiscoveryExternalApi）
  *                Business Logic → Data Access Layer（FavoritesRepository）
@@ -592,7 +592,7 @@ export class DiscoveryService {
 
   /**
    * 节日活动流（活动 + 周边住宿/餐饮推荐）。
-   * 数据源：Cloudflare D1 中 parsed_events.json 同步的官方活动（经 Route API 读取）。
+   * 数据源：Cloudflare D1 中 malaysia.travel 官网爬取同步的官方活动（经 Route API 读取）。
    */
   async getEventFeed(): Promise<EventFeedItem[]> {
     const items = await this.eventRepo.listAll();

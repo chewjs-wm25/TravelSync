@@ -211,7 +211,7 @@ export default function CuratedInspirations() {
               </div>
               <p className="mb-4 text-base text-gray-500">{event.location}</p>
 
-              {/* 活动分类标签（数据来自 D1 中 parsed_events.json 的 categories） */}
+              {/* 活动分类标签（数据来自 D1 中官网活动爬虫同步的 categories） */}
               {event.categories.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {event.categories.map((category) => (

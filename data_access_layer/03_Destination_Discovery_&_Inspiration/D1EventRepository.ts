@@ -1,12 +1,13 @@
 /**
  * D1EventRepository — 模块 03 节日/活动仓储的 Cloudflare D1 实现（Data Access Layer, 服务端）
  *
- * 职责：以 Cloudflare D1 持久化节日/活动数据（parsed_events.json 解析结果），
- *       实现 EventRepository 接口。全部数据库操作（建表、查询、批量 upsert）
- *       内聚在本类，不包含任何 HTTP / 路由逻辑（传输由 Route API 承担）。
+ * 职责：以 Cloudflare D1 持久化节日/活动数据（malaysia.travel 官网活动，
+ *       由 EventWebSyncService 服务端爬取后写入），实现 EventRepository 接口。
+ *       全部数据库操作（建表、查询、批量 upsert、镜像清理）内聚在本类，
+ *       不包含任何 HTTP / 路由逻辑（传输由 Route API 承担）。
  *
- * 使用方式：由 Route API（app/03_Destination_Discovery_&_Inspiration/api/events）以 D1 binding 实例化，
- *           浏览器端经 RemoteEventRepository → Route API → 本类完成读写。
+ * 使用方式：由模块 03 Route API（app/03_Destination_Discovery_&_Inspiration/api/events*）
+ *           以 D1 binding 实例化；浏览器端经 RemoteEventRepository → Route API → 本类完成读写。
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
@@ -92,6 +93,30 @@ export class D1EventRepository implements EventRepository {
   async clearAll(): Promise<number> {
     const result = await this.db.prepare("DELETE FROM events").run();
     return result.meta.changes;
+  }
+
+  /**
+   * 镜像清理（服务端同步专用）：删除 id 不在 keepIds 中的全部旧行，
+   * 使 D1 与官网当前列表保持一致。逐条 DELETE（D1 单语句参数上限内最稳妥，
+   * 活动量级小，逐条开销可忽略）。空 keepIds 视为防御性 no-op，绝不误删。
+   * 返回实际删除条数。
+   */
+  async deleteIdsNotIn(keepIds: string[]): Promise<number> {
+    await this.ensureTable();
+    if (keepIds.length === 0) return 0;
+    const keep = new Set(keepIds);
+    const { results } = await this.db
+      .prepare("SELECT id FROM events")
+      .all<{ id: string }>();
+    const staleIds = results.map((row) => row.id).filter((id) => !keep.has(id));
+
+    const stmt = this.db.prepare("DELETE FROM events WHERE id = ?");
+    let removed = 0;
+    for (const id of staleIds) {
+      const result = await stmt.bind(id).run();
+      removed += result.meta.changes;
+    }
+    return removed;
   }
 }
 

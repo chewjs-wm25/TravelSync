@@ -155,7 +155,7 @@ export interface PoiItem {
   experienceType: string;
 }
 
-/** 节日/活动条目（数据源：Cloudflare D1 中 parsed_events.json 同步的官方活动） */
+/** 节日/活动条目（数据源：Cloudflare D1 中由 malaysia.travel 官网爬取同步的官方活动） */
 export interface EventItem {
   id: string;
   /** 活动名称 */
