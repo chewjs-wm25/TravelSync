@@ -37,7 +37,8 @@
 | `routes.ts` | 路径常量 | 模块 03 各页面路由路径与链接构造函数 |
 | `searchAndFilter.tsx` | 客户端组件 | 搜索框 + 多维筛选面板（体验类型/州属/场景标签页） |
 | `curatedInspirations.tsx` | 客户端组件 | 灵感合辑卡片列表（含 "Generate more"） |
-| `favouriteList.tsx` | 客户端组件 | 收藏夹组件（悬浮按钮 + 抽屉 + 背景遮罩）：含加入行程、移除、详情跳转、点击遮罩关闭 |
+| `favouriteList.tsx` | 客户端组件 | 收藏夹组件（悬浮按钮 + 抽屉 + 背景遮罩）：含加入行程（打开 AddToTripPicker 弹窗）、移除、详情跳转、点击遮罩关闭 |
+| `AddToTripPicker.tsx` | 客户端组件 | "加入行程"目标选择弹窗（选择旅行 → 行程日期 → 经 BL 真实导入模块 02；未登录/无旅行/无日期引导齐全） |
 | `officalQualityRate.tsx` | 客户端组件 | Recommended Places 官方品质评级卡片列表 |
 | `placeImageAttribution.tsx` | 客户端组件 | 图片署名条（开源协议展示合规） |
 | `safeUrl.ts` | 工具 | 外部 URL 协议白名单过滤（防存储型 XSS，安全审计修复） |
@@ -59,7 +60,8 @@
 - **`routes.ts`** — 模块 03 路由路径常量与链接构造函数：`MODULE_03_HOME`、`SEARCH_PAGE`、`searchPagePath`（携带筛选参数）、`placeDetailPath`、`collectionDetailPath`、`WIKIVOYAGE_HOME`（外部指南外链）与 `googleMapsUrl`（官方评级地点地图外链），供各页面/组件统一生成导航链接。
 - **`searchAndFilter.tsx`** — 搜索与多维筛选面板（受控组件）：搜索框（输入联想下拉）、场景标签页（室内/室外/全部，`activeType`）、体验类型与马来西亚州属下拉筛选，交互状态由 `useSearchAndFilter` 提供；主页与搜索结果页复用。
 - **`curatedInspirations.tsx`** — 灵感合辑与节日活动区域：合辑卡片列表（封面/标题/副标题/成员数与 Star 数徽章）+"Generate more"（达到 `MAX_COLLECTIONS_DISPLAYED` 后切换为 Wikivoyage 外链按钮），下方展示节日活动流卡片（标题/分类/日期/地点/官方外链）；空态与降级文案齐全。
-- **`favouriteList.tsx`** — 收藏夹组件（由 Module 03 布局 `layout.tsx` 全局挂载，模块内任意页面可用）：悬浮按钮（含实时计数）+ 右侧抽屉。抽屉展示收藏条目（缩略图/名称/体验类型）、按体验类型过滤（状态组件内部自管）、移除收藏、跳转详情与"加入行程"（经 `favoritesService.addToTrip` 桥接模块 02）；**打开时渲染背景遮罩（`bg-gray-900/40 backdrop-blur-sm`），点击列表以外区域（遮罩）自动关闭**；收藏变更经 hooks 事件广播自动刷新列表与计数。同时导出 `StarIcon` 星星图标供其他组件复用收藏标记。
+- **`favouriteList.tsx`** — 收藏夹组件（由 Module 03 布局 `layout.tsx` 全局挂载，模块内任意页面可用）：悬浮按钮（含实时计数）+ 右侧抽屉。抽屉展示收藏条目（缩略图/名称/体验类型）、按体验类型过滤（状态组件内部自管）、移除收藏、跳转详情与"加入行程"（点击打开 **AddToTripPicker 弹窗**：选旅行 → 行程日期 → 经 BL 真实导入模块 02；弹窗渲染于抽屉容器外避免 transform 包含块影响 fixed 定位）；**打开时渲染背景遮罩（`bg-gray-900/40 backdrop-blur-sm`），点击列表以外区域（遮罩）自动关闭**；收藏变更经 hooks 事件广播自动刷新列表与计数。同时导出 `StarIcon` 星星图标供其他组件复用收藏标记。
+- **`AddToTripPicker.tsx`** — "加入行程"目标选择弹窗（Presentation）：把模块 03 的 "+ Add to Trip" 做成端到端可用——点击后选择目标旅行与行程日期，确认后经 `addToTripService.addToTripToItinerary`（BL：登录校验 + 坐标解析补齐 + RoutePlannerBridge 目标注入 + 模块 02 真实导入接口）完成导入；旅行/行程日期经模块 02 只读 server action（`listTripsAction`/`listItinerariesAction`）列出（不改模块 02，先例同模块 05）；未登录/无旅行/无日期/坐标无法解析均有引导与反馈。导出 `AddToTripCandidate`/`AddToTripSuccessInfo` 类型；组件采用"外层挂载 + 内层会话组件（新 key 挂载即重置状态）"结构。详见 `Presentation_Layer/AddToTripPicker.md`。
 - **`officalQualityRate.tsx`** — Recommended Places 兴趣点决策视图：展示官方品质评级地点卡片（公司名/地址/电话/品质徽章/评级有效期/图片），数据来自 `discoveryService.getQualityRatedPois`（D1），卡片图片走统一图片链路 `usePlaceImages`，提供 Google Maps 外链与详情跳转。
 - **`placeImageAttribution.tsx`** — 图片署名展示组件：按图片结果渲染作者/许可信息条（如 "CC BY-SA 4.0" 与许可链接），确保开源协议署名合规；无署名信息时不渲染。
 - **`api/favourites/route.ts`** — 收藏 Route API：GET（列当前登录用户收藏，未登录返回空列表）/ POST（添加）/ DELETE（按 id 删除），当前用户 ID 一律由服务端会话（`Authorization: Bearer <token>`）解析、不再信任前端参数，服务端以 D1 binding + 会话 userId 实例化 `D1FavoritesRepository` 完成持久化，是浏览器端 `RemoteFavoritesRepository` 的传输通道（统一路径见 guideline §5）。
@@ -84,6 +86,7 @@ graph TD
         searchAndFilter["searchAndFilter.tsx"]
         curated["curatedInspirations.tsx"]
         favourite["favouriteList.tsx"]
+        addToTrip["AddToTripPicker.tsx"]
         officialRate["officalQualityRate.tsx"]
         attribution["placeImageAttribution.tsx"]
     end
@@ -103,6 +106,8 @@ graph TD
     layout --> favourite
     page --> searchAndFilter & officialRate
     page --> hooks & routes
+    page --> addToTrip
+    favourite --> addToTrip
     search_page --> searchAndFilter
     search_page --> hooks & routes
     place_page --> attribution
@@ -145,22 +150,25 @@ graph TD
 | `FavoritesService.ts` | 业务服务 | 收藏夹查询/增删/切换 + 跨模块"加入行程"编排 |
 | `EventSyncService.ts` | 业务服务 | 节日活动同步：parsed_events.json → D1（DEV 工具） |
 | `QualityRatingSyncService.ts` | 业务服务 | 官方评级同步（浏览器端入口）：MOTAC 官网爬虫（服务端）→ D1 → 地理编码补全（DEV 工具；另含前 N 条快速测试模式） |
-| `RoutePlannerBridge.ts` | 桥接类 | 模块 03 → 02 跨模块桥接（真实调用模块 02 导入接口） |
+| `RoutePlannerBridge.ts` | 桥接类 | 模块 03 → 02 跨模块桥接（真实调用模块 02 导入接口；入参支持可选坐标，失败透传 message） |
+| `AddToTripService.ts` | 业务服务 | "加入行程"端到端编排：登录校验 + 坐标解析补齐 + 目标注入 + 真实导入模块 02 |
 | `types.ts` | 类型出口 | 领域模型总出口：全部领域类型 + 下层类型 re-export |
 
 ### 文件介绍
 
-- **`DiscoveryService.ts`** — 模块 03 的目的地探索核心业务服务（浏览器端执行），也是全模块依赖最重的编排器。负责搜索联想（Geoapify autocomplete）、关键词搜索与多维筛选（体验类型/州属/室内外场景，`searchPois`/`searchPlaceDetails`/`applyPoiFilters`）、空搜索时的热门目的地推荐（8 个种子词经实体验证机制过滤道路/街区，配 Wikidata 兜底）、Recommended Places 官方评级独立展示（D1 数据，与搜索栏解绑）、州/省信息获取（`getStateInfo`，供模块 02 创建旅行时选择州/省）、节日活动流聚合，以及统一的**地点图片链路** `getPlaceImage`（Wikivoyage 条目配图 → Wikipedia 条目配图 → Commons Geosearch → Mapillary 兜底，带内存 URL/引用缓存/sessionStorage/Cloudflare KV 三级缓存与开源协议署名）。数据全部来自真实第三方 API 与 D1/KV，无硬编码 mock。
+- **`DiscoveryService.ts`** — 模块 03 的目的地探索核心业务服务（浏览器端执行），也是全模块依赖最重的编排器。负责搜索联想（Geoapify autocomplete）、关键词搜索与多维筛选（体验类型/州属/室内外场景，`searchPois`/`searchPlaceDetails`/`applyPoiFilters`）、空搜索时的热门目的地推荐（8 个种子词经实体验证机制过滤道路/街区，配 Wikidata 兜底）、Recommended Places 官方评级独立展示（D1 数据，与搜索栏解绑）、州/省信息获取（`getStateInfo`，供模块 02 创建旅行时选择州/省）、节日活动流聚合、"加入行程"坐标解析（`resolveImportCoordinates`：官方评级 D1 坐标 / getPlaceDetail / Geoapify 名称搜索兜底，见 AddToTripService），以及统一的**地点图片链路** `getPlaceImage`（Wikivoyage 条目配图 → Wikipedia 条目配图 → Commons Geosearch → Mapillary 兜底，带内存 URL/引用缓存/sessionStorage/Cloudflare KV 三级缓存与开源协议署名）。数据全部来自真实第三方 API 与 D1/KV，无硬编码 mock。
 
 - **`InspirationsService.ts`** — 灵感合辑业务服务：从 Wikivoyage 马来西亚分类树动态遍历发现合辑主题（`Category:Malaysia` 根分类 → 区域 → 叶子州分类，叠加行程分类 `South_East_Asia_itineraries` 经 bbox 坐标过滤与专题文章），主题清单全部来自 API 响应、无人工策展；负责合辑内容聚合（分类成员/专题/行程 → `Collection`/`CollectionDetail`，含封面、成员数、Star 徽章统计）、附近灵感推荐（geosearch 10000m 半径按距离排序）、"Generate more"批次游标（sessionStorage 持久化，不重复展示）与主题池缓存（TTL 24h，失败不缓存自动重试），请求间隔 250ms 抗 Wikivoyage 匿名限流。
 
-- **`FavoritesService.ts`** — 收藏夹业务服务：提供当前用户（`currentUserId()`，从账号状态会话读取，未登录返回 `null`）收藏条目的查询（`getSavedItems`）、删除（`removeSavedItem`）、收藏状态判定（`isPoiFavourite`）与切换（`togglePoiFavourite`，收藏时保存 placeId 与体验类型）；未登录时读操作返回空收藏集、写操作抛"请先登录"；并承担跨模块数据交流——`addToTrip` 将地点加入行程（模块 02），经 `RoutePlannerBridge` 调用模块 02 真实导入接口（跨模块编排属于 BL 而非 API Layer）。模块内所有服务共享 `sharedFavoritesRepository` 单例（浏览器端经 Route API → D1 持久化，携带会话凭证，服务端以会话为准解析用户 ID），保证数据一致。
+- **`FavoritesService.ts`** — 收藏夹业务服务：提供当前用户（`currentUserId()`，从账号状态会话读取，未登录返回 `null`）收藏条目的查询（`getSavedItems`）、删除（`removeSavedItem`）、收藏状态判定（`isPoiFavourite`）与切换（`togglePoiFavourite`，收藏时保存 placeId 与体验类型）；未登录时读操作返回空收藏集、写操作抛"请先登录"；并保留跨模块桥接导出——`addToTrip` 将地点加入行程（模块 02），经 `RoutePlannerBridge` 调用模块 02 真实导入接口（跨模块编排属于 BL 而非 API Layer）；带"目标选择 + 坐标补齐"的端到端入口已迁移到 `AddToTripService`（见下）。模块内所有服务共享 `sharedFavoritesRepository` 单例（浏览器端经 Route API → D1 持久化，携带会话凭证，服务端以会话为准解析用户 ID），保证数据一致。
 
 - **`EventSyncService.ts`** — 节日/活动同步业务服务（DEV 工具链路）：编排"parsed_events.json 硬编码数据 → 写入 Cloudflare D1"全流程，按 id（title 生成 slug）幂等 upsert，重复执行仅覆盖更新；`clearEvents` 清空全部 D1 events 记录。无外部 API 依赖（活动数据为官方爬取结果）。供 Admin Panel 页面按钮调用，活动展示走 `DiscoveryService.getEventFeed`。
 
 - **`QualityRatingSyncService.ts`** — 官方品质评级同步业务服务（浏览器端 DEV 入口，两阶段）：①经 `RemoteQualityRatingRepository.syncFromWeb()` 触发服务端 Route API `/official-quality-ratings/sync`，由服务端完成"MOTAC 官网 admin-ajax 爬取（`MotacMyTqaApi`）→ 按 jsonId（公司名+地址哈希）幂等 upsert → 跳过率 ≤25% 时镜像清理 D1"；②对 D1 中经纬度缺失的行逐条调 Nominatim 地理编码补全（限定马来西亚、免费无 key、内置"逗号递减"降级与 1s 限速），单条失败不阻塞（lat/lon 保持 null 照常入库），失败明细经 `failures` 返回并在终端逐条打印；另提供 `syncQualityRatingsSample(count)` 快速测试模式：仅导入官网前 count 条、无清理、无地理编码，秒级验证链路；模块级 `running` 标志拒绝并发；可选 `onProgress` 进度回调。原 hardcode JSON 已退出链路（文件保留不引用，镜像 EventSyncService 先例）。
 
-- **`RoutePlannerBridge.ts`** — 模块 03 → 模块 02 的跨模块桥接器（真实接入，原 stub&driver 已移除）：`pushItem` 将收藏条目"加入行程"，调用模块 02 真实导入接口（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；目标行程日期经 `setTargetItinerary` 注入（单例状态），未注入时返回失败结果；签名与返回结构保持不变，上层（FavoritesService）无需改动。
+- **`RoutePlannerBridge.ts`** — 模块 03 → 模块 02 的跨模块桥接器（真实接入，原 stub&driver 已移除）：`pushItem` 将条目"加入行程"，调用模块 02 真实导入接口（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；入参放宽为 `AddToTripImportItem`（SavedItem + 可选 `lat`/`lon`，模块 02 `importPlaces` 强制要求坐标有效，坐标缺失时调用方先经坐标解析补齐——见 AddToTripService）；目标行程日期经 `setTargetItinerary` 注入（单例状态），未注入时返回失败结果；失败响应透传服务端 `message`（可选字段）。
+
+- **`AddToTripService.ts`** — 模块 03"加入行程"（→ 模块 02）端到端业务编排（新增）：`addToTripToItinerary(item, itineraryId)` = 登录校验 → 坐标解析补齐（`discoveryService.resolveImportCoordinates`：官方评级 D1 坐标 / getPlaceDetail / Geoapify 名称搜索兜底，马来西亚限定）→ `routePlannerBridge.setTargetItinerary` + `pushItem` → `finally` 清除目标；失败/未实际新增返回 `success:false` + `message`。被 AddToTripPicker（Presentation）调用，无循环依赖。详见 `Business_Logic_Layer/AddToTripService.md`。
 
 - **`types.ts`** — 模块 03 领域模型唯一总出口：定义全部业务领域类型（`SearchFilters`、`PoiItem`、`PlaceDetail`、`Collection`、`EventItem`、`SuggestionItem`、`PlaceImageResult`、`StateInfo` 等），并 re-export 下层类型（`FavoriteItemEntity`、`FavoritesRepository`、`OfficialQualityRatingEntity`、`PlaceImageAttribution`、`GeoapifyPlaceDto`）与同层桥接类型（`PushToRoutePlannerResult`），保证 Presentation 只依赖本文件、依赖方向严格单向。
 
@@ -175,6 +183,7 @@ graph TD
         evt["EventSyncService"]
         rate["QualityRatingSyncService"]
         bridge["RoutePlannerBridge"]
+        svc["AddToTripService"]
         types["types.ts"]
     end
     subgraph API_Layer
@@ -208,6 +217,7 @@ graph TD
     disc --> fav
     insp --> wv & bounds
     fav --> fav_repo & bridge
+    svc --> disc & bridge
     evt --> h_evt & r_evt
     rate --> nom & h_qr & r_qr
     types --> fav_repo & qr_repo & img_repo & geo

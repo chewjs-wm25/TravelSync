@@ -6,6 +6,9 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFavorites, usePlaceImages } from "./hooks";
 import PlaceImageAttribution from "./placeImageAttribution";
+import AddToTripPicker, {
+  type AddToTripCandidate,
+} from "./AddToTripPicker";
 import type { SavedItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { placeDetailPath } from "./routes";
 import { safeHttpUrl } from "./safeUrl";
@@ -53,7 +56,6 @@ export default function FavouriteList({
     activeType,
     setActiveType,
     removeItem,
-    addToTrip,
   } = useFavorites();
   /**
    * 收藏条目图片（统一图片链路，与 Recommended Places / Search Places 一致）：
@@ -65,36 +67,33 @@ export default function FavouriteList({
    * 环节自动跳过，Wikivoyage/Wikipedia 名称搜索链路仍可正常取图。
    */
   const images = usePlaceImages(visibleItems);
-  const [addingToTripId, setAddingToTripId] = useState<string | null>(null);
+  /** 正在选择加入行程的收藏条目（非空时打开 AddToTripPicker 弹窗） */
+  const [addToTripCandidate, setAddToTripCandidate] =
+    useState<AddToTripCandidate | null>(null);
   const [tripToast, setTripToast] = useState<{
     status: "success" | "error";
     message: string;
   } | null>(null);
 
-  /** 收藏条目加入行程（经 RoutePlannerBridge 调用模块 02 导入接口；成功后本地 toast 反馈） */
-  const handleAddToTrip = async (
+  /** 展示加入行程反馈 toast（自动 3s 消失） */
+  const showTripToast = (
+    status: "success" | "error",
+    message: string
+  ) => {
+    setTripToast({ status, message });
+    setTimeout(() => setTripToast(null), 3000);
+  };
+
+  /**
+   * 收藏条目加入行程（模块 02）：打开 AddToTripPicker 弹窗，由用户选择目标
+   * 旅行与行程日期后经 BL 真实导入模块 02（收藏条目无坐标，BL 自动解析补齐）。
+   */
+  const handleAddToTrip = (
     e: React.MouseEvent,
     item: SavedItem
   ) => {
     e.stopPropagation();
-    setAddingToTripId(item.id);
-    try {
-      const result = await addToTrip(item);
-      setTripToast({
-        status: result.success ? "success" : "error",
-        message: result.success
-          ? `✓ ${item.name} added to your trip`
-          : `Failed to add ${item.name} to trip`,
-      });
-    } catch {
-      setTripToast({
-        status: "error",
-        message: `Failed to add ${item.name} to trip`,
-      });
-    } finally {
-      setAddingToTripId(null);
-      setTimeout(() => setTripToast(null), 3000);
-    }
+    setAddToTripCandidate(item);
   };
 
   /** 移除收藏（阻止冒泡，避免触发条目跳转） */
@@ -251,11 +250,10 @@ export default function FavouriteList({
                 </button>
                 <button
                   onClick={(e) => handleAddToTrip(e, item)}
-                  disabled={addingToTripId === item.id}
                   aria-label={`Add ${item.name} to trip`}
-                  className="cursor-pointer rounded-full bg-primary-500/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-primary-500 transition-all duration-150 hover:bg-primary-500 hover:text-white active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer rounded-full bg-primary-500/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-primary-500 transition-all duration-150 hover:bg-primary-500 hover:text-white active:scale-[0.94]"
                 >
-                  {addingToTripId === item.id ? "Adding…" : "+ Add to Trip"}
+                  + Add to Trip
                 </button>
               </div>
             </div>
@@ -279,6 +277,21 @@ export default function FavouriteList({
           </div>
         )}
       </div>
+
+      {/* 加入行程目标选择弹窗（置于抽屉容器外：transform 会改变 fixed 后代的
+          包含块，弹窗须独立于抽屉渲染才能正确全屏遮罩与居中） */}
+      <AddToTripPicker
+        item={addToTripCandidate}
+        onClose={() => setAddToTripCandidate(null)}
+        onAdded={(info) =>
+          showTripToast(
+            "success",
+            `✓ ${info.placeName} added to ${[info.tripName, info.dayTitle]
+              .filter(Boolean)
+              .join(" · ")}`
+          )
+        }
+      />
     </>
   );
 }

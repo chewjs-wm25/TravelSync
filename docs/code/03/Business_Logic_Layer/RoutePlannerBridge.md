@@ -14,20 +14,21 @@
 当前状态（真实接入，原 stub&driver 已移除）：
 - 调用模块 02 提供的导入能力 —— HTTP `POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`（BL 层 `importPlaces` 的 HTTP 通道，见 `docs/communicate/02_interface.md` §3）；
 - 目标行程日期（itineraryId）由上层经 `setTargetItinerary()` 注入（单例状态）；未注入时 `pushItem` 返回失败结果（`success: false`），不抛异常；
-- `pushItem` 签名与返回结构保持不变（上层 FavoritesService / UI 无需改动）。
+- `pushItem` 入参放宽为 `AddToTripImportItem`（SavedItem + 可选 `lat`/`lon`）：模块 02 `importPlaces` 强制要求坐标有效，调用方应先在坐标缺失时经 `DiscoveryService.resolveImportCoordinates` 解析补齐（见 `AddToTripService`），有有限坐标时如实写入请求体，否则维持 `null`；
+- 失败/异常透传服务端返回的 `message`（结果可选字段），供上层 UI 展示具体原因。
 
 ## 依赖
 
 | 依赖文件 | 用途 |
 | --- | --- |
-| `./types` | `SavedItem` 领域类型 |
-| 模块 02 Route API（HTTP） | `POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`，请求体 `{ items: [{ placeId?, name, lat?, lon? }] }`，响应 `{ success, importedCount }` |
+| `./types` | `AddToTripImportItem` 领域类型（SavedItem + 可选 lat/lon） |
+| 模块 02 Route API（HTTP） | `POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`，请求体 `{ items: [{ placeId?, name, lat?, lon? }] }`，响应 `{ success, importedCount, message? }` |
 
 ## 导出与函数明细
 
 ### 接口 `PushToRoutePlannerResult`
 - 类型：接口
-- 字段：`success: boolean`（是否成功）、`pushedCount: number`（本次加入条目数量）、`target: "02_Trip_Planning_&_Itinerary_Management"`（目标模块标识，真实跨模块调用后保持不变）
+- 字段：`success: boolean`（是否成功）、`pushedCount: number`（本次加入条目数量）、`target: "02_Trip_Planning_&_Itinerary_Management"`（目标模块标识，真实跨模块调用后保持不变）、`message?: string`（失败原因，服务端返回或本地判定，供 UI 展示）
 - 用处：加入行程操作的结果，供上层展示反馈。
 
 ### 类 `RoutePlannerBridge`
@@ -39,10 +40,10 @@
 - 传出：无
 - 用处：注入/清除"加入行程"的目标行程日期。上层在用户选择行程后调用；未注入时 `pushItem` 返回失败结果。
 
-#### `pushItem(item: SavedItem)`
-- 传入：`item: SavedItem`（要加入行程的收藏条目）
-- 传出：`Promise<PushToRoutePlannerResult>` —— 真实调用模块 02 导入接口的结果映射：成功 → `{ success: true, pushedCount: importedCount, target }`；目标行程未设置 / 网络错误 / 服务端失败 → `{ success: false, pushedCount: 0, target }`（不抛异常）。
-- 用处：将单个地点加入行程（模块 02）。请求体将 `SavedItem` 映射为 `ImportPlaceInput`（`placeId` / `name` 透传，`lat` / `lon` 置 `null`——收藏条目无坐标）。
+#### `pushItem(item: AddToTripImportItem)`
+- 传入：`item: AddToTripImportItem`（SavedItem + 可选 `lat`/`lon`，要加入行程的地点条目；`SavedItem` 可直接赋值，向后兼容）
+- 传出：`Promise<PushToRoutePlannerResult>` —— 真实调用模块 02 导入接口的结果映射：成功 → `{ success: true, pushedCount: importedCount, target }`；目标行程未设置 / 网络错误 / 服务端失败 → `{ success: false, pushedCount: 0, target, message? }`（不抛异常；`message` 取自模块 02 失败响应体）。
+- 用处：将单个地点加入行程（模块 02）。请求体将条目映射为 `ImportPlaceInput`（`placeId` / `name` 透传，`lat`/`lon` 仅在传入有限数值时写入，否则置 `null`——模块 02 `importPlaces` 对坐标缺失整体返回失败，因此正常路径应先经 `AddToTripService` 解析坐标补齐）。
 
 ### 常量导出
-- **`routePlannerBridge`**：`RoutePlannerBridge` 单例（FavoritesService 默认注入使用，保证 `setTargetItinerary` 注入与 `addToTrip` 调用共享同一实例状态）。
+- **`routePlannerBridge`**：`RoutePlannerBridge` 单例（FavoritesService 默认注入使用，保证 `setTargetItinerary` 注入与 `addToTrip` 调用共享同一实例状态；AddToTripService 亦复用同一实例并在调用结束后清除目标）。

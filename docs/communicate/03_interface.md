@@ -10,7 +10,7 @@
 ## 2. 依赖项 (需要其他模块/环境支持)
 - **依赖接口/组件：**
   - **模块 01 会话**：`useAuthStore`（`app/Admin_Panel/authUser.ts`（原 DEV-ACCOUNT-STATE），zustand persist）——`currentUserId()` 动态读取登录用户；服务端授权 `getAuthSession` / `requireUser` / `requireAdmin`（`business_logic_layer/01_User_&_Account_Management/sessionHelper.ts`，原 `app/DEV-ACCOUNT-STATE/api/session.ts` 兼容 shim 已随改名移除）——**收藏写**（favourites 的 POST/DELETE）与**图片缓存写**（place-image 的 PUT）依赖登录会话；**事件/评级同步与清空**（events / official-quality-ratings 的 POST/DELETE 与 /sync）为 **Admin Panel** 专属入口，服务端要求管理员会话（未登录 401 / 非 admin 403，见 sessionHelper.requireAdmin；普通用户与匿名调用一律拒绝）。每日 Cloudflare Cron 在 scheduled 处理器内直接调用模块 03 服务端同步服务（不经 HTTP 端点，故不受管理员校验影响）。
-  - **模块 02 行程导入**：`RoutePlannerBridge.pushItem(item)`——收藏地点"加入行程"的跨模块调用（BL 层编排）。已接入真实接口：调用模块 02 的 `importPlaces` 的 HTTP 通道（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；目标行程日期（itineraryId）经 `routePlannerBridge.setTargetItinerary()` 注入（未注入时返回 `success: false`），上层签名与返回结构保持不变。
+  - **模块 02 行程导入**：`RoutePlannerBridge.pushItem(item)`——收藏/推荐地点"加入行程"的跨模块调用（BL 层编排）。已接入真实接口：调用模块 02 的 `importPlaces` 的 HTTP 通道（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；Module 03 内新增 **AddToTripPicker 弹窗 + `addToTripService.addToTripToItinerary`（BL）** 完成端到端流程：UI 选择目标旅行与行程日期（旅行/行程日期列表经模块 02 只读 server action `listTripsAction`/`listItinerariesAction` 获取，不改模块 02）→ 目标行程（itineraryId）经 `routePlannerBridge.setTargetItinerary()` 注入（调用结束清除）→ 坐标缺失时自动解析补齐（模块 02 `importPlaces` 强制要求有效坐标，`discoveryService.resolveImportCoordinates`：官方评级 D1 坐标 / getPlaceDetail / Geoapify 名称搜索兜底，马来西亚限定）→ 真实导入；未注入目标 / 坐标无法解析 / 服务端拒绝均返回失败结果（`message` 说明原因，UI 如实反馈）。
   - **模块 01 侧 Admin Panel 页面**（`app/Admin_Panel/`，原 `app/DEV-ACCOUNT-STATE/`，仅管理员可访问）会反向调用本模块的同步服务与清缓存接口（见 §3 暴露项）。
 - **环境与 Context 依赖：**
   - `.env`（服务端 `process.env`，非 `NEXT_PUBLIC`）：`GEOAPIFY_API_KEY`（Geoapify 代理）、`MAPILLARY_ACCESS_TOKEN`（Mapillary 代理）；缺失时对应 Route API 返回 500，图片链路自动降级。
@@ -38,8 +38,10 @@
 - **回调与触发事件：**
   - `onProgress?: (done: number, total: number) => void` —— `syncQualityRatings` 每处理一条调用一次（进度/超时提示）。
   - `favoritesService.togglePoiFavourite(poi: PoiItem): Promise<boolean>` —— 切换收藏，返回切换后的收藏状态；未登录抛 `Error("Please log in first")`。
-  - `favoritesService.addToTrip(item: SavedItem): Promise<PushToRoutePlannerResult>` —— 触发"加入行程"（模块 02 真实导入接口），返回 `{ success, pushedCount, target }`；目标行程经 `routePlannerBridge.setTargetItinerary(itineraryId)` 预先注入。
+  - `favoritesService.addToTrip(item: AddToTripImportItem): Promise<PushToRoutePlannerResult>` —— 兼容签名（目标行程须先经 `routePlannerBridge.setTargetItinerary(itineraryId)` 注入），返回 `{ success, pushedCount, target, message? }`。
+  - `addToTripService.addToTripToItinerary(item: AddToTripImportItem, itineraryId: string): Promise<PushToRoutePlannerResult>` —— **"加入行程"端到端编排入口**：登录校验 → 坐标缺失时经 `discoveryService.resolveImportCoordinates` 自动解析补齐 → 目标注入 + 真实导入模块 02；未登录抛 `Error("Please log in first")`，失败返回 `success: false` + `message`。Presentation 侧 AddToTripPicker 弹窗负责选择目标旅行/行程日期并调用本服务。
   - `discoveryService.getPlaceImage(placeId, placeName, lat?, lon?): Promise<PlaceImageResult | null>` —— 统一图片链路结果；`null`/空 url 表示无图，有图时必须展示 `attribution` 署名。
+  - `discoveryService.resolveImportCoordinates(placeId, placeName, lat?, lon?): Promise<{ lat: number; lon: number } | null>` —— 解析地点坐标（供"加入行程"补齐坐标用；官方评级 D1 / getPlaceDetail / Geoapify 名称搜索兜底，马来西亚限定）。
 
 ## 4. 核心 TypeScript 类型
 > 完整领域类型见 `business_logic_layer/03_Destination_Discovery_&_Inspiration/types.ts`；以下为对外交互最核心的定义。
@@ -119,6 +121,9 @@ export interface EventItem {
 /** 收藏夹条目（领域形态 = DA 实体） */
 export type SavedItem = FavoriteItemEntity; // { id, placeId, name, thumbnailUrl, experienceType }
 
+/** "加入行程"（模块 02）导入条目：SavedItem + 可选坐标（坐标缺失由 BL 解析补齐） */
+export type AddToTripImportItem = SavedItem & { lat?: number | null; lon?: number | null };
+
 /** 地点图片查询结果（url 为空串 = 确定无图；有图时必须展示 attribution） */
 export interface PlaceImageResult {
   url: string;
@@ -130,6 +135,8 @@ export interface PushToRoutePlannerResult {
   success: boolean;
   pushedCount: number;
   target: "02_Trip_Planning_&_Itinerary_Management";
+  /** 失败原因（服务端返回或本地判定，供 UI 展示）；成功时为 undefined */
+  message?: string;
 }
 
 /** 州/省信息（供模块 02 创建旅行时使用；字段遵循 guideline §5 坐标标准） */

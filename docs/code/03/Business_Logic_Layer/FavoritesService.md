@@ -10,7 +10,7 @@
 模块 03 收藏夹（Favourite List）业务逻辑，浏览器端执行。职责包括：
 
 - 收藏夹的**查询、增删、收藏状态切换**（toggle）；
-- **"将地点加入行程（模块 02）"的跨模块业务编排**——经 `RoutePlannerBridge` 调用模块 02 真实导入接口（跨模块数据交流发生在 Business Logic 而非 API Layer）。
+- **"将地点加入行程（模块 02）"的跨模块桥接**——`addToTrip` 经 `RoutePlannerBridge` 调用模块 02 真实导入接口（跨模块数据交流发生在 Business Logic 而非 API Layer）。注：带"目标选择 + 坐标补齐"的**端到端编排入口**为 `AddToTripService.addToTripToItinerary`（见 AddToTripService.md），本类 `addToTrip` 作为兼容签名保留（仍要求目标行程预先经 `routePlannerBridge.setTargetItinerary()` 注入）。
 
 设计要点：每个用户只有一个收藏夹（不区分文件夹）；用户 ID 从账号状态（`authUser` store，会话来源）动态读取（`currentUserId()`，未登录返回 `null`），不再硬编码；未登录时读操作返回空收藏集，写操作抛出"请先登录"错误。服务端 Route API 以会话凭证（HMAC 签名 token，DEV 登录接口签发）解析当前用户 ID，不信任前端传入的 `userId`（安全审计修复，见 `docs/fix/module03-security-audit.md` §3.1）。模块内所有服务共享同一个收藏仓储单例（`sharedFavoritesRepository`，浏览器端远程实现：经 Route API → D1FavoritesRepository → Cloudflare D1），保证 DiscoveryService 与 FavoritesService 读写同一份数据。
 
@@ -58,10 +58,10 @@
 - 传出：`Promise<boolean>`（切换后的收藏状态：true = 已收藏）
 - 用处：切换 POI 收藏状态。未收藏 → 加入收藏夹（保存 placeId 与体验类型，供详情跳转与类型过滤；id 为 `geo-` 前缀时剥前缀存 placeId）；已收藏 → 移除。
 
-#### `addToTrip(item: SavedItem)`
-- 传入：`item: SavedItem`（要加入行程的收藏条目）
-- 传出：`Promise<PushToRoutePlannerResult>`（`{ success, pushedCount, target: "02_Trip_Planning_&_Itinerary_Management" }`）
-- 用处：跨模块数据交流（Business Logic 编排，非 API Layer 职责）——将地点加入行程（模块 02）。经 `RoutePlannerBridge.pushItem` 调用模块 02 真实导入接口（`POST /02_.../api/itineraries/{itineraryId}/items/import`）；目标行程由 `routePlannerBridge.setTargetItinerary()` 预先注入，未注入时返回 `success: false`（UI 按失败分支反馈）。
+#### `addToTrip(item: AddToTripImportItem)`
+- 传入：`item: AddToTripImportItem`（SavedItem + 可选 `lat`/`lon`，要加入行程的条目）
+- 传出：`Promise<PushToRoutePlannerResult>`（`{ success, pushedCount, target: "02_Trip_Planning_&_Itinerary_Management", message? }`）
+- 用处：跨模块数据交流（Business Logic 编排，非 API Layer 职责）——将地点加入行程（模块 02）。经 `RoutePlannerBridge.pushItem` 调用模块 02 真实导入接口（`POST /02_.../api/itineraries/{itineraryId}/items/import`）；目标行程由 `routePlannerBridge.setTargetItinerary()` 预先注入，未注入时返回 `success: false`。**注意**：模块 02 `importPlaces` 强制要求坐标有效——真实按钮链路已迁移到 `AddToTripService.addToTripToItinerary`（自动解析补齐坐标并注入目标，见 AddToTripService.md），本方法保留以兼容既有导出。
 
 ### 常量导出
 - **`favoritesService`**：`FavoritesService` 单例（Presentation 层 hooks 使用）。

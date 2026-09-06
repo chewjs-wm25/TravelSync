@@ -772,6 +772,76 @@ export class DiscoveryService {
   }
 
   /**
+   * 解析"加入行程"（模块 02）所需坐标——模块 02 的 importPlaces 强制要求
+   * 每条地点坐标有效，本方法在目标地点坐标缺失时补全（AddToTripService 调用）。
+   * 解析优先级（全部路径均不抛异常，尽力而为）：
+   *   1. 入参已带有限 lat/lon → 直接复用（不发起任何请求）；
+   *   2. placeId 形如 "json-{jsonId}"（Recommended Places / 收藏来源）→
+   *      在官方评级 D1 数据中按 jsonId 查找，实体坐标有限则复用
+   *      （sync 时 Nominatim/Geoapify 补全的经纬度，见 QualityRatingSyncService）；
+   *   3. 其余非空 placeId（Geoapify / wikidata）→ getPlaceDetail 两级策略
+   *      （官方评级 place_id 直查 / 名称搜索匹配），坐标有限则复用；
+   *   4. 兜底：以地点名做 Geoapify 名称搜索（强制马来西亚限定）取首个有效坐标。
+   * 全部路径失败返回 null——调用方应如实反馈"无法定位坐标"，不得向模块 02
+   * 发送坐标无效的导入（否则 importPlaces 整体返回失败）。
+   */
+  async resolveImportCoordinates(
+    placeId: string | null | undefined,
+    placeName: string,
+    lat?: number | null,
+    lon?: number | null
+  ): Promise<{ lat: number; lon: number } | null> {
+    const isFinitePair = (a?: number | null, b?: number | null): boolean =>
+      typeof a === "number" &&
+      Number.isFinite(a) &&
+      typeof b === "number" &&
+      Number.isFinite(b);
+
+    // 1. 已带有效坐标：直接复用，不做任何网络请求
+    if (isFinitePair(lat, lon)) {
+      return { lat: lat as number, lon: lon as number };
+    }
+
+    const name = (placeName ?? "").trim();
+    if (!name) return null;
+    const trimmedPlaceId = (placeId ?? "").trim();
+
+    // 2. 官方评级（json-{jsonId}）来源：D1 实体坐标优先
+    if (trimmedPlaceId.startsWith("json-")) {
+      const jsonId = trimmedPlaceId.slice("json-".length);
+      try {
+        const items = await this.qualityRatingRepo.listAll();
+        const matched = items.find((item) => item.jsonId === jsonId);
+        if (matched && isFinitePair(matched.lat, matched.lon)) {
+          return { lat: matched.lat as number, lon: matched.lon as number };
+        }
+      } catch {
+        // D1 读取失败：继续走 Geoapify 名称搜索兜底
+      }
+    } else if (trimmedPlaceId) {
+      // 3. 其余 place_id（Geoapify / wikidata）：getPlaceDetail 两级策略
+      try {
+        const detail = await this.getPlaceDetail(trimmedPlaceId, name);
+        if (detail && isFinitePair(detail.lat, detail.lon)) {
+          return { lat: detail.lat, lon: detail.lon };
+        }
+      } catch {
+        // 瞬时失败：继续走名称搜索兜底
+      }
+    }
+
+    // 4. 兜底：地点名 Geoapify 名称搜索（马来西亚限定）取首个有效坐标
+    try {
+      const results = await this.searchPlaceDetails(name);
+      const found = results.find((p) => isFinitePair(p.lat, p.lon));
+      if (found) return { lat: found.lat as number, lon: found.lon as number };
+    } catch {
+      // 忽略：交由调用方反馈"无法定位坐标"
+    }
+    return null;
+  }
+
+  /**
    * Wikidata 来源地点详情（Recommended Places 兜底卡片点击进入）：
    *   1. 用地点名（queryText）搜索 Geoapify，取第一个合格结果（过滤道路/街区，
    *      具体实体优先），复用既有 Geoapify 详情形态；

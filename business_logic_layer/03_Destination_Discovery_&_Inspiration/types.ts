@@ -218,6 +218,19 @@ export interface PlaceDetail extends PoiItem {
 /** 收藏夹条目（领域形态，与 DA 实体一致；每个用户只有一个收藏夹） */
 export type SavedItem = FavoriteItemEntity;
 
+/**
+ * "加入行程"（模块 02）导入条目：SavedItem + 可选坐标。
+ * 模块 02 的 importPlaces 强制要求有效坐标，因此坐标缺失时调用方应先经
+ * `discoveryService.resolveImportCoordinates` 解析补齐（见 AddToTripService）。
+ * 类型本身不新增必需字段，SavedItem 可直接赋值（向后兼容）。
+ */
+export type AddToTripImportItem = SavedItem & {
+  /** 纬度（可选；缺失时由 BL 解析补齐，否则模块 02 拒绝导入） */
+  lat?: number | null;
+  /** 经度（可选；缺失时由 BL 解析补齐，否则模块 02 拒绝导入） */
+  lon?: number | null;
+};
+
 /** 筛选面板的候选项（体验类型 / 马来西亚州属） */
 export interface FilterOptions {
   experienceTypes: string[];

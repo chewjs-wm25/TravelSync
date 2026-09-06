@@ -9,13 +9,13 @@
 
 `favouriteList.tsx` 是模块 03 的**收藏夹组件**：右下角悬浮的「Favourite List (n)」按钮（未开抽屉时显示）+ 右侧滑出的抽屉面板。它由 **Module 03 布局 `layout.tsx` 挂载**，因此主页 / 搜索结果页 / 地点详情页 / 合辑详情页（`/03_Destination_Discovery_&_Inspiration/**` 路由段内）**任一页面都可随时打开收藏夹**；抽屉开关状态由布局级 `isDrawerOpen` 受控（路由切换时保持，可跨页面打开/关闭）。数据经 `useFavorites`（Presentation hooks）从 BL 层获取，收藏变更经 hooks 事件广播自动刷新（见 hooks.md `useFavorites`）。
 
-抽屉内容：①类型过滤按钮组——「All」+ `typeOptions`（自动从收藏条目体验类型去重生成；`activeType` 由组件内部 `useFavorites()` 实例自管，不再由父级注入）；②已收藏地点列表——缩略图（经 `usePlaceImages` 统一图片链路获取真实图片，与 Recommended Places / Search Places 一致；无图用 `ImageOff` 占位，旧数据 `thumbnailUrl` 作兜底）、名称（`line-clamp-1`）、体验类型标签；③每条的操作——移除收藏（星星按钮，`removeItem`）与「+ Add to Trip」（经 RoutePlannerBridge 调用模块 02 真实导入接口，`addToTrip`，成功后 3 秒 toast 反馈）；④空列表提示文案。
+抽屉内容：①类型过滤按钮组——「All」+ `typeOptions`（自动从收藏条目体验类型去重生成；`activeType` 由组件内部 `useFavorites()` 实例自管，不再由父级注入）；②已收藏地点列表——缩略图（经 `usePlaceImages` 统一图片链路获取真实图片，与 Recommended Places / Search Places 一致；无图用 `ImageOff` 占位，旧数据 `thumbnailUrl` 作兜底）、名称（`line-clamp-1`）、体验类型标签；③每条的操作——移除收藏（星星按钮，`removeItem`）与「+ Add to Trip」（点击打开 **AddToTripPicker 目标选择弹窗**，选旅行 → 行程日期 → 真实导入模块 02，成功回调 `onAdded` 后本地 3 秒 toast 反馈）；④空列表提示文案。
 
 关键交互细节：
 - **背景遮罩**：抽屉打开时渲染全屏遮罩（`fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-sm`）——背景变暗并模糊；**点击遮罩（即抽屉列表以外的任意区域）自动关闭收藏夹列表**。抽屉本体 `z-50` 高于遮罩，抽屉内的点击（条目/过滤/移除/加入行程）不会触发关闭。
 - 条目整体可点击 → **先关闭抽屉**再 `router.push(placeDetailPath(item.placeId, item.name))` 跳地点详情页（布局级抽屉跨页面保持，跳转前主动关闭避免遮挡新页面内容）；
 - 移除与加入行程按钮均 `e.stopPropagation()` 阻止触发条目跳转；
-- 加入行程期间按钮置 loading（`addingToTripId === item.id` → 「Adding…」）并禁用；
+- 「+ Add to Trip」点击不再直接导入：置 `addToTripCandidate = item`（收藏条目 `SavedItem`）打开弹窗；弹窗（`z-[80]`）**渲染在抽屉容器之外**（transform 会改变 fixed 后代的包含块，置于抽屉内会导致弹窗被裁剪/错位）；收藏条目无坐标，由弹窗内 BL 编排（AddToTripService）自动解析补齐后真实导入模块 02；
 - 抽屉过渡动画：`translate-x-0`（开）/ `translate-x-full`（关），移动端全宽、`sm:w-96`；
 - 类型过滤状态（`activeType` / `typeOptions`）**组件内部化**：由组件内 `useFavorites()` 实例提供，父级不再受控注入（props 仅剩抽屉开关）；
 - `StarIcon` 是导出具名组件（heroicons outline star 的 SVG 封装），被搜索结果页（`search/page.tsx`）与地点详情页（`place/[placeId]/page.tsx`）复用。
@@ -24,10 +24,13 @@
 
 ```
 FavouriteList（本组件，挂载于 Module 03 布局 layout.tsx，模块内页面全局可用）
-  ├─ useFavorites()  → favoritesService.getSavedItems / removeSavedItem / addToTrip / togglePoiFavourite
+  ├─ useFavorites()  → favoritesService.getSavedItems / removeSavedItem / togglePoiFavourite
   │                    → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → Cloudflare D1
   │                    → 收藏变更事件（module03:favourites-changed）驱动自动刷新，跨实例/跨页面即时一致
-  │                    → addToTrip 经 RoutePlannerBridge 调用模块 02 导入接口
+  ├─ AddToTripPicker（+ Add to Trip 点击时打开）
+  │                    → listTripsAction / listItinerariesAction（模块 02 只读 server action，列旅行/行程日期）
+  │                    → addToTripService.addToTripToItinerary（BL：坐标解析 + 目标注入）
+  │                    → RoutePlannerBridge.pushItem → POST /02_.../api/itineraries/{itineraryId}/items/import
   ├─ usePlaceImages(visibleItems) → discoveryService.getPlaceImage（与 Recommended Places / Search
   │                    Places 同一查询链 + 同一缓存：Wikivoyage → Wikipedia 条目配图 → Commons
   │                    Geosearch → Mapillary 兜底，马来西亚限定；收藏条目无坐标，Geosearch/Mapillary
@@ -40,14 +43,15 @@ FavouriteList（本组件，挂载于 Module 03 布局 layout.tsx，模块内页
 
 | 状态/事件 | 说明 |
 | --- | --- |
-| `addingToTripId` | 加入行程中条目 id；对应按钮禁用并显示「Adding…」 |
-| `tripToast` | 加入行程反馈（成功 `#10b981` / 失败 `#ef4444`），3 秒自动清除 |
+| `addToTripCandidate` | 正在选择加入行程的收藏条目（`SavedItem`，非空时打开 AddToTripPicker 弹窗） |
+| `tripToast` | 加入行程成功反馈（成功 `#10b981`，3 秒自动清除） |
 | 悬浮按钮点击 | `setIsDrawerOpen(true)`（未开抽屉时显示「Favourite List (n)」） |
 | 关闭按钮点击 | `setIsDrawerOpen(false)`（自定义 SVG X 图标） |
 | 遮罩点击 | `setIsDrawerOpen(false)`（抽屉打开时的背景遮罩；即点击列表以外区域自动关闭） |
 | 条目点击 | `handleOpenPlace` → 先 `setIsDrawerOpen(false)` 再 `router.push(placeDetailPath(placeId, name))` |
 | 移除按钮点击 | `handleRemove` → `stopPropagation` + `removeItem(id)`（hooks 广播收藏变更事件，所有收藏夹实例自动刷新） |
-| Add to Trip 点击 | `handleAddToTrip` → `stopPropagation` + `addToTrip(item)` + toast |
+| Add to Trip 点击 | `handleAddToTrip` → `stopPropagation` + `setAddToTripCandidate(item)`（打开弹窗，弹窗位于抽屉容器外） |
+| AddToTripPicker 成功回调 | `showTripToast("success", "✓ {name} added to {trip} · {day}")`（弹窗自行关闭） |
 | 类型过滤按钮 | 「All」+ `typeOptions`（组件内部 `useFavorites()` 实例提供状态）；激活项 `bg-primary-500 text-white` |
 
 ## 边界与降级
@@ -59,8 +63,7 @@ FavouriteList（本组件，挂载于 Module 03 布局 layout.tsx，模块内页
 | 图片加载中 | 统一链路结果未返回前显示占位，返回后切换为真实图片（不重复消耗免费 API 额度，缓存命中即时） |
 | 有图 | 展示真实图片并在底部叠加 `PlaceImageAttribution` 署名（开源协议合规） |
 | 旧收藏数据 | 统一链路无结果时以 `safeHttpUrl(item.thumbnailUrl)` 兜底（兼容历史收藏） |
-| 加入行程失败/异常 | toast 显示错误文案，3 秒自动清除 |
-| 加入行程进行中 | 对应按钮禁用并显示「Adding…」（`addingToTripId`） |
+| 加入行程目标选择 | 弹窗内处理：未登录提示登录；无旅行/无行程日期引导去模块 02；坐标无法解析或服务端失败在弹窗内展示（详见 AddToTripPicker.md） |
 | 移除收藏 | `stopPropagation` 阻止条目跳转；hooks 广播收藏变更事件刷新所有收藏夹实例 |
 | 收藏加载失败 | hooks 保持空列表（页面不崩） |
 | 抽屉打开时点击遮罩 | 背景模糊 + 抽屉关闭（点击列表以外区域自动关闭） |
@@ -69,7 +72,8 @@ FavouriteList（本组件，挂载于 Module 03 布局 layout.tsx，模块内页
 
 | 依赖文件 | 用途 |
 | --- | --- |
-| `./hooks`（`useFavorites`、`usePlaceImages`） | 收藏夹数据：`visibleItems`、`savedItemsCount`、`removeItem`、`addToTrip`；条目图片统一链路懒加载 |
+| `./hooks`（`useFavorites`、`usePlaceImages`） | 收藏夹数据：`visibleItems`、`savedItemsCount`、`removeItem`；条目图片统一链路懒加载 |
+| `./AddToTripPicker` | 加入行程目标选择弹窗（+ `AddToTripCandidate` 类型）；渲染于抽屉容器之外 |
 | `./placeImageAttribution` | 条目图片的作者与许可署名展示（开源协议合规） |
 | `./routes`（`placeDetailPath`） | 条目点击跳转地点详情页路径 |
 | `./safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，统一链路图片与旧 `thumbnailUrl` 兜底均过滤，防存储型 XSS） |
@@ -94,12 +98,13 @@ FavouriteList（本组件，挂载于 Module 03 布局 layout.tsx，模块内页
 - 传出：`<>` 片段包含：
   - 背景遮罩（`isDrawerOpen` 时）：全屏 `fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-sm`（`aria-hidden`），点击 `setIsDrawerOpen(false)` —— 背景模糊 + 点击列表以外区域自动关闭；
   - 悬浮开关按钮（`!isDrawerOpen` 时）：固定 `right-8 bottom-8 z-40`，`StarIcon` + 「Favourite List ({savedItemsCount})」，点击 `setIsDrawerOpen(true)`；
-  - 抽屉面板：固定 `top-0 right-0 z-50`（高于遮罩），头部（标题 + `StarIcon` + 关闭按钮 `setIsDrawerOpen(false)`，关闭按钮为自定义 SVG X 图标）、类型过滤按钮组、条目列表（`overflow-y-auto`）、空态文案、底部 toast。
+  - 抽屉面板：固定 `top-0 right-0 z-50`（高于遮罩），头部（标题 + `StarIcon` + 关闭按钮 `setIsDrawerOpen(false)`，关闭按钮为自定义 SVG X 图标）、类型过滤按钮组、条目列表（`overflow-y-auto`）、空态文案、底部 toast；
+  - **AddToTripPicker（抽屉容器之外、`</>` 片段根部）**：`item={addToTripCandidate}`、`onClose` 复位候选、`onAdded` 显示成功 toast（目标旅行/日期文案来自弹窗回调）。
 - 用处（交互逻辑）：
-  - 调用 `useFavorites()` 取 `{ visibleItems, savedItemsCount, typeOptions, activeType, setActiveType, removeItem, addToTrip }`（收藏数据与类型过滤状态均在组件内部获取；`isDrawerOpen`/`setIsDrawerOpen` 来自父级受控 props）。
-  - 本地状态：`addingToTripId`（加入行程中条目 id）、`tripToast`（`{ status: "success" | "error", message }`，3 秒自动清除）。
-  - `handleAddToTrip(e, item)`：`e.stopPropagation()` → `setAddingToTripId(item.id)` → `await addToTrip(item)` → 按 `result.success` 设 toast（成功 `✓ {name} added to your trip` / 失败 `Failed to add {name} to trip`）；`catch` 兜底错误 toast；`finally` 复位 loading + `setTimeout(3000)` 清 toast。
+  - 调用 `useFavorites()` 取 `{ visibleItems, savedItemsCount, typeOptions, activeType, setActiveType, removeItem }`（收藏数据与类型过滤状态均在组件内部获取；`isDrawerOpen`/`setIsDrawerOpen` 来自父级受控 props）。
+  - 本地状态：`addToTripCandidate`（待加入行程的收藏条目，非空打开弹窗）、`tripToast`（成功反馈，3 秒自动清除）。
+  - `handleAddToTrip(e, item)`：`e.stopPropagation()` → `setAddToTripCandidate(item)`（收藏条目 `SavedItem` 即弹窗候选；坐标缺失由 BL 解析，见 AddToTripPicker.md / AddToTripService.md）。
   - `handleRemove(e, id)`：`e.stopPropagation()` 后 `await removeItem(id)`（hooks 广播收藏变更事件，各收藏夹实例自动刷新）。
   - `handleOpenPlace(item)`：先 `setIsDrawerOpen(false)`（布局级抽屉跨页面保持，跳转前主动关闭避免遮挡新页面），再 `router.push(placeDetailPath(item.placeId, item.name))`。
-  - 条目渲染：缩略图（`h-16 w-16`）——`images[item.id]?.url` 优先（`usePlaceImages` 统一图片链路结果，`safeHttpUrl` 过滤后渲染，底部叠加 `PlaceImageAttribution` 署名），无则 `safeHttpUrl(item.thumbnailUrl)` 兜底（旧数据），再无可显示 `ImageOff` 灰底占位；名称 + 体验类型标签；右侧操作列——移除星星（hover 变红 `hover:text-[#ef4444]`）+ Add to Trip 胶囊按钮（`addingToTripId === item.id` 时禁用显示「Adding…」）。
+  - 条目渲染：缩略图（`h-16 w-16`）——`images[item.id]?.url` 优先（`usePlaceImages` 统一图片链路结果，`safeHttpUrl` 过滤后渲染，底部叠加 `PlaceImageAttribution` 署名），无则 `safeHttpUrl(item.thumbnailUrl)` 兜底（旧数据），再无可显示 `ImageOff` 灰底占位；名称 + 体验类型标签；右侧操作列——移除星星（hover 变红 `hover:text-[#ef4444]`）+ 「+ Add to Trip」胶囊按钮。
   - 空列表时显示「No favourite places yet. Tap the star icon on any place to save it.」。

@@ -93,6 +93,11 @@
 - 类型：类型别名（`= FavoriteItemEntity`）
 - 用处：收藏夹条目领域形态，与 Data Access 实体一致（每个用户只有一个收藏夹）。
 
+### 类型 `AddToTripImportItem`
+- 类型：类型别名（`= SavedItem & { lat?: number | null; lon?: number | null }`）
+- 字段：继承 `SavedItem`（id/placeId/name/thumbnailUrl/experienceType）+ 可选 `lat`/`lon`
+- 用处："加入行程"（模块 02）的导入条目：模块 02 `importPlaces` 强制要求坐标有效，坐标缺失时调用方（`AddToTripService`）先经 `discoveryService.resolveImportCoordinates` 解析补齐；`SavedItem` 可直接赋值（不新增必需字段，向后兼容），`RoutePlannerBridge.pushItem` 入参即此类型。
+
 ### 接口 `FilterOptions`
 - 类型：接口
 - 字段：`experienceTypes: string[]`、`states: string[]`（马来西亚州/联邦直辖区候选显示名）
@@ -110,5 +115,5 @@
 
 ### 类型 `PushToRoutePlannerResult`（re-export）
 - 类型：类型别名（re-export 自 `./RoutePlannerBridge`）
-- 字段：`success: boolean`（是否成功）、`pushedCount: number`（本次加入条目数量）、`target: "02_Trip_Planning_&_Itinerary_Management"`（目标模块标识）
+- 字段：`success: boolean`（是否成功）、`pushedCount: number`（本次加入条目数量）、`target: "02_Trip_Planning_&_Itinerary_Management"`（目标模块标识）、`message?: string`（失败原因，服务端返回或本地判定，供 UI 展示）
 - 用处："加入行程"（模块 02 桥接）的结果类型，定义于 `RoutePlannerBridge.ts`，此处 re-export 使 Presentation 层可经唯一类型来源获取（与统一接口文档 §4 的核心类型清单一致）。

@@ -88,6 +88,11 @@
 - 传出：`Promise<PlaceDetail | null>`（找不到返回 `null`）
 - 用处：地点详情页数据源。两级策略：①官方评级地点按 place_id 直接从 D1 读取（修复小地点重搜匹配不上 place_id 的问题）；②其余地点以搜索词重新正向搜索（limit 20）并匹配 place_id 兜底；`wikidata:` 前缀走 Wikidata 直构兜底（`getWikidataPlaceDetail`）。
 
+#### `resolveImportCoordinates(placeId, placeName, lat?, lon?)`
+- 传入：`placeId: string | null | undefined`（模块 03 地点标识：Geoapify place_id / `json-{jsonId}` / `wikidata:Qxxx`）、`placeName: string`（地点名）、`lat?`/`lon?: number | null`（可选已知坐标）
+- 传出：`Promise<{ lat: number; lon: number } | null>`（解析失败返回 `null`，不抛异常）
+- 用处："加入行程"（模块 02）坐标补全——模块 02 `importPlaces` 强制要求坐标有效。解析优先级：①入参已有有限 `lat`/`lon` 直接复用（不发请求）；②`placeId` 为 `json-{jsonId}` → 官方评级 D1 数据按 jsonId 查实体坐标（sync 时 Nominatim 补全）；③其余非空 placeId → `getPlaceDetail` 两级策略；④兜底 `searchPlaceDetails(name)` 名称搜索（马来西亚限定）取首个有效坐标。由 `AddToTripService.addToTripToItinerary` 调用。
+
 #### `getPlaceImage(placeId: string, placeName: string, lat?: number, lon?: number)`
 - 传入：`placeId`（缓存键，为空时以 placeName 作后备键）、`placeName`（地点名）、`lat?`、`lon?`（经纬度，Mapillary/Geosearch 环节需要）
 - 传出：`Promise<PlaceImageResult | null>`（`null` = 确定无图）
