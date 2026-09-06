@@ -28,6 +28,7 @@ import {
   updateItineraryAction,
 } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryApi";
 import {
+  createItineraryItemAction,
   deleteItineraryItemAction,
   listItineraryItemsAction,
 } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryItemApi";
@@ -326,45 +327,145 @@ export default function SharedTripPlanEditor() {
       }
     }
 
-    const resolvedItemName = selectedSuggestion?.name ?? resolvedPlaceDetail?.name ?? query;
-    const resolvedItemImage =
+    let finalItemName = selectedSuggestion?.name ?? resolvedPlaceDetail?.name ?? query;
+    let finalItemImage =
       selectedSuggestion?.imageUrl ?? resolvedPlaceDetail?.imageUrl ?? defaultItemImage;
-    const resolvedLat = selectedSuggestion?.lat ?? resolvedPlaceDetail?.lat ?? null;
-    const resolvedLon = selectedSuggestion?.lon ?? resolvedPlaceDetail?.lon ?? null;
+    let finalLat = selectedSuggestion?.lat ?? resolvedPlaceDetail?.lat ?? null;
+    let finalLon = selectedSuggestion?.lon ?? resolvedPlaceDetail?.lon ?? null;
+    let finalRefId = selectedSuggestion?.placeId ?? null;
 
-    try {
-      const response = await fetch(
-        `/02_Trip_Planning_&_Itinerary_Management/api/itineraries/${encodeURIComponent(dayId)}/items`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            place: resolvedItemName,
-            image: resolvedItemImage,
-            note: "",
-            referenceId: selectedSuggestion?.placeId ?? null,
-            lat: resolvedLat,
-            lon: resolvedLon,
-          }),
+    // Auto-resolve coordinates if the user typed text directly without clicking a suggestion
+    if (
+      typeof finalLat !== "number" ||
+      !Number.isFinite(finalLat) ||
+      typeof finalLon !== "number" ||
+      !Number.isFinite(finalLon)
+    ) {
+      try {
+        const suggestions = await discoveryService.getSuggestions(query);
+        if (suggestions && suggestions.length > 0) {
+          const top = suggestions[0];
+          if (
+            typeof top.lat === "number" &&
+            Number.isFinite(top.lat) &&
+            typeof top.lon === "number" &&
+            Number.isFinite(top.lon)
+          ) {
+            finalLat = top.lat;
+            finalLon = top.lon;
+            finalItemName = top.name || query;
+            finalRefId = top.placeId;
+
+            try {
+              const detail = await discoveryService.getPlaceDetail(
+                top.placeId,
+                top.formatted || query
+              );
+              if (detail?.imageUrl) {
+                finalItemImage = detail.imageUrl;
+              }
+              if (detail?.name) {
+                finalItemName = detail.name;
+              }
+            } catch {
+              // Ignore detail resolution error; coordinates are already set
+            }
+          }
         }
-      );
+      } catch {
+        // Ignore suggestions lookup error
+      }
+    }
 
-      const payload = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        message?: string;
-        error?: string;
-        item?: ItemApiPayload;
+    // Coordinates are required by Module 02 route calculation & item validation
+    if (
+      typeof finalLat !== "number" ||
+      !Number.isFinite(finalLat) ||
+      typeof finalLon !== "number" ||
+      !Number.isFinite(finalLon)
+    ) {
+      showToast("Invalid place: latitude and longitude are required. Please select a place from suggestions.");
+      return;
+    }
+
+    // Local day handling
+    if (dayId.startsWith("local-")) {
+      const newItem = {
+        id: `${dayId}-${Date.now()}`,
+        name: finalItemName,
+        image: finalItemImage,
+        note: undefined,
+        position: (dayCards.find((d) => d.id === dayId)?.items.length ?? 0) + 1,
+        order_index: (dayCards.find((d) => d.id === dayId)?.items.length ?? 0) + 1,
+        isEditingItem: false,
+        lat: finalLat ?? undefined,
+        lon: finalLon ?? undefined,
       };
 
-      if (!response.ok || payload.success === false) {
-        throw new Error(payload.message ?? payload.error ?? "Failed to add item");
+      setDayCards((previous) =>
+        previous.map((day) =>
+          day.id === dayId
+            ? { ...day, items: sortDayItems([...day.items, newItem]) }
+            : day
+        )
+      );
+
+      setSearchInputs((prev) => ({ ...prev, [dayId]: "" }));
+      setSelectedSuggestions((prev) => ({ ...prev, [dayId]: undefined }));
+      showToast("Place added to itinerary!");
+      return;
+    }
+
+    try {
+      let createdItem: ItemApiPayload | undefined;
+
+      try {
+        const actionResult = await createItineraryItemAction({
+          itineraryId: dayId,
+          place: finalItemName,
+          image: finalItemImage,
+          note: "",
+          referenceId: finalRefId,
+          lat: finalLat,
+          lon: finalLon,
+        });
+        createdItem = actionResult as unknown as ItemApiPayload;
+      } catch {
+        // Fallback to fetch endpoint
+        const response = await fetch(
+          `/02_Trip_Planning_&_Itinerary_Management/api/itineraries/${encodeURIComponent(dayId)}/items`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              place: finalItemName,
+              image: finalItemImage,
+              note: "",
+              referenceId: finalRefId,
+              lat: finalLat,
+              lon: finalLon,
+            }),
+          }
+        );
+
+        const payload = (await response.json().catch(() => ({}))) as {
+          success?: boolean;
+          message?: string;
+          error?: string;
+          item?: ItemApiPayload;
+        };
+
+        if (!response.ok || payload.success === false) {
+          throw new Error(payload.message ?? payload.error ?? "Failed to add item");
+        }
+
+        createdItem = payload.item;
       }
 
-      const item = payload.item;
       const newItem = {
-        ...mapItemResponse(item ?? {}, query),
-        lat: item?.lat ?? resolvedLat ?? undefined,
-        lon: item?.lon ?? resolvedLon ?? undefined,
+        ...mapItemResponse(createdItem ?? {}, finalItemName, finalItemImage),
+        lat: createdItem?.lat ?? finalLat ?? undefined,
+        lon: createdItem?.lon ?? finalLon ?? undefined,
       };
 
       setDayCards((previous) =>
