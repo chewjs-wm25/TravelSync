@@ -23,12 +23,13 @@
   - **页面路由**（供 `Sidebar` 等导航）：`/03_Destination_Discovery_&_Inspiration`，子路由 `/search`、`/place/[placeId]`、`/collections/[collectionId]`；路径常量与链接构造函数见 `app/03_.../routes.ts`（`MODULE_03_HOME` / `SEARCH_PAGE` / `searchPagePath` / `placeDetailPath` / `collectionDetailPath` / `googleMapsUrl` / `WIKIVOYAGE_HOME`）。
   - **BL 服务单例**（供 DEV-ACCOUNT-STATE 页面按钮等调用）：
     - `eventSyncService.syncEvents(): Promise<EventSyncResult>`、`clearEvents(): Promise<number>`
-    - `qualityRatingSyncService.syncQualityRatings(onProgress?): Promise<QualityRatingSyncResult>`、`clearQualityRatings(): Promise<number>`
+    - `qualityRatingSyncService.syncQualityRatings(onProgress?): Promise<QualityRatingSyncResult>`、`syncQualityRatingsSample(count?): Promise<QualityRatingSyncResult>`（快速测试：仅导入官网前 N 条）、`clearQualityRatings(): Promise<number>`
     - `discoveryService.clearImageCaches(): Promise<number>`
   - **Route API**（HTTP 传输通道，浏览器端仓储经此读写 D1/KV；路径遵循 guideline §5）：
     - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/favourites` —— 收藏 CRUD（POST 需登录、DELETE 需登录；userId 一律由服务端会话解析）
     - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/events` —— 活动（GET 公开；POST 批量 upsert / DELETE 清空为 DEV 同步/清空入口，无会话授权）
-    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 官方评级（GET 公开；POST 批量 upsert / DELETE 清空为 DEV 同步/清空入口，无会话授权）
+    - `GET/POST/DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 官方评级（GET 公开；POST 批量 upsert（客户端地理编码回写） / DELETE 清空为 DEV 入口，无会话授权）
+    - `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings/sync` —— 官方评级服务端同步（body 可选 `{limit}`：未传=全量 MOTAC 官网爬取 → D1，跳过率 ≤25% 时镜像清理；传入=前 N 条快速测试，永不清库；DEV 按钮与每日 cron 触发，无会话授权）
     - `GET/PUT/DELETE /03_Destination_Discovery_&_Inspiration/api/place-image` —— 地点图片 KV 缓存（GET 公开；PUT 需登录；DELETE 清空需管理员）
     - `GET /03_Destination_Discovery_&_Inspiration/api/geocode?type=autocomplete|search&text&limit` —— Geoapify 代理，服务端注入密钥并强制 `filter=countrycode:my`
     - `GET /03_Destination_Discovery_&_Inspiration/api/mapillary?action=search|image&bbox|imageId` —— Mapillary 代理，服务端注入 token 并强制 bbox 落在马来西亚边界框内

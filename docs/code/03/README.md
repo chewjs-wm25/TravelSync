@@ -65,7 +65,7 @@
 - **`api/favourites/route.ts`** — 收藏 Route API：GET（列当前登录用户收藏，未登录返回空列表）/ POST（添加）/ DELETE（按 id 删除），当前用户 ID 一律由服务端会话（`Authorization: Bearer <token>`）解析、不再信任前端参数，服务端以 D1 binding + 会话 userId 实例化 `D1FavoritesRepository` 完成持久化，是浏览器端 `RemoteFavoritesRepository` 的传输通道（统一路径见 guideline §5）。
 - **`api/geocode/route.ts`** — Geoapify 代理 Route API：白名单校验参数（type/text/limit），服务端注入 `GEOAPIFY_API_KEY`（非 NEXT_PUBLIC，密钥不进前端 bundle），强制 `filter=countrycode:my`（前端无法绕过），转发 api.geoapify.com 并透传 GeoJSON，解析仍由 API Layer 客户端完成（薄传输）。
 - **`api/events/route.ts`** — 活动 Route API：GET（全部活动，公开读）/ POST（批量 upsert，无会话授权，DEV 同步入口）/ DELETE（清空，无会话授权，DEV 清空入口），服务端经 `D1EventRepository` 读写 D1 events 表；活动展示与 DEV 同步均经此端点。
-- **`api/official-quality-ratings/route.ts`** — 官方评级 Route API：GET（全部评级条目，公开读）/ POST（批量 upsert，无会话授权，DEV 同步入口）/ DELETE（清空，无会话授权，DEV 清空入口），服务端经 `D1QualityRatingRepository` 读写 D1 official_quality_ratings 表；Recommended Places 展示与同步链路均经此端点。
+- **`api/official-quality-ratings/route.ts`** — 官方评级 Route API：GET（全部评级条目，公开读）/ POST（批量 upsert，无会话授权，DEV 同步入口）/ DELETE（清空，无会话授权，DEV 清空入口），服务端经 `D1QualityRatingRepository` 读写 D1 official_quality_ratings 表；Recommended Places 展示与同步链路均经此端点。另含子端点 `api/official-quality-ratings/sync/route.ts`：POST 触发"MOTAC 官网爬虫 → D1"（服务端执行，body 可选 `{limit}` 作快速测试，见 QualityRatingWebSyncService / MotacMyTqaApi）。
 - **`api/place-image/route.ts`** — 地点图片 KV 缓存代理 Route API：GET（按 placeId 读缓存条目）/ PUT（写入，登录会话）/ DELETE（清空，管理员会话，仅本模块键前缀范围），服务端经 `CloudflareKvPlaceImageCacheRepository` 操作 Cloudflare KV，是统一图片链路跨会话持久缓存的通道；写成功返回 `{ success: true }`（结果标志遵循 guideline §5）。
 - **`api/mapillary/route.ts`** — Mapillary 代理 Route API：白名单校验参数（action=search/image、bbox、imageId），服务端强制 bbox 完全落在马来西亚边界框内（`MALAYSIA_BBOX`），注入 `MAPILLARY_ACCESS_TOKEN`（非 NEXT_PUBLIC），转发 graph.mapillary.com 并透传 JSON；解析由 API Layer `MapillaryApi` 完成。
 
@@ -144,7 +144,7 @@ graph TD
 | `InspirationsService.ts` | 业务服务 | 灵感合辑：Wikivoyage 分类树主题自动发现、内容聚合、附近灵感、缓存与批次游标 |
 | `FavoritesService.ts` | 业务服务 | 收藏夹查询/增删/切换 + 跨模块"加入行程"编排 |
 | `EventSyncService.ts` | 业务服务 | 节日活动同步：parsed_events.json → D1（DEV 工具） |
-| `QualityRatingSyncService.ts` | 业务服务 | 官方评级同步：JSON → Nominatim 地理编码 → D1（DEV 工具） |
+| `QualityRatingSyncService.ts` | 业务服务 | 官方评级同步（浏览器端入口）：MOTAC 官网爬虫（服务端）→ D1 → 地理编码补全（DEV 工具；另含前 N 条快速测试模式） |
 | `RoutePlannerBridge.ts` | 桥接类 | 模块 03 → 02 跨模块桥接（真实调用模块 02 导入接口） |
 | `types.ts` | 类型出口 | 领域模型总出口：全部领域类型 + 下层类型 re-export |
 
@@ -158,7 +158,7 @@ graph TD
 
 - **`EventSyncService.ts`** — 节日/活动同步业务服务（DEV 工具链路）：编排"parsed_events.json 硬编码数据 → 写入 Cloudflare D1"全流程，按 id（title 生成 slug）幂等 upsert，重复执行仅覆盖更新；`clearEvents` 清空全部 D1 events 记录。无外部 API 依赖（活动数据为官方爬取结果）。供 DEV-ACCOUNT-STATE 页面按钮调用，活动展示走 `DiscoveryService.getEventFeed`。
 
-- **`QualityRatingSyncService.ts`** — 官方品质评级同步业务服务（DEV 工具链路）：编排"officalQualityRating_hardcode.json → Nominatim 地理编码 → 写入 Cloudflare D1"全流程。逐条以公司地址调 Nominatim 查经纬度（限定马来西亚、免费无 key、内置"逗号递减"降级与 1s 限速），单条失败不阻塞录入（lat/lon 保持 null 照常入库），失败明细经 `failures` 返回并在终端逐条打印；模块级 `running` 标志拒绝并发；可选 `onProgress` 进度回调；D1 表以 json_id 为主键天然幂等。
+- **`QualityRatingSyncService.ts`** — 官方品质评级同步业务服务（浏览器端 DEV 入口，两阶段）：①经 `RemoteQualityRatingRepository.syncFromWeb()` 触发服务端 Route API `/official-quality-ratings/sync`，由服务端完成"MOTAC 官网 admin-ajax 爬取（`MotacMyTqaApi`）→ 按 jsonId（公司名+地址哈希）幂等 upsert → 跳过率 ≤25% 时镜像清理 D1"；②对 D1 中经纬度缺失的行逐条调 Nominatim 地理编码补全（限定马来西亚、免费无 key、内置"逗号递减"降级与 1s 限速），单条失败不阻塞（lat/lon 保持 null 照常入库），失败明细经 `failures` 返回并在终端逐条打印；另提供 `syncQualityRatingsSample(count)` 快速测试模式：仅导入官网前 count 条、无清理、无地理编码，秒级验证链路；模块级 `running` 标志拒绝并发；可选 `onProgress` 进度回调。原 hardcode JSON 已退出链路（文件保留不引用，镜像 EventSyncService 先例）。
 
 - **`RoutePlannerBridge.ts`** — 模块 03 → 模块 02 的跨模块桥接器（真实接入，原 stub&driver 已移除）：`pushItem` 将收藏条目"加入行程"，调用模块 02 真实导入接口（`POST /02_Trip_Planning_&_Itinerary_Management/api/itineraries/{itineraryId}/items/import`）；目标行程日期经 `setTargetItinerary` 注入（单例状态），未注入时返回失败结果；签名与返回结构保持不变，上层（FavoritesService）无需改动。
 
@@ -231,9 +231,9 @@ graph TD
 | `RemoteFavoritesRepository.ts` | 仓储实现 | 浏览器端远程实现：经 Route API → D1 |
 | `D1FavoritesRepository.ts` | 仓储实现 | 服务端 D1 直接实现（Route API 内部使用） |
 | `OfficialQualityRatingRepository.ts` | 仓储接口 | 官方评级数据存取接口（含实体类型） |
-| `HardcodedQualityRatingRepository.ts` | 仓储实现 | officalQualityRating_hardcode.json 硬编码读取实现 |
-| `RemoteQualityRatingRepository.ts` | 仓储实现 | 浏览器端远程实现：经 Route API → D1 |
-| `D1QualityRatingRepository.ts` | 仓储实现 | 服务端 D1 直接实现（Route API 内部使用） |
+| `HardcodedQualityRatingRepository.ts` | 仓储实现（@deprecated） | officalQualityRating_hardcode.json 硬编码读取实现（保留不引用） |
+| `RemoteQualityRatingRepository.ts` | 仓储实现 | 浏览器端远程实现：经 Route API → D1（含 syncFromWeb 服务端同步触发） |
+| `D1QualityRatingRepository.ts` | 仓储实现 | 服务端 D1 直接实现（Route API 内部使用；Geo 列 COALESCE 保留坐标、deleteIdsNotIn 镜像清理） |
 | `PlaceImageCacheRepository.ts` | 仓储接口 | 地点图片 KV 缓存存取接口（含序列化工具） |
 | `RemotePlaceImageCacheRepository.ts` | 仓储实现 | 浏览器端远程实现：经 Route API → Cloudflare KV |
 
@@ -249,9 +249,9 @@ graph TD
 - **`RemoteFavoritesRepository.ts`** — 收藏仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/favourites`）以 GET/POST/DELETE 对应三个契约方法，实现 `FavoritesRepository` 接口（userId 以会话凭证为准，不传前端参数）；是 BL 层 `sharedFavoritesRepository` 单例的默认实现，并导出 `remoteFavoritesRepository` 单例。
 - **`D1FavoritesRepository.ts`** — 收藏仓储的 Cloudflare D1 直接实现（服务端）：懒建表 `favorite_items`（id 主键），SQL 全部以 user_id 过滤/写入（防越权），`created_at` 由服务端注入并按下楼序返回（最新收藏在前）；Route API 内部使用。
 - **`OfficialQualityRatingRepository.ts`** — 官方品质评级数据的仓储接口，同时定义实体 `OfficialQualityRatingEntity`（JSON 原始字段：公司名/地址/电话/评级有效期/品质档位 + 同步时 Nominatim/Geoapify 补全字段：placeId/坐标/结构化地址等）。契约：`listAll`、`upsertAll`（json_id 主键幂等）、`clearAll`。
-- **`HardcodedQualityRatingRepository.ts`** — 官方评级数据的硬编码 JSON 仓储实现：直接 `import` officalQualityRating_hardcode.json 映射为实体数组，无网络请求，供 QualityRatingSyncService 同步使用。
-- **`RemoteQualityRatingRepository.ts`** — 官方评级仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`）以 GET/POST/DELETE 对应契约方法（写操作携带会话凭证仅为兼容保留，服务端不再校验——原 requireAdmin 已移除），供 BL 层读取 D1 评级数据与 DEV 同步链路写入。
-- **`D1QualityRatingRepository.ts`** — 官方评级仓储的 Cloudflare D1 直接实现（服务端）：懒建表 `official_quality_ratings`（json_id 主键幂等 upsert），Route API 内部使用；浏览器端永不直接使用。
+- **`HardcodedQualityRatingRepository.ts`** — 官方评级数据的硬编码 JSON 仓储实现（**@deprecated**）：直接 `import` officalQualityRating_hardcode.json 映射为实体数组，无网络请求；已退出数据链路（数据源切换为 MOTAC 官网爬虫），按仓库约定保留不引用，便于回滚。
+- **`RemoteQualityRatingRepository.ts`** — 官方评级仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`）以 GET/POST/DELETE 对应契约方法（写操作携带会话凭证仅为兼容保留，服务端不再校验——原 requireAdmin 已移除），另提供 `syncFromWeb({limit?})`：POST `/…/official-quality-ratings/sync` 触发服务端"MOTAC 官网爬虫 → D1"同步（limit 未传 = 全量；传入 = 前 N 条快速测试），供 BL 层读取 D1 评级数据与 DEV 同步链路使用。
+- **`D1QualityRatingRepository.ts`** — 官方评级仓储的 Cloudflare D1 直接实现（服务端）：懒建表 `official_quality_ratings`（json_id 主键幂等 upsert），Route API 内部使用；upsert 的 Geo 补全列使用 `COALESCE`（每日爬虫刷新不覆盖已补全的经纬度），并提供 `deleteIdsNotIn` 镜像清理（跳过率 ≤25% 时由服务端编排调用）；浏览器端永不直接使用。
 - **`PlaceImageCacheRepository.ts`** — 地点图片缓存仓储的接口 + Cloudflare KV 直接实现（服务端单文件）：键设计 `module03:place-image:v5:{placeId}`（v5 升键使旧缓存整体失效）；提供 `PlaceImageCacheEntry` 三种来源条目（wikimedia url+署名 / mapillary imageId+署名 / none 确定无图）与 `parse/serializePlaceImageEntry` 序列化工具（浏览器 sessionStorage 与 KV 共用同一格式）。
 - **`RemotePlaceImageCacheRepository.ts`** — 地点图片缓存仓储的浏览器端远程实现：经 Route API（`/03_Destination_Discovery_&_Inspiration/api/place-image`）以 GET/PUT/DELETE 对应 `get/put/clearAll` 三个方法（PUT 携带登录会话凭证，DELETE 携带管理员会话凭证），自身不含 KV 逻辑；是 BL 层统一图片链路跨会话持久缓存的通道。
 

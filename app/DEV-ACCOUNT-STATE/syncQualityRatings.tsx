@@ -1,20 +1,23 @@
 "use client";
 /**
- * syncQualityRatings.tsx — DEV 页面按钮（Presentation Layer）
+ * syncQualityRatings.tsx — DEV 页面按钮组（Presentation Layer）
  *
- * 职责（单一）：触发"官方品质评级同步"（hardcode JSON → Nominatim 补全 → D1），
- *              仅调用 Business Logic Layer 的 qualityRatingSyncService 并展示结果统计，
- *              不含任何业务/数据逻辑。
+ * 职责（单一）：触发"官方品质评级同步"并展示结果统计，仅调用 Business Logic Layer
+ * 的 qualityRatingSyncService，不含任何业务/数据逻辑。包含两个按钮：
+ *   - Sync Quality Ratings（全量）：服务端 MOTAC 官网爬取 → D1（跳过率 ≤25% 时
+ *     镜像清理）→ 客户端对缺失坐标的行做 Nominatim 地理编码补全；
+ *   - Sync first 3 (quick test)：仅导入官网前 3 条（无清理、无地理编码），
+ *     秒级验证"爬虫解析 → D1 入库"链路，避免测试占用大量时间。
  *
  * 增强能力（DEV 工具体验）：
  *  1. 超时警告：运行超过 WARN_AFTER_MS 后显示黄色警告（不中断进程），并周期性在
- *     终端（浏览器 Console）提醒，配合进度 X/total 判断是否卡死；
+ *     终端（浏览器 Console）提醒，配合进度 X/total 判断是否卡死（仅全量模式有
+ *     地理编码阶段，Nominatim 限速 1 请求/秒）；
  *  2. 终端错误打印：启动/完成/异常/超时均打印 console 日志；无法为某地点获取
  *     地点信息时，逐条明细（公司名/地址/原因）打印到 Console 并可在界面展开查看；
  *  3. 运行中检测防重复：localStorage 运行标记 + storage 事件联动（useSyncExternalStore），
- *     覆盖"同一页面重复点击、页面刷新、多标签页"场景——检测到同步进程在运行时
- *     按钮禁用，避免大量相同进程被反复触发；残留标记由 RUNNING_STALE_MS 过期兜底，
- *     并提供"强制解除"按钮供用户自愈。
+ *     覆盖"同一页面重复点击、页面刷新、多标签页"场景——任一同步进程在运行时
+ *     两个按钮均禁用；残留标记由 RUNNING_STALE_MS 过期兜底，并提供"强制解除"按钮。
  */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -27,12 +30,15 @@ import {
 const RUNNING_KEY = "travelsync:quality-rating-sync:running";
 /** 运行标记过期阈值：超过视为残留（页面崩溃/强制关闭），自动清除并允许重新开始 */
 const RUNNING_STALE_MS = 10 * 60 * 1000;
-/** 超时警告阈值：129 条 × Nominatim 1 请求/秒限速 ≈ 2~4 分钟，超过预期即提醒 */
+/** 超时警告阈值：地理编码受 Nominatim 1 请求/秒限速（仅补全缺失坐标行），超预期即提醒 */
 const WARN_AFTER_MS = 2 * 60 * 1000;
 /** 超时后周期性重复提醒的间隔 */
 const WARN_REPEAT_MS = 60 * 1000;
 /** 超时计时器检查间隔 */
 const TIMER_INTERVAL_MS = 10 * 1000;
+
+/** 同步模式：full = 全量（爬取+清理+地理编码）；sample = 前 3 条快速测试（无清理/无地理编码） */
+type SyncMode = "full" | "sample";
 
 /** 运行标记值形态 */
 interface RunningMark {
@@ -82,6 +88,8 @@ function getRunningMarkServerSnapshot(): boolean {
 
 export default function SyncQualityRatingsBTN() {
   const [isSyncing, setIsSyncing] = useState(false);
+  /** 当前运行模式（结果摘要展示用） */
+  const [lastMode, setLastMode] = useState<SyncMode | null>(null);
   /** 是否有其他同步进程在运行（其他标签页/上次刷新残留） */
   const isRunningElsewhere = useSyncExternalStore(
     subscribeRunningMark,
@@ -93,7 +101,7 @@ export default function SyncQualityRatingsBTN() {
   const [result, setResult] = useState<QualityRatingSyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState<number | null>(null);
-  /** 进度（done/total），null = 尚未开始 */
+  /** 进度（done/total），null = 尚未开始（或快速测试模式，无逐条进度） */
   const [progress, setProgress] = useState<{
     done: number;
     total: number;
@@ -167,10 +175,17 @@ export default function SyncQualityRatingsBTN() {
     };
   }, []);
 
-  const handleSync = async () => {
+  /**
+   * 按模式执行同步：
+   * - full：服务端 MOTAC 官网爬取 → D1（清理）→ 客户端对缺失坐标行地理编码补全；
+   * - sample：仅导入官网前 3 条（无清理、无地理编码），秒级完成。
+   * 两模式共用运行标记/计时器/防重，同一时刻只允许一个进程。
+   */
+  const runSync = async (mode: SyncMode) => {
     if (isSyncing || isRunningElsewhere) return;
     setIsSyncing(true);
     isSyncingRef.current = true;
+    setLastMode(mode);
     setResult(null);
     setError(null);
     setProgress(null);
@@ -190,20 +205,26 @@ export default function SyncQualityRatingsBTN() {
         lastWarnAt = elapsed;
         setTimedOut(true);
         console.warn(
-          `[SyncQualityRatings] still running after ${Math.floor(elapsed / 1000)}s — Nominatim rate-limits to 1 request/s (129 items ≈ 2-4 min), please wait.`
+          `[SyncQualityRatings] still running after ${Math.floor(elapsed / 1000)}s — ` +
+            "geocoding is rate-limited to 1 request/s by Nominatim (only rows missing coordinates), please wait."
         );
       }
     }, TIMER_INTERVAL_MS);
 
-    console.info("[SyncQualityRatings] sync started…");
+    console.info(`[SyncQualityRatings] sync started (mode: ${mode})…`);
     try {
-      const res = await qualityRatingSyncService.syncQualityRatings(
-        (done, total) => setProgress({ done, total })
-      );
+      const res =
+        mode === "full"
+          ? await qualityRatingSyncService.syncQualityRatings((done, total) =>
+              setProgress({ done, total })
+            )
+          : await qualityRatingSyncService.syncQualityRatingsSample(3);
       setResult(res);
       console.info("[SyncQualityRatings] sync finished:", {
+        mode,
         synced: res.synced,
         total: res.total,
+        pruned: res.pruned ?? 0,
         newlyGeocoded: res.newlyGeocoded,
         failed: res.failed,
       });
@@ -249,22 +270,35 @@ export default function SyncQualityRatingsBTN() {
 
   return (
     <div className="space-y-2">
-      <button
-        onClick={handleSync}
-        disabled={disabled}
-        className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 hover:shadow-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isSyncing
-          ? "Syncing…"
-          : isRunningElsewhere
-            ? "Sync in progress (refreshed / another tab)"
-            : "Sync Quality Ratings"}
-      </button>
+      {/* 两个按钮共用同一运行标记/防重：任一在跑则都禁用 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => runSync("full")}
+          disabled={disabled}
+          className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 hover:shadow-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSyncing && lastMode === "full"
+            ? "Syncing…"
+            : isRunningElsewhere
+              ? "Sync in progress (refreshed / another tab)"
+              : "Sync Quality Ratings"}
+        </button>
+        <button
+          onClick={() => runSync("sample")}
+          disabled={disabled}
+          title="Import the first 3 records only — quick test, no prune / no geocoding"
+          className="rounded-xl border border-primary-500 px-4 py-2.5 text-sm font-semibold text-primary-600 transition-all duration-200 hover:bg-primary-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSyncing && lastMode === "sample"
+            ? "Syncing…"
+            : "Sync first 3 (quick test)"}
+        </button>
+      </div>
 
-      {/* 进度（支撑超时判断） */}
-      {isSyncing && progress && (
+      {/* 进度（地理编码阶段逐条计数；快速测试模式无逐条进度） */}
+      {isSyncing && lastMode === "full" && progress && (
         <p className="text-sm text-gray-500">
-          Processing {progress.done}/{progress.total}…
+          Geocoding missing coordinates {progress.done}/{progress.total}…
         </p>
       )}
 
@@ -272,7 +306,7 @@ export default function SyncQualityRatingsBTN() {
       {isSyncing && timedOut && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           ⚠ Sync has been running for {runSeconds}s and is still not finished.
-          Nominatim rate-limits to 1 request/s (129 items ≈ 2-4 min) — please be
+          Geocoding is rate-limited to 1 request/s by Nominatim — please be
           patient, do NOT click again. If it hangs for long, check the network
           status in the Console.
         </p>
@@ -282,7 +316,7 @@ export default function SyncQualityRatingsBTN() {
       {isRunningElsewhere && !isSyncing && (
         <p className="text-sm text-gray-500">
           A Quality Ratings sync is already running (this tab was refreshed, or
-          another tab is syncing). The button is disabled to avoid duplicate
+          another tab is syncing). The buttons are disabled to avoid duplicate
           processes.
           <button
             onClick={forceUnlock}
@@ -295,13 +329,19 @@ export default function SyncQualityRatingsBTN() {
 
       {result && (
         <p className="text-sm text-gray-700">
-          Synced {result.synced}/{result.total} · newly geocoded{" "}
-          {result.newlyGeocoded} · skipped {result.failed} · took{" "}
-          {elapsedSec?.toFixed(1)}s
+          MOTAC synced {result.synced}/{result.total} · pruned{" "}
+          {result.pruned ?? 0} · newly geocoded {result.newlyGeocoded} · failed{" "}
+          {result.failed} · took {elapsedSec?.toFixed(1)}s
+        </p>
+      )}
+      {result && lastMode === "sample" && (
+        <p className="text-xs text-gray-400">
+          Quick test: imported the first 3 MOTAC records only — no prune, no
+          geocoding (see Console for skipped counts).
         </p>
       )}
 
-      {/* 失败地点明细（折叠展示前 10 条，完整明细见终端 Console） */}
+      {/* 地理编码失败地点明细（折叠展示前 10 条，完整明细见终端 Console） */}
       {result && result.failures.length > 0 && (
         <details className="text-sm text-amber-700">
           <summary>

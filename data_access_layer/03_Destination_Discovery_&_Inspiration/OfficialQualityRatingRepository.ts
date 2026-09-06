@@ -2,14 +2,16 @@
  * OfficialQualityRatingRepository — 模块 03 官方品质评级仓储接口（Data Access Layer）
  *
  * 职责（单一）：
- *   - 封装"官方品质评级"数据的持久化读写（来源：官方评级 hardcode JSON，
- *     经 Geoapify 补全地点详情后写入 Cloudflare D1）；
+ *   - 封装"官方品质评级"数据的持久化读写（来源：MOTAC 官网 MyTQA 列表爬取
+ *     （MotacMyTqaApi / 服务端 QualityRatingWebSyncService，每日 cron 与 DEV 按钮触发）
+ *     或客户端补全经纬度后写入 Cloudflare D1）；
  *   - 不包含任何业务判断（匹配/回退策略由 Business Logic Layer 负责）。
  *
  * 实现类：
- *   - HardcodedQualityRatingRepository（浏览器端）：直接读取 officalQualityRating_hardcode.json；
  *   - D1QualityRatingRepository（服务端）：操作 Cloudflare D1（SQL 内聚于此）；
- *   - RemoteQualityRatingRepository（浏览器端）：经 Route API 转发到服务端实现。
+ *   - RemoteQualityRatingRepository（浏览器端）：经 Route API 转发到服务端实现；
+ *   - HardcodedQualityRatingRepository（浏览器端，@deprecated 保留不引用）：
+ *     历史实现，直接读取 officalQualityRating_hardcode.json，已退出数据链路。
  *
  * 调用方（Business Logic Layer）只依赖本接口，切换实现时无需改动。
  */

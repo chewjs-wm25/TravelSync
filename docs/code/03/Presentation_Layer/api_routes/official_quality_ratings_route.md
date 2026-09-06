@@ -9,14 +9,22 @@
 
 `official-quality-ratings/route.ts` 是模块 03 官方品质评级的 Route API，职责单一：HTTP 传输层——解析/校验请求参数、获取 Cloudflare D1 binding（`TEST_DB`）、实例化 `D1QualityRatingRepository` 并委托其方法、序列化响应。**本文件不含任何 SQL / 数据库逻辑**（数据库操作全部位于 Data Access 层 `D1QualityRatingRepository` 内）。
 
-数据流（读取方向）：`officalQualityRate` 组件 → `hooks.useSearchAndFilter` 的 `pois` → BL 层 `discoveryService.getQualityRatedPois` → 本 Route API → `D1QualityRatingRepository` → Cloudflare D1（`TEST_DB`）。注意 BL 层 `getQualityRatedPois` **不接受筛选条件**——无论主页筛选状态如何始终返回全部官方评级数据（Recommended Places 与搜索栏完全解绑）。写入方向：`officalQualityRating_hardcode.json` 同步时经 `POST` 批量 upsert，`DELETE` 清空数据。
+数据流（读取方向）：`officalQualityRate` 组件 → `hooks.useSearchAndFilter` 的 `pois` → BL 层 `discoveryService.getQualityRatedPois` → 本 Route API → `D1QualityRatingRepository` → Cloudflare D1（`TEST_DB`）。注意 BL 层 `getQualityRatedPois` **不接受筛选条件**——无论主页筛选状态如何始终返回全部官方评级数据（Recommended Places 与搜索栏完全解绑）。
 
-端点提供三个操作：
+写入方向（两条链路）：
+- **服务端爬虫同步（主链路）**：每日 Cloudflare Cron / DEV 按钮经 **子端点 `POST /…/official-quality-ratings/sync`** 触发（本文件 `sync/route.ts`），由服务端完成"MOTAC 官网爬取 → upsert → 跳过率 ≤25% 时镜像清理"（见 `server/QualityRatingWebSyncService` / `api_layer/MotacMyTqaApi`）；
+- **地理编码补全**：DEV 全量按钮阶段②以 `POST`（body `{ items }`）批量 upsert 已补坐标的条目；`DELETE` 清空数据。
+（原 hardcode JSON 同步链路已移除，数据源切换为官网爬虫。）
+
+端点提供三个操作（基础 CRUD）：
 - `GET /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 返回全部官方评级条目（`OfficialQualityRatingEntity[]`）；
-- `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`（body `{ items }`）—— 批量 upsert（非空数组校验），供 hardcode 数据同步；
+- `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`（body `{ items }`）—— 批量 upsert（非空数组校验），供客户端地理编码补全回写；
 - `DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 清空全部官方评级数据，返回 `{ cleared }`。
 
-`POST` 校验 body 中 `items` 必须为非空数组，否则返回 400；响应携带同步条数 `{ synced }`（201 Created）。
+另有子端点（`sync/route.ts`）：
+- `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings/sync`（body 可选 `{ limit }`）—— 触发服务端官网爬虫同步，返回 `{ total, synced, failed, pruned, skipped }`；`limit` 未传 = 全量（跳过率 ≤25% 时清理旧行），`1 ≤ limit ≤ 200` = 快速测试（仅导入前 N 条、永不清库）；并发 409 / 失败 502。
+
+`POST`（基础）校验 body 中 `items` 必须为非空数组，否则返回 400；响应携带同步条数 `{ synced }`（201 Created）。
 
 ## 请求 / 响应示例
 

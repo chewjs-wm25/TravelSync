@@ -1,10 +1,14 @@
 /**
  * HardcodedQualityRatingRepository — 模块 03 官方评级数据源实现（Data Access Layer, 浏览器端）
  *
- * 职责（单一）：
- *   - 读取官方评级爬取结果（officalQualityRating_hardcode.json）并映射为
- *     OfficialQualityRatingEntity 列表（Geoapify 字段初始为 null，待同步时补全）；
- *   - 不包含匹配/回退等业务判断（由 Business Logic Layer 负责）。
+ * @deprecated 本文件与 officalQualityRating_hardcode.json 已退出官方评级数据链路：
+ * 数据源已切换为 MOTAC 官网实时爬虫（api_layer/.../MotacMyTqaApi → 服务端
+ * QualityRatingWebSyncService，每日 cron / DEV 按钮触发）。按仓库约定
+ * （镜像 HardcodedEventRepository 先例）文件保留但不被任何代码引用，便于回滚。
+ *
+ * 历史职责：读取官方评级爬取结果（officalQualityRating_hardcode.json）并映射为
+ * OfficialQualityRatingEntity 列表（Geoapify 字段初始为 null，待同步时补全）；
+ * 不包含匹配/回退等业务判断（由 Business Logic Layer 负责）。
  */
 
 import rawData from "./officalQualityRating_hardcode.json";

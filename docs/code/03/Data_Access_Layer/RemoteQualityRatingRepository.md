@@ -11,6 +11,8 @@
 
 依赖方向为：浏览器端 BL → 本类 → Route API → `D1QualityRatingRepository` → Cloudflare D1。
 
+除实现仓储契约外，本类另提供 `syncFromWeb({ limit? })`：`POST /…/official-quality-ratings/sync` 触发服务端"MOTAC 官网爬虫 → D1"同步（limit 未传 = 全量，跳过率 ≤25% 时镜像清理；传入 = 前 N 条快速测试，永不清库），由 DEV 按钮 / 每日 cron 调用（浏览器端无法直连官网，见 `server/QualityRatingWebSyncService`）。
+
 ### 请求/响应契约
 
 | 方法 | HTTP | 请求 | 成功响应体 | 返回值 |
