@@ -17,7 +17,9 @@ export type ItemNoteEditorProps = {
   initialStartTime?: string;
   initialEndTime?: string;
   previousEndTime?: string;
+  nextStartTime?: string;
   travelTimeMinutes?: number;
+  nextTravelTimeMinutes?: number;
   onSaveItem: (payload: ItemEditPayload) => void | Promise<void>;
   onCancel: () => void;
 };
@@ -29,7 +31,9 @@ export function ItemNoteEditor({
   initialStartTime,
   initialEndTime,
   previousEndTime,
+  nextStartTime,
   travelTimeMinutes,
+  nextTravelTimeMinutes,
   onSaveItem,
   onCancel,
 }: ItemNoteEditorProps) {
@@ -77,9 +81,7 @@ export function ItemNoteEditor({
         .map(Number);
       const [startHours, startMinutes] = tempStartTime.split(":").map(Number);
       const previousEndWithTravel =
-        previousHours * 60 +
-        previousMinutes +
-        (travelTimeMinutes ?? 0);
+        previousHours * 60 + previousMinutes + (travelTimeMinutes ?? 0);
       const startTimeInMinutes = startHours * 60 + startMinutes;
 
       if (startTimeInMinutes < previousEndWithTravel) {
@@ -91,6 +93,27 @@ export function ItemNoteEditor({
           travelTimeMinutes
             ? `Start time must be at or after ${requiredStartTime} to allow ${Math.round(travelTimeMinutes)} minutes of travel`
             : `Start time cannot be earlier than previous item end time (${previousEndTime})`
+        );
+        return;
+      }
+    }
+
+    if (tempEndTime && nextStartTime) {
+      const [endHours, endMinutes] = tempEndTime.split(":").map(Number);
+      const [nextHours, nextMinutes] = nextStartTime.split(":").map(Number);
+      const endWithTravel =
+        endHours * 60 + endMinutes + (nextTravelTimeMinutes ?? 0);
+      const nextStartInMinutes = nextHours * 60 + nextMinutes;
+
+      if (endWithTravel > nextStartInMinutes) {
+        const requiredNextMinutes = Math.round(endWithTravel);
+        const requiredHours = Math.floor(requiredNextMinutes / 60) % 24;
+        const requiredMinutes = requiredNextMinutes % 60;
+        const requiredNextStart = `${String(requiredHours).padStart(2, "0")}:${String(requiredMinutes).padStart(2, "0")}`;
+        setErrorMessage(
+          nextTravelTimeMinutes
+            ? `Next item must start at or after ${requiredNextStart} to allow ${Math.round(nextTravelTimeMinutes)} minutes of travel`
+            : `Next item cannot start before this item ends (${tempEndTime})`
         );
         return;
       }

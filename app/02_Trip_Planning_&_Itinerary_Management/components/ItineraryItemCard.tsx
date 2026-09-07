@@ -24,6 +24,8 @@ type ItineraryItemCardProps = {
   item: ItineraryItem;
   previousEndTime?: string;
   travelTimeMinutes?: number;
+  nextStartTime?: string;
+  nextTravelTimeMinutes?: number;
   onDelete: () => void | Promise<void>;
   onToggleEdit: () => void;
   onSaveItem: (payload: {
@@ -39,6 +41,8 @@ export function ItineraryItemCard({
   item,
   previousEndTime,
   travelTimeMinutes,
+  nextStartTime,
+  nextTravelTimeMinutes,
   onDelete,
   onToggleEdit,
   onSaveItem,
@@ -58,13 +62,15 @@ export function ItineraryItemCard({
               {item.name}
             </span>
             {typeof resolvedPosition === "number" ? (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-gray-500 uppercase">
                 #{resolvedPosition}
               </span>
             ) : null}
             {item.start_time || item.end_time ? (
-              <span className="text-xs text-gray-600 ml-2">
-                {item.start_time ? `${item.start_time}` : ''}{item.start_time && item.end_time ? ' – ' : ''}{item.end_time ? `${item.end_time}` : ''}
+              <span className="ml-2 text-xs text-gray-600">
+                {item.start_time ? `${item.start_time}` : ""}
+                {item.start_time && item.end_time ? " – " : ""}
+                {item.end_time ? `${item.end_time}` : ""}
               </span>
             ) : null}
           </div>
@@ -138,7 +144,9 @@ export function ItineraryItemCard({
           initialStartTime={item.start_time}
           initialEndTime={item.end_time}
           previousEndTime={previousEndTime}
+          nextStartTime={nextStartTime}
           travelTimeMinutes={travelTimeMinutes}
+          nextTravelTimeMinutes={nextTravelTimeMinutes}
           onSaveItem={onSaveItem}
           onCancel={onToggleEdit}
         />

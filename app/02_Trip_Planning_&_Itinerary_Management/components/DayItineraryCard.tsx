@@ -637,6 +637,7 @@ export function DayItineraryCard({
               day.items.map((item, index) => {
                 const previousItem =
                   index > 0 ? day.items[index - 1] : undefined;
+                const nextItem = day.items[index + 1];
                 const previousEndTime = previousItem?.end_time;
                 const segmentKey = previousItem
                   ? `${previousItem.id}->${item.id}`
@@ -646,6 +647,9 @@ export function DayItineraryCard({
                   : false;
                 const segment = segmentKey
                   ? routeSegments[segmentKey]
+                  : undefined;
+                const nextSegment = nextItem
+                  ? routeSegments[`${item.id}->${nextItem.id}`]
                   : undefined;
                 const canViewDirection = Boolean(
                   segment &&
@@ -791,6 +795,8 @@ export function DayItineraryCard({
                       item={item}
                       previousEndTime={previousEndTime}
                       travelTimeMinutes={segment?.timeMinutes}
+                      nextStartTime={nextItem?.start_time}
+                      nextTravelTimeMinutes={nextSegment?.timeMinutes}
                       onDelete={() => onDeleteItem(item.id)}
                       onToggleEdit={() => onToggleItemEdit(item.id)}
                       onSaveItem={(payload) => onSaveItem(item.id, payload)}

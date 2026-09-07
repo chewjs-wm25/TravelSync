@@ -1,7 +1,7 @@
 export type ScheduleInterval = {
   id?: string | null;
   start_time?: string | null; // expect ISO date-time or "YYYY-MM-DD HH:MM"
-  end_time?: string | null;   // same format as start_time
+  end_time?: string | null; // same format as start_time
   /** Travel time required after this item before the next item can start. */
   travel_time_minutes?: number | null;
 };
@@ -51,9 +51,19 @@ function tryParseDateTime(value: string): number | null {
 }
 
 // Returns true if [aStart,aEnd) overlaps with [bStart,bEnd)
-function intervalsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number) {
+function intervalsOverlap(
+  aStart: number,
+  aEnd: number,
+  bStart: number,
+  bEnd: number
+) {
   // invalid intervals considered non-overlapping
-  if (!Number.isFinite(aStart) || !Number.isFinite(aEnd) || !Number.isFinite(bStart) || !Number.isFinite(bEnd)) {
+  if (
+    !Number.isFinite(aStart) ||
+    !Number.isFinite(aEnd) ||
+    !Number.isFinite(bStart) ||
+    !Number.isFinite(bEnd)
+  ) {
     return false;
   }
 
@@ -62,7 +72,9 @@ function intervalsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: nu
   return aStart < bEnd && bStart < aEnd;
 }
 
-export function detectConflictSchedule(items: ScheduleInterval[]): DetectConflictResult {
+export function detectConflictSchedule(
+  items: ScheduleInterval[]
+): DetectConflictResult {
   const parsed: Array<{
     id?: string | null;
     rawStart: string;
@@ -103,12 +115,28 @@ export function detectConflictSchedule(items: ScheduleInterval[]): DetectConflic
       const b = parsed[j];
       if (b.startMs === null || b.endMs === null) continue;
 
+      const earlier = a.startMs <= b.startMs ? a : b;
+      const later = earlier === a ? b : a;
+      const earlierStart = earlier.startMs;
+      const earlierEnd = earlier.endMs;
+      const laterStart = later.startMs;
+      const laterEnd = later.endMs;
+
+      if (
+        earlierStart === null ||
+        earlierEnd === null ||
+        laterStart === null ||
+        laterEnd === null
+      ) {
+        continue;
+      }
+
       if (
         intervalsOverlap(
-          a.startMs,
-          a.endMs + a.travelTimeMs,
-          b.startMs,
-          b.endMs
+          earlierStart,
+          earlierEnd + earlier.travelTimeMs,
+          laterStart,
+          laterEnd
         )
       ) {
         conflicts.push({
