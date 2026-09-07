@@ -505,7 +505,10 @@ export async function updateItinerary(
     };
   }
 
-  const itineraries = await getItinerariesByTripId(db, existingItinerary.trip_id);
+  const itineraries = await getItinerariesByTripId(
+    db,
+    existingItinerary.trip_id
+  );
   if (
     itineraries.some(
       (itinerary) =>
@@ -519,15 +522,11 @@ export async function updateItinerary(
     };
   }
 
-  const wasUpdated = await updateItineraryInRepository(
-    db,
-    tripId,
-    {
-      title,
-      date,
-      ...(hasNoteUpdate ? { note: note ?? null } : {}),
-    }
-  );
+  const wasUpdated = await updateItineraryInRepository(db, tripId, {
+    title,
+    date,
+    ...(hasNoteUpdate ? { note: note ?? null } : {}),
+  });
 
   if (!wasUpdated) {
     return {

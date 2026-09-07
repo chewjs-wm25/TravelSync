@@ -8,12 +8,9 @@ import {
   type ItineraryItemRecord,
 } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
 import { getItineraryById } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
-import {
-  normalizeText,
-} from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
+import { normalizeText } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
 
 import type { ImportPlaceInput, ImportPlacesResult } from "./types";
-
 
 export type ItineraryItemServiceInput = {
   itineraryId?: string | null;
@@ -68,16 +65,13 @@ type ItineraryItemServiceFailure = {
 };
 
 export type ItineraryItemServiceResult =
-  | ItineraryItemServiceSuccess
-  | ItineraryItemServiceFailure;
+  ItineraryItemServiceSuccess | ItineraryItemServiceFailure;
 
 export type UpdateItineraryItemResult =
-  | ItineraryItemServiceSuccess
-  | ItineraryItemServiceFailure;
+  ItineraryItemServiceSuccess | ItineraryItemServiceFailure;
 
 export type DeleteItineraryItemResult =
-  | DeleteItineraryItemSuccess
-  | ItineraryItemServiceFailure;
+  DeleteItineraryItemSuccess | ItineraryItemServiceFailure;
 
 function normalizeUpdatePosition(
   value: number | string | null | undefined
@@ -189,7 +183,8 @@ export async function createItineraryItem(
   }
 
   const nextOrderIndex =
-    (await getItineraryItemsByItineraryId(db, validation.itineraryId)).length + 1;
+    (await getItineraryItemsByItineraryId(db, validation.itineraryId)).length +
+    1;
   const itemId = `itm_${crypto.randomUUID()}`;
   const wasInserted = await addItineraryItem(
     db,
@@ -235,15 +230,14 @@ export async function createItineraryItem(
       itinerary_item_note: validation.normalized.note ?? null,
       destination: validation.normalized.destination,
       reference_id: normalizeText(input.referenceId),
-      lat: typeof input.lat === 'number' ? input.lat : null,
-      lon: typeof input.lon === 'number' ? input.lon : null,
+      lat: typeof input.lat === "number" ? input.lat : null,
+      lon: typeof input.lon === "number" ? input.lon : null,
       type: normalizeText(input.type) ?? "other",
       start_time: normalizeText(input.startTime),
       end_time: normalizeText(input.endTime),
       position: nextOrderIndex,
       order_index: nextOrderIndex,
     },
-
   };
 }
 
@@ -544,7 +538,8 @@ export async function importPlaces(
   }
 
   let importedCount = 0;
-  let nextOrderIndex = (await getItineraryItemsByItineraryId(db, resolvedItineraryId)).length + 1;
+  let nextOrderIndex =
+    (await getItineraryItemsByItineraryId(db, resolvedItineraryId)).length + 1;
 
   for (const entry of items) {
     const name = normalizeText(entry.name);
@@ -564,8 +559,8 @@ export async function importPlaces(
       normalizeText(entry.placeId) ?? undefined,
       undefined,
       undefined,
-      typeof entry.lat === 'number' ? entry.lat : null,
-      typeof entry.lon === 'number' ? entry.lon : null
+      typeof entry.lat === "number" ? entry.lat : null,
+      typeof entry.lon === "number" ? entry.lon : null
     );
 
     if (wasInserted) {
