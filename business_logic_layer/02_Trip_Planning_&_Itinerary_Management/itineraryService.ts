@@ -84,12 +84,12 @@ function isDateWithinTripWindow(date: string, trip: TripRecord) {
   return date >= trip.start_date && date <= trip.end_date;
 }
 
-function validateMalaysiaScope(note: string | null) {
-  if (note && hasMalaysiaBlocklistMatch(note)) {
+function validateMalaysiaScope(title: string) {
+  if (title && hasMalaysiaBlocklistMatch(title)) {
     return {
       success: false as const,
       status: 400,
-      message: "Itinerary note must stay within Malaysia",
+      message: "Itinerary must stay within Malaysia",
     };
   }
 
@@ -178,11 +178,9 @@ function validateCreateItineraryPayload(
     };
   }
 
-  if (note) {
-    const malaysiaScopeValidation = validateMalaysiaScope(note);
-    if (!malaysiaScopeValidation.success) {
-      return malaysiaScopeValidation;
-    }
+  const malaysiaScopeValidation = validateMalaysiaScope(title);
+  if (!malaysiaScopeValidation.success) {
+    return malaysiaScopeValidation;
   }
 
   if (!trip) {
@@ -286,8 +284,14 @@ function validateUpdateItineraryPayload(
     };
   }
 
-  if (note) {
-    const malaysiaScopeValidation = validateMalaysiaScope(note);
+  if (hasNoteUpdate) {
+    const malaysiaScopeValidation = validateMalaysiaScope(title);
+    if (!malaysiaScopeValidation.success) {
+      return malaysiaScopeValidation;
+    }
+  } else {
+    // Validate title regardless of note update
+    const malaysiaScopeValidation = validateMalaysiaScope(title);
     if (!malaysiaScopeValidation.success) {
       return malaysiaScopeValidation;
     }
@@ -479,11 +483,9 @@ export async function updateItinerary(
     };
   }
 
-  if (note) {
-    const malaysiaScopeValidation = validateMalaysiaScope(note);
-    if (!malaysiaScopeValidation.success) {
-      return malaysiaScopeValidation;
-    }
+  const malaysiaScopeValidation = validateMalaysiaScope(title);
+  if (!malaysiaScopeValidation.success) {
+    return malaysiaScopeValidation;
   }
 
   const trip = await getTripById(db, existingItinerary.trip_id);

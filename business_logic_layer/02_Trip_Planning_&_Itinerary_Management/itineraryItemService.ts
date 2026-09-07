@@ -9,7 +9,6 @@ import {
 } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
 import { getItineraryById } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 import {
-  hasMalaysiaBlocklistMatch,
   normalizeText,
 } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
 
@@ -132,14 +131,6 @@ export function validateItineraryItemPayload(
   const place = normalizeText(input.place ?? input.name ?? input.destination);
   const image = normalizeText(input.image);
   const note = normalizeText(input.note);
-
-  if (note && hasMalaysiaBlocklistMatch(note)) {
-    return {
-      success: false,
-      status: 400,
-      message: "Itinerary item note must stay within Malaysia",
-    };
-  }
 
   if (!resolvedItineraryId) {
     return {
@@ -326,14 +317,6 @@ export async function updateItineraryItemById(
 
   const normalizedName = hasNameUpdate ? normalizeText(input.name) : null;
   const normalizedNote = hasNoteUpdate ? normalizeText(input.note) : null;
-
-  if (hasNoteUpdate && normalizedNote && hasMalaysiaBlocklistMatch(normalizedNote)) {
-    return {
-      success: false,
-      status: 400,
-      message: "Itinerary item note must stay within Malaysia",
-    };
-  }
 
   if (hasNameUpdate && !normalizedName) {
     return {

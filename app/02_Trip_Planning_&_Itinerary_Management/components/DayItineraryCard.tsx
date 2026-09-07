@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
 import { fetchRouteShape } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi";
-import type { Stop } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/moduleAPI";
 import {
   getLocalSuggestions,
   type LocalSuggestion,
