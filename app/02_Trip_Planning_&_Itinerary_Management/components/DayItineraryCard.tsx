@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
 import { fetchRouteShape } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi";
+import {
+  useTripNavigationStore,
+  type Stop,
+} from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
 import {
   getLocalSuggestions,
   type LocalSuggestion,
@@ -86,6 +91,10 @@ export function DayItineraryCard({
   onSaveNote,
   onEditDay,
 }: DayItineraryCardProps) {
+  const router = useRouter();
+  const setRouteLocation = useTripNavigationStore(
+    (state) => state.setRouteLocation
+  );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(day.title);
@@ -139,8 +148,10 @@ export function DayItineraryCard({
 
         // Skip pairs without coordinates
         if (
-          from.lat == null || from.lon == null ||
-          to.lat == null || to.lon == null
+          from.lat == null ||
+          from.lon == null ||
+          to.lat == null ||
+          to.lon == null
         ) {
           segmentCacheRef.current.segments[key] = null;
           if (!cancelled) {
@@ -189,8 +200,8 @@ export function DayItineraryCard({
           const result = await fetchRouteShape(
             { lat: from.lat, lng: from.lon },
             { lat: to.lat, lng: to.lon },
-            'car',
-            'fastest'
+            "car",
+            "fastest"
           );
 
           if (!cancelled) {
@@ -243,7 +254,7 @@ export function DayItineraryCard({
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemCalculationKey]);
 
   const routeSegments =
@@ -258,7 +269,6 @@ export function DayItineraryCard({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -305,7 +315,8 @@ export function DayItineraryCard({
   }, [searchValue, onSelectSuggestion]);
 
   const handleSuggestionSelect = (suggestion: LocalSuggestionItem) => {
-    const formatted = suggestion.value || suggestion.formatted || suggestion.name || "";
+    const formatted =
+      suggestion.value || suggestion.formatted || suggestion.name || "";
     setSuggestions([]);
     setIsSuggestionsOpen(false);
     onSearchChange(formatted);
@@ -578,7 +589,7 @@ export function DayItineraryCard({
                 <p className="text-[11px] font-semibold tracking-[0.18em] text-[#ff6b6b] uppercase">
                   Itinerary Note
                 </p>
-                <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-gray-700">
+                <p className="mt-2 text-xs leading-5 whitespace-pre-wrap text-gray-700">
                   {day.note}
                 </p>
               </div>
@@ -624,50 +635,152 @@ export function DayItineraryCard({
               </div>
             ) : (
               day.items.map((item, index) => {
-                const previousItem = index > 0 ? day.items[index - 1] : undefined;
+                const previousItem =
+                  index > 0 ? day.items[index - 1] : undefined;
                 const previousEndTime = previousItem?.end_time;
-                const segmentKey = previousItem ? `${previousItem.id}->${item.id}` : null;
-                const isSegmentLoading = segmentKey ? loadingSegmentKeys.has(segmentKey) : false;
-                const segment = segmentKey ? routeSegments[segmentKey] : undefined;
+                const segmentKey = previousItem
+                  ? `${previousItem.id}->${item.id}`
+                  : null;
+                const isSegmentLoading = segmentKey
+                  ? loadingSegmentKeys.has(segmentKey)
+                  : false;
+                const segment = segmentKey
+                  ? routeSegments[segmentKey]
+                  : undefined;
+                const canViewDirection = Boolean(
+                  segment &&
+                  previousItem?.lat != null &&
+                  previousItem?.lon != null &&
+                  item.lat != null &&
+                  item.lon != null
+                );
+
+                const handleViewDirection = () => {
+                  if (
+                    !canViewDirection ||
+                    !previousItem ||
+                    previousItem.lat == null ||
+                    previousItem.lon == null ||
+                    item.lat == null ||
+                    item.lon == null
+                  ) {
+                    return;
+                  }
+
+                  const origin: Stop = {
+                    id: previousItem.id,
+                    name: previousItem.name,
+                    lat: previousItem.lat,
+                    lng: previousItem.lon,
+                  };
+                  const destination: Stop = {
+                    id: item.id,
+                    name: item.name,
+                    lat: item.lat,
+                    lng: item.lon,
+                  };
+
+                  setRouteLocation("origin", origin);
+                  setRouteLocation("destination", destination);
+                  router.push("/04_Travel_Logistics_&_Map_Route_Planning");
+                };
 
                 return (
                   <div key={item.id}>
                     {segmentKey && (
-                      <div className="flex items-center gap-2 py-1 px-1">
+                      <div className="flex items-center gap-2 px-1 py-1">
                         <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
                         <div className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-medium shadow-sm">
                           {isSegmentLoading ? (
                             <>
-                              <svg className="h-3 w-3 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                              <svg
+                                className="h-3 w-3 animate-spin text-gray-400"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                                />
                               </svg>
-                              <span className="text-gray-400">Calculating…</span>
+                              <span className="text-gray-400">
+                                Calculating…
+                              </span>
                             </>
                           ) : segment ? (
                             <>
-                              <svg className="h-3 w-3 text-[#ff6b6b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7" />
+                              <svg
+                                className="h-3 w-3 text-[#ff6b6b]"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"
+                                />
                               </svg>
                               <span className="text-gray-600">
                                 {segment.distanceKm.toFixed(1)} km
                               </span>
                               <span className="text-gray-300">·</span>
-                              <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              <svg
+                                className="h-3 w-3 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
                               </svg>
                               <span className="text-gray-600">
                                 {segment.timeMinutes < 60
                                   ? `${Math.round(segment.timeMinutes)} min`
                                   : `${Math.floor(segment.timeMinutes / 60)}h ${Math.round(segment.timeMinutes % 60)}min`}
                               </span>
+                              {canViewDirection && (
+                                <button
+                                  type="button"
+                                  onClick={handleViewDirection}
+                                  className="ml-1 border-l border-gray-200 pl-2 font-semibold text-[#ff6b6b] transition-colors hover:text-[#ff5252]"
+                                >
+                                  Direction
+                                </button>
+                              )}
                             </>
                           ) : (
                             <>
-                              <svg className="h-3 w-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7" />
+                              <svg
+                                className="h-3 w-3 text-gray-300"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"
+                                />
                               </svg>
-                              <span className="text-gray-400">No route data</span>
+                              <span className="text-gray-400">
+                                No route data
+                              </span>
                             </>
                           )}
                         </div>
@@ -686,7 +799,6 @@ export function DayItineraryCard({
                 );
               })
             )}
-
           </div>
 
           <div className="mt-2 border-t border-gray-200/60 pt-2">
@@ -710,7 +822,7 @@ export function DayItineraryCard({
                 />
 
                 {isSuggestionsOpen && suggestions.length > 0 && (
-                  <ul className="absolute left-0 right-9 top-full z-30 max-h-56 w-full overflow-auto rounded-md border border-gray-200 bg-white text-left text-xs shadow-lg">
+                  <ul className="absolute top-full right-9 left-0 z-30 max-h-56 w-full overflow-auto rounded-md border border-gray-200 bg-white text-left text-xs shadow-lg">
                     {suggestions.map((suggestion) => (
                       <li
                         key={suggestion.id}
@@ -727,8 +839,12 @@ export function DayItineraryCard({
                         }}
                         className="cursor-pointer px-3 py-2 hover:bg-gray-50 focus-visible:bg-gray-100 active:bg-gray-100"
                       >
-                        <div className="font-medium text-gray-800">{suggestion.name}</div>
-                        <div className="text-gray-500">{suggestion.formatted}</div>
+                        <div className="font-medium text-gray-800">
+                          {suggestion.name}
+                        </div>
+                        <div className="text-gray-500">
+                          {suggestion.formatted}
+                        </div>
                       </li>
                     ))}
                   </ul>
