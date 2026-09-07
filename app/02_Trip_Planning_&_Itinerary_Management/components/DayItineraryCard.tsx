@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
+import { fetchRouteShape } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi";
+import type { Stop } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/moduleAPI";
 import {
   getLocalSuggestions,
   type LocalSuggestion,
 } from "../api/localSuggestionApi";
-import { generateRoute } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/moduleAPI";
-import type { Stop } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/moduleAPI";
 
 type LocalSuggestionItem = LocalSuggestion;
 
@@ -187,14 +187,18 @@ export function DayItineraryCard({
         }
 
         try {
-          const fromStop: Stop = { id: from.id, name: from.name, lat: from.lat, lng: from.lon };
-          const toStop: Stop = { id: to.id, name: to.name, lat: to.lat, lng: to.lon };
-          const result = await generateRoute(fromStop, toStop, 'car', 'fastest');
+          const result = await fetchRouteShape(
+            { lat: from.lat, lng: from.lon },
+            { lat: to.lat, lng: to.lon },
+            'car',
+            'fastest'
+          );
 
           if (!cancelled) {
-            const nextSegment = result.success
-              ? { distanceKm: result.summary.distanceKm, timeMinutes: result.summary.timeMinutes }
-              : null;
+            const nextSegment = {
+              distanceKm: result.distanceKm,
+              timeMinutes: result.durationMinutes,
+            };
             segmentCacheRef.current.segments[key] = nextSegment;
             setRouteSegmentState((previous) => ({
               itemCalculationKey,
