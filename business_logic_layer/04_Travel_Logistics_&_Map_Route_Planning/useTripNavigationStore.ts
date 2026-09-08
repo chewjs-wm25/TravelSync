@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useAuthStore } from '@/app/Admin_Panel/authUser';
 import { fetchRouteShape } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi';
 import type { RouteVariant } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi';
 import { fetchPublicTransportRoute } from '@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi';
@@ -107,6 +108,32 @@ const defaultVehicle: Vehicle = {
 };
 
 let latestRouteRequest = 0;
+
+const routesApi = '/04_Travel_Logistics_&_Map_Route_Planning/api/routes';
+const vehiclesApi = '/04_Travel_Logistics_&_Map_Route_Planning/api/vehicles';
+
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  });
+  const data = (await response.json().catch(() => ({}))) as T & { error?: string };
+  if (!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+async function loadRoutesForUser(): Promise<SavedRoute[]> {
+  const data = await requestJson<{ routes: SavedRoute[] }>(routesApi);
+  return data.routes ?? [];
+}
+
+async function loadVehiclesForUser(): Promise<Vehicle[]> {
+  const data = await requestJson<{ vehicles: Vehicle[] }>(vehiclesApi);
+  return data.vehicles ?? [];
+}
 
 const toRadians = (value: number) => (value * Math.PI) / 180;
 
@@ -457,7 +484,7 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
 
   saveRoute: async (name: string) => {
     const { origin, destination, summary, vehicleType, optimizationMode, generatedRoute, savedRoutes, currentUserId, selectedVehicleId } = get();
-    if (!origin || !destination) return;
+    if (!origin || !destination || !currentUserId) return;
 
     const trimmedName = name.trim() || `${origin.name} → ${destination.name}`;
     const newRoute: SavedRoute = {
@@ -476,18 +503,34 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
       createdAt: new Date().toISOString(),
     };
 
-    set({ savedRoutes: [newRoute, ...savedRoutes] });
+    try {
+      const data = await requestJson<{ route: SavedRoute }>(routesApi, {
+        method: 'POST',
+        body: JSON.stringify(newRoute),
+      });
+      set({ savedRoutes: [data.route, ...savedRoutes] });
+    } catch (error) {
+      console.error('Error saving route:', error);
+    }
   },
 
   deleteSavedRoute: async (id: string) => {
-    const { savedRoutes } = get();
-
-    set({
-      savedRoutes: savedRoutes.filter((routeItem: SavedRoute) => routeItem.id !== id),
-    });
+    if (!get().currentUserId) return;
+    try {
+      await requestJson<{ success: true }>(`${routesApi}/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      set((state) => ({
+        savedRoutes: state.savedRoutes.filter((routeItem: SavedRoute) => routeItem.id !== id),
+      }));
+    } catch (error) {
+      console.error('Error deleting route:', error);
+    }
   },
 
   addVehicle: (vehicle: Omit<Vehicle, 'id' | 'isDefault'>) => {
+    const userId = get().currentUserId;
+    if (!userId) return;
     const nextVehicle: Vehicle = {
       id: `${Date.now()}`,
       name: vehicle.name,
@@ -500,31 +543,58 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
     set((state: TripNavigationState) => ({
       vehicles: [...state.vehicles, nextVehicle],
     }));
+    void requestJson<{ vehicle: Vehicle }>(vehiclesApi, {
+      method: 'POST',
+      body: JSON.stringify(nextVehicle),
+    }).catch((error) => {
+      console.error('Error saving vehicle:', error);
+      set((state) => ({ vehicles: state.vehicles.filter((item) => item.id !== nextVehicle.id) }));
+    });
   },
 
   editVehicle: (id: string, updates: Partial<Omit<Vehicle, 'id' | 'isDefault'>>) => {
+    const userId = get().currentUserId;
+    if (!userId) return;
+    let updatedVehicle: Vehicle | undefined;
     set((state: TripNavigationState) => ({
       vehicles: state.vehicles.map((vehicle: Vehicle) =>
         vehicle.id === id
-          ? {
+          ? (updatedVehicle = {
               ...vehicle,
               ...updates,
               fuelConsumption: updates.fuelConsumption ?? vehicle.fuelConsumption,
               fuelType: updates.fuelType ?? vehicle.fuelType,
               name: updates.name ?? vehicle.name,
-            }
+            })
           : vehicle
       ),
     }));
+    if (updatedVehicle) {
+      void requestJson<{ vehicle: Vehicle }>(`${vehiclesApi}/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedVehicle),
+      }).catch((error) => {
+        console.error('Error updating vehicle:', error);
+        void loadVehiclesForUser().then((vehicles) => set({ vehicles: vehicles.length ? vehicles : [defaultVehicle] })).catch(() => undefined);
+      });
+    }
   },
 
   deleteVehicle: (id: string) => {
+    if (!get().currentUserId) return;
     set((state: TripNavigationState) => ({
       vehicles: state.vehicles.filter((vehicle: Vehicle) => vehicle.id !== id),
     }));
+    void requestJson<{ success: true }>(`${vehiclesApi}/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch((error) => {
+      console.error('Error deleting vehicle:', error);
+      void loadVehiclesForUser().then((vehicles) => set({ vehicles: vehicles.length ? vehicles : [defaultVehicle] })).catch(() => undefined);
+    });
   },
 
   setDefaultVehicle: (id: string) => {
+    if (!get().currentUserId) return;
     set((state: TripNavigationState) => ({
       vehicles: state.vehicles.map((vehicle: Vehicle) => ({
         ...vehicle,
@@ -534,6 +604,13 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
     }));
     const { origin, destination } = get();
     if (origin && destination) void get().generateRoute();
+    void requestJson<{ vehicle: Vehicle }>(`${vehiclesApi}/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ setDefault: true }),
+    }).catch((error) => {
+      console.error('Error setting default vehicle:', error);
+      void loadVehiclesForUser().then((vehicles) => set({ vehicles: vehicles.length ? vehicles : [defaultVehicle] })).catch(() => undefined);
+    });
   },
 
   setSelectedVehicleId: (id: string) => {
@@ -555,12 +632,39 @@ export const useTripNavigationStore = create<TripNavigationState>()((set, get) =
   setCurrentUserId: async (userId: string | null) => {
     set({ currentUserId: userId });
     if (!userId) {
-      set({ savedRoutes: [] });
+      set({ savedRoutes: [], vehicles: [defaultVehicle], selectedVehicleId: defaultVehicle.id });
       return;
     }
 
-    set({ savedRoutes: [] });
+    try {
+      const [savedRoutes, vehicles] = await Promise.all([
+        loadRoutesForUser(),
+        loadVehiclesForUser(),
+      ]);
+      const availableVehicles = vehicles.length ? vehicles : [defaultVehicle];
+      const selectedVehicle = availableVehicles.find((vehicle) => vehicle.isDefault) ?? availableVehicles[0];
+      set({
+        savedRoutes,
+        vehicles: availableVehicles,
+        selectedVehicleId: selectedVehicle.id,
+      });
+    } catch (error) {
+      console.error('Error loading logistics data:', error);
+      set({ savedRoutes: [], vehicles: [defaultVehicle], selectedVehicleId: defaultVehicle.id });
+    }
   },
 }));
 
 export type { TripNavigationState };
+
+let syncedUserId = useAuthStore.getState().user?.id ?? null;
+useAuthStore.subscribe((state) => {
+  const nextUserId = state.user?.id ?? null;
+  if (nextUserId === syncedUserId) return;
+  syncedUserId = nextUserId;
+  void useTripNavigationStore.getState().setCurrentUserId(nextUserId);
+});
+
+if (syncedUserId) {
+  void useTripNavigationStore.getState().setCurrentUserId(syncedUserId);
+}

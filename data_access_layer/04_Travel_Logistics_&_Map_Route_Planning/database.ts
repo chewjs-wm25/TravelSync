@@ -1,330 +1,305 @@
-/**
- * Database CRUD operations for Travel Logistics Module
- * 
- * This file contains database operations for:
- * - Saved routes (CRUD)
- * - Vehicles (CRUD)
- * 
- * NOTE: For Sprint 2, routes are stored in localStorage via Zustand persist middleware
- * These functions are prepared for Sprint 3 when we move to full database backend
- */
-
-import type { SavedRoute, Vehicle } from '@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore';
-
-// ============================================
-// SAVED ROUTES DATABASE OPERATIONS
-// ============================================
+import type { PublicTransportLeg, PublicTransportStop } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi";
+import type { SavedRoute, Vehicle } from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import { getDB } from "./db";
 
 export interface SavedRouteDB {
-  id: string;
+  route_id: string;
   user_id: string;
   name: string;
-  origin_name?: string;
-  origin_lat?: number;
-  origin_lng?: number;
-  destination_name?: string;
-  destination_lat?: number;
-  destination_lng?: number;
+  origin_id: string | null;
+  origin_name: string | null;
+  origin_lat: number | null;
+  origin_lng: number | null;
+  destination_id: string | null;
+  destination_name: string | null;
+  destination_lat: number | null;
+  destination_lng: number | null;
+  vehicle_type: string;
+  optimization_mode: string;
+  vehicle_id: string | null;
+  route_points: string;
+  public_transport_stops: string;
+  public_transport_legs: string;
   distance_km: number;
   time_minutes: number;
   fuel_liters: number;
   fuel_cost: number;
-  vehicle_type: string;
-  optimization_mode: string;
-  vehicle_id?: string;
-  route_points: string; // JSON string
+  energy_kwh: number;
+  energy_cost: number;
+  carbon_kg: number;
   created_at: string;
+  updated_at: string;
 }
 
-/**
- * Save route to database
- * Sprint 2: Returns mock success
- * Sprint 3: Will persist to SQLite database
- */
-export async function saveRouteDB(route: SavedRoute): Promise<boolean> {
+export interface VehicleDB {
+  vehicle_id: string;
+  user_id: string;
+  name: string;
+  category: string;
+  fuel_consumption: number;
+  fuel_type: string;
+  is_default: number;
+  created_at: string;
+  updated_at: string;
+}
+
+const routeSelect = `
+  SELECT r.*, a.distance_km, a.time_minutes, a.fuel_liters, a.fuel_cost,
+         a.energy_kwh, a.energy_cost, a.carbon_kg
+  FROM logistics_saved_routes r
+  JOIN logistics_route_analysis a ON a.route_id = r.route_id
+`;
+
+function parseJson<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
   try {
-    if (!route.userId) {
-      console.warn('Cannot save route without userId');
-      return false;
-    }
-
-    const dbRoute: SavedRouteDB = {
-      id: route.id,
-      user_id: route.userId,
-      name: route.name,
-      origin_name: route.origin?.name,
-      origin_lat: route.origin?.lat,
-      origin_lng: route.origin?.lng,
-      destination_name: route.destination?.name,
-      destination_lat: route.destination?.lat,
-      destination_lng: route.destination?.lng,
-      distance_km: route.summary.distanceKm,
-      time_minutes: route.summary.timeMinutes,
-      fuel_liters: route.summary.fuelLiters,
-      fuel_cost: route.summary.fuelCost,
-      vehicle_type: route.vehicleType,
-      optimization_mode: route.optimizationMode,
-      vehicle_id: route.vehicleId,
-      route_points: JSON.stringify(route.routePoints),
-      created_at: route.createdAt || new Date().toISOString(),
-    };
-
-    // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Saving route to localStorage:', dbRoute.name);
-    return true;
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/routes`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(dbRoute),
-    // });
-    // return response.ok;
-  } catch (error) {
-    console.error('Error saving route:', error);
-    return false;
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
   }
 }
 
-/**
- * Get all saved routes for a user
- */
-export async function getSavedRoutesDB(userId: string): Promise<SavedRoute[]> {
-  try {
-    // Sprint 2: Mock implementation (return empty - will use localStorage)
-    console.log('📍 [Sprint 2] Loading routes from localStorage for user:', userId);
-    return [];
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/routes?user_id=${userId}`);
-    // if (!response.ok) return [];
-    // const routes = await response.json();
-    // return routes.map((r: SavedRouteDB) => convertDBToRoute(r));
-  } catch (error) {
-    console.error('Error fetching routes:', error);
-    return [];
-  }
-}
-
-/**
- * Get a single saved route
- */
-export async function getSavedRouteDB(routeId: string): Promise<SavedRoute | null> {
-  try {
-    // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Loading route from localStorage:', routeId);
-    return null;
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/routes/${routeId}`);
-    // if (!response.ok) return null;
-    // const route = await response.json();
-    // return convertDBToRoute(route);
-  } catch (error) {
-    console.error('Error fetching route:', error);
-    return null;
-  }
-}
-
-/**
- * Delete a saved route
- */
-export async function deleteRouteDB(routeId: string): Promise<boolean> {
-  try {
-    // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Deleting route from localStorage:', routeId);
-    return true;
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/routes/${routeId}`, {
-    //   method: 'DELETE',
-    // });
-    // return response.ok;
-  } catch (error) {
-    console.error('Error deleting route:', error);
-    return false;
-  }
-}
-
-/**
- * Update a saved route
- */
-export async function updateRouteDB(route: SavedRoute): Promise<boolean> {
-  try {
-    if (!route.userId) {
-      console.warn('Cannot update route without userId');
-      return false;
-    }
-
-    const dbRoute: SavedRouteDB = {
-      id: route.id,
-      user_id: route.userId,
-      name: route.name,
-      origin_name: route.origin?.name,
-      origin_lat: route.origin?.lat,
-      origin_lng: route.origin?.lng,
-      destination_name: route.destination?.name,
-      destination_lat: route.destination?.lat,
-      destination_lng: route.destination?.lng,
-      distance_km: route.summary.distanceKm,
-      time_minutes: route.summary.timeMinutes,
-      fuel_liters: route.summary.fuelLiters,
-      fuel_cost: route.summary.fuelCost,
-      vehicle_type: route.vehicleType,
-      optimization_mode: route.optimizationMode,
-      vehicle_id: route.vehicleId,
-      route_points: JSON.stringify(route.routePoints),
-      created_at: route.createdAt || new Date().toISOString(),
-    };
-
-    // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Updating route in localStorage:', dbRoute.name);
-    return true;
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/routes/${route.id}`, {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(dbRoute),
-    // });
-    // return response.ok;
-  } catch (error) {
-    console.error('Error updating route:', error);
-    return false;
-  }
-}
-
-// ============================================
-// VEHICLES DATABASE OPERATIONS
-// ============================================
-
-/**
- * Save vehicle to database
- */
-export async function saveVehicleDB(vehicle: Vehicle, userId: string): Promise<boolean> {
-  try {
-    // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Saving vehicle to localStorage for user:', userId, vehicle.name);
-    return true;
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/vehicles`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     ...vehicle,
-    //     user_id: userId,
-    //   }),
-    // });
-    // return response.ok;
-  } catch (error) {
-    console.error('Error saving vehicle:', error);
-    return false;
-  }
-}
-
-/**
- * Get all vehicles for a user
- */
-export async function getVehiclesDB(userId: string): Promise<Vehicle[]> {
-  try {
-    // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Loading vehicles from localStorage for user:', userId);
-    return [];
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/vehicles?user_id=${userId}`);
-    // if (!response.ok) return [];
-    // return response.json();
-  } catch (error) {
-    console.error('Error fetching vehicles:', error);
-    return [];
-  }
-}
-
-/**
- * Delete a vehicle from database
- */
-export async function deleteVehicleDB(vehicleId: string): Promise<boolean> {
-  try {
-    // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Deleting vehicle from localStorage:', vehicleId);
-    return true;
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/vehicles/${vehicleId}`, {
-    //   method: 'DELETE',
-    // });
-    // return response.ok;
-  } catch (error) {
-    console.error('Error deleting vehicle:', error);
-    return false;
-  }
-}
-
-/**
- * Update a vehicle in database
- */
-export async function updateVehicleDB(vehicle: Vehicle, userId: string): Promise<boolean> {
-  try {
-    // Sprint 2: Mock implementation
-    console.log('📍 [Sprint 2] Updating vehicle in localStorage for user:', userId, vehicle.name);
-    return true;
-
-    // Sprint 3: Uncomment for database integration
-    // const response = await fetch(`${API_BASE}/vehicles/${vehicle.id}`, {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     ...vehicle,
-    //     user_id: userId,
-    //   }),
-    // });
-    // return response.ok;
-  } catch (error) {
-    console.error('Error updating vehicle:', error);
-    return false;
-  }
-}
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-/**
- * Convert database route to SavedRoute type
- * Helper for Sprint 3 database integration
- */
-export function convertDBToRoute(dbRoute: SavedRouteDB): SavedRoute {
+function mapRoute(row: SavedRouteDB): SavedRoute {
   return {
-    id: dbRoute.id,
-    name: dbRoute.name,
-    userId: dbRoute.user_id,
-    origin: dbRoute.origin_lat && dbRoute.origin_lng ? {
-      id: `origin-${dbRoute.id}`,
-      name: dbRoute.origin_name || 'Origin',
-      lat: dbRoute.origin_lat,
-      lng: dbRoute.origin_lng,
-    } : undefined,
-    destination: dbRoute.destination_lat && dbRoute.destination_lng ? {
-      id: `dest-${dbRoute.id}`,
-      name: dbRoute.destination_name || 'Destination',
-      lat: dbRoute.destination_lat,
-      lng: dbRoute.destination_lng,
-    } : undefined,
+    id: row.route_id,
+    name: row.name,
+    userId: row.user_id,
+    origin: row.origin_lat !== null && row.origin_lng !== null
+      ? {
+          id: row.origin_id || `origin-${row.route_id}`,
+          name: row.origin_name || "Origin",
+          lat: row.origin_lat,
+          lng: row.origin_lng,
+        }
+      : undefined,
+    destination: row.destination_lat !== null && row.destination_lng !== null
+      ? {
+          id: row.destination_id || `destination-${row.route_id}`,
+          name: row.destination_name || "Destination",
+          lat: row.destination_lat,
+          lng: row.destination_lng,
+        }
+      : undefined,
     summary: {
-      distanceKm: dbRoute.distance_km,
-      timeMinutes: dbRoute.time_minutes,
-      fuelLiters: dbRoute.fuel_liters,
-      fuelCost: dbRoute.fuel_cost,
-      energyKwh: 0,
-      energyCost: 0,
-      carbonKg: 0,
+      distanceKm: row.distance_km,
+      timeMinutes: row.time_minutes,
+      fuelLiters: row.fuel_liters,
+      fuelCost: row.fuel_cost,
+      energyKwh: row.energy_kwh,
+      energyCost: row.energy_cost,
+      carbonKg: row.carbon_kg,
     },
-    vehicleType: dbRoute.vehicle_type as SavedRoute['vehicleType'],
-    optimizationMode: dbRoute.optimization_mode as SavedRoute['optimizationMode'],
-    routePoints: JSON.parse(dbRoute.route_points),
-    vehicleId: dbRoute.vehicle_id,
-    createdAt: dbRoute.created_at,
+    vehicleType: row.vehicle_type as SavedRoute["vehicleType"],
+    optimizationMode: row.optimization_mode as SavedRoute["optimizationMode"],
+    routePoints: parseJson(row.route_points, []),
+    publicTransportStops: parseJson<PublicTransportStop[]>(row.public_transport_stops, []),
+    publicTransportLegs: parseJson<PublicTransportLeg[]>(row.public_transport_legs, []),
+    vehicleId: row.vehicle_id || undefined,
+    createdAt: row.created_at,
   };
+}
+
+function mapVehicle(row: VehicleDB): Vehicle {
+  return {
+    id: row.vehicle_id,
+    name: row.name,
+    category: row.category as Vehicle["category"],
+    fuelConsumption: row.fuel_consumption,
+    fuelType: row.fuel_type,
+    isDefault: row.is_default === 1,
+  };
+}
+
+async function ownedVehicleId(vehicleId: string | undefined, userId: string): Promise<string | null> {
+  if (!vehicleId) return null;
+  const db = await getDB();
+  const vehicle = await db
+    .prepare("SELECT vehicle_id FROM logistics_vehicles WHERE vehicle_id = ? AND user_id = ? LIMIT 1")
+    .bind(vehicleId, userId)
+    .first<{ vehicle_id: string }>();
+  return vehicle?.vehicle_id ?? null;
+}
+
+function routeValues(route: SavedRoute, userId: string, vehicleId: string | null) {
+  return [
+    route.id,
+    userId,
+    route.name,
+    route.origin?.id ?? null,
+    route.origin?.name ?? null,
+    route.origin?.lat ?? null,
+    route.origin?.lng ?? null,
+    route.destination?.id ?? null,
+    route.destination?.name ?? null,
+    route.destination?.lat ?? null,
+    route.destination?.lng ?? null,
+    route.vehicleType,
+    route.optimizationMode,
+    vehicleId,
+    JSON.stringify(route.routePoints),
+    JSON.stringify(route.publicTransportStops ?? []),
+    JSON.stringify(route.publicTransportLegs ?? []),
+  ];
+}
+
+function analysisValues(route: SavedRoute, userId: string) {
+  return [
+    `analysis-${route.id}`,
+    route.id,
+    userId,
+    route.summary.distanceKm,
+    route.summary.timeMinutes,
+    route.summary.fuelLiters,
+    route.summary.fuelCost,
+    route.summary.energyKwh,
+    route.summary.energyCost,
+    route.summary.carbonKg,
+  ];
+}
+
+const routeColumns = `(route_id, user_id, name, origin_id, origin_name, origin_lat, origin_lng,
+  destination_id, destination_name, destination_lat, destination_lng, vehicle_type,
+  optimization_mode, vehicle_id, route_points, public_transport_stops, public_transport_legs)`;
+
+export async function saveRouteDB(route: SavedRoute, userId: string): Promise<SavedRoute> {
+  const db = await getDB();
+  const vehicleId = await ownedVehicleId(route.vehicleId, userId);
+  await db.batch([
+    db.prepare(`INSERT INTO logistics_saved_routes ${routeColumns}
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(...routeValues(route, userId, vehicleId)),
+    db.prepare(`INSERT INTO logistics_route_analysis
+      (analysis_id, route_id, user_id, distance_km, time_minutes, fuel_liters, fuel_cost,
+       energy_kwh, energy_cost, carbon_kg)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(...analysisValues(route, userId)),
+  ]);
+  return { ...route, userId, vehicleId: vehicleId ?? undefined };
+}
+
+export async function getSavedRoutesDB(userId: string): Promise<SavedRoute[]> {
+  const db = await getDB();
+  const result = await db
+    .prepare(`${routeSelect} WHERE r.user_id = ? ORDER BY r.created_at DESC`)
+    .bind(userId)
+    .all<SavedRouteDB>();
+  return (result.results ?? []).map(mapRoute);
+}
+
+export async function getSavedRouteDB(userId: string, routeId: string): Promise<SavedRoute | null> {
+  const db = await getDB();
+  const row = await db
+    .prepare(`${routeSelect} WHERE r.user_id = ? AND r.route_id = ? LIMIT 1`)
+    .bind(userId, routeId)
+    .first<SavedRouteDB>();
+  return row ? mapRoute(row) : null;
+}
+
+export async function deleteRouteDB(userId: string, routeId: string): Promise<boolean> {
+  const db = await getDB();
+  const result = await db
+    .prepare("DELETE FROM logistics_saved_routes WHERE user_id = ? AND route_id = ?")
+    .bind(userId, routeId)
+    .run();
+  return result.meta.changes > 0;
+}
+
+export async function updateRouteDB(route: SavedRoute, userId: string): Promise<SavedRoute | null> {
+  const db = await getDB();
+  const vehicleId = await ownedVehicleId(route.vehicleId, userId);
+  const values = routeValues(route, userId, vehicleId);
+  await db.batch([
+    db.prepare(`UPDATE logistics_saved_routes SET
+      name = ?, origin_id = ?, origin_name = ?, origin_lat = ?, origin_lng = ?,
+      destination_id = ?, destination_name = ?, destination_lat = ?, destination_lng = ?,
+      vehicle_type = ?, optimization_mode = ?, vehicle_id = ?, route_points = ?,
+      public_transport_stops = ?, public_transport_legs = ?,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+      WHERE route_id = ? AND user_id = ?`)
+      .bind(...values.slice(2), route.id, userId),
+    db.prepare(`UPDATE logistics_route_analysis SET
+      distance_km = ?, time_minutes = ?, fuel_liters = ?, fuel_cost = ?, energy_kwh = ?,
+      energy_cost = ?, carbon_kg = ?, generated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+      WHERE route_id = ? AND user_id = ?`)
+      .bind(
+        route.summary.distanceKm,
+        route.summary.timeMinutes,
+        route.summary.fuelLiters,
+        route.summary.fuelCost,
+        route.summary.energyKwh,
+        route.summary.energyCost,
+        route.summary.carbonKg,
+        route.id,
+        userId
+      ),
+  ]);
+  return getSavedRouteDB(userId, route.id);
+}
+
+export async function saveVehicleDB(vehicle: Vehicle, userId: string): Promise<Vehicle> {
+  const db = await getDB();
+  if (vehicle.isDefault) {
+    await db.prepare("UPDATE logistics_vehicles SET is_default = 0 WHERE user_id = ?").bind(userId).run();
+  }
+  await db
+    .prepare(`INSERT INTO logistics_vehicles
+      (vehicle_id, user_id, name, category, fuel_consumption, fuel_type, is_default)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .bind(vehicle.id, userId, vehicle.name, vehicle.category, vehicle.fuelConsumption, vehicle.fuelType, vehicle.isDefault ? 1 : 0)
+    .run();
+  return { ...vehicle };
+}
+
+export async function getVehiclesDB(userId: string): Promise<Vehicle[]> {
+  const db = await getDB();
+  const result = await db
+    .prepare("SELECT * FROM logistics_vehicles WHERE user_id = ? ORDER BY is_default DESC, created_at ASC")
+    .bind(userId)
+    .all<VehicleDB>();
+  return (result.results ?? []).map(mapVehicle);
+}
+
+export async function deleteVehicleDB(vehicleId: string, userId: string): Promise<boolean> {
+  const db = await getDB();
+  const result = await db
+    .prepare("DELETE FROM logistics_vehicles WHERE vehicle_id = ? AND user_id = ?")
+    .bind(vehicleId, userId)
+    .run();
+  return result.meta.changes > 0;
+}
+
+export async function updateVehicleDB(vehicle: Vehicle, userId: string): Promise<Vehicle | null> {
+  const db = await getDB();
+  if (vehicle.isDefault) {
+    await db.prepare("UPDATE logistics_vehicles SET is_default = 0 WHERE user_id = ?").bind(userId).run();
+  }
+  await db
+    .prepare(`UPDATE logistics_vehicles SET
+      name = ?, category = ?, fuel_consumption = ?, fuel_type = ?, is_default = ?,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+      WHERE vehicle_id = ? AND user_id = ?`)
+    .bind(vehicle.name, vehicle.category, vehicle.fuelConsumption, vehicle.fuelType, vehicle.isDefault ? 1 : 0, vehicle.id, userId)
+    .run();
+  const row = await db
+    .prepare("SELECT * FROM logistics_vehicles WHERE vehicle_id = ? AND user_id = ? LIMIT 1")
+    .bind(vehicle.id, userId)
+    .first<VehicleDB>();
+  return row ? mapVehicle(row) : null;
+}
+
+export async function setDefaultVehicleDB(vehicleId: string, userId: string): Promise<Vehicle | null> {
+  const db = await getDB();
+  await db.batch([
+    db.prepare("UPDATE logistics_vehicles SET is_default = 0 WHERE user_id = ?").bind(userId),
+    db.prepare("UPDATE logistics_vehicles SET is_default = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE vehicle_id = ? AND user_id = ?").bind(vehicleId, userId),
+  ]);
+  const row = await db
+    .prepare("SELECT * FROM logistics_vehicles WHERE vehicle_id = ? AND user_id = ? LIMIT 1")
+    .bind(vehicleId, userId)
+    .first<VehicleDB>();
+  return row ? mapVehicle(row) : null;
+}
+
+export function convertDBToRoute(dbRoute: SavedRouteDB): SavedRoute {
+  return mapRoute(dbRoute);
 }

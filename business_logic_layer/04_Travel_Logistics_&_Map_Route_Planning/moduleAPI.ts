@@ -77,7 +77,7 @@ export async function generateRoute(
  * 
  * Called by: Module 2 (Trip Planning) - to save generated routes as itinerary items
  */
-export function saveRoute(name: string): SavedRoute | null {
+export async function saveRoute(name: string): Promise<SavedRoute | null> {
   const store = useTripNavigationStore.getState();
   
   if (!store.origin || !store.destination) {
@@ -85,7 +85,7 @@ export function saveRoute(name: string): SavedRoute | null {
     return null;
   }
 
-  store.saveRoute(name);
+  await store.saveRoute(name);
   
   // Return the last saved route
   return store.savedRoutes[0] || null;
