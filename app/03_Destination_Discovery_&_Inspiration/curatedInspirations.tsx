@@ -6,7 +6,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
-import { Compass, Star } from "lucide-react";
+import { AlertCircle, Compass, RefreshCw, Star } from "lucide-react";
 import { useCollections, useEventFeed } from "./hooks";
 import { collectionDetailPath, WIKIVOYAGE_HOME } from "./routes";
 import { safeHttpUrl } from "./safeUrl";
@@ -21,15 +21,54 @@ const COLLECTION_COVER_CLASSES = [
 /** 兜底滚动步进（卡片宽度不可测量时使用） */
 const EVENT_SCROLL_STEP = 320;
 
+function LoadingCard({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)] ${className}`}
+      aria-hidden="true"
+    >
+      <div className="h-4 w-24 rounded-full bg-gray-200" />
+      <div className="mt-5 h-6 w-4/5 rounded bg-gray-200" />
+      <div className="mt-3 h-4 w-3/5 rounded bg-gray-100" />
+      <div className="mt-8 h-8 w-24 rounded-md bg-gray-100" />
+    </div>
+  );
+}
+
+function InlineError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+      <AlertCircle className="h-8 w-8 text-semantic-warning" aria-hidden="true" />
+      <p className="mt-3 text-base font-semibold text-gray-800">{message}</p>
+      <p className="mt-1 text-sm text-gray-500">Please try again in a moment.</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary-500 px-6 py-3 text-sm font-semibold text-white transition-all duration-150 hover:bg-primary-500/90 active:scale-[0.96]"
+      >
+        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+        Try again
+      </button>
+    </div>
+  );
+}
+
 export default function CuratedInspirations() {
   const {
     collections,
     isLoading: collectionsLoading,
+    error: collectionsError,
+    retry: retryCollections,
     isGenerating,
     hasMore,
     generateMore,
   } = useCollections();
-  const { events, isLoading: eventsLoading } = useEventFeed();
+  const {
+    events,
+    isLoading: eventsLoading,
+    error: eventsError,
+    retry: retryEvents,
+  } = useEventFeed();
   /** 活动列表横向滚动容器引用（左右按钮驱动） */
   const eventsScrollerRef = useRef<HTMLDivElement>(null);
 
@@ -82,24 +121,27 @@ export default function CuratedInspirations() {
           )}
         </div>
         {collectionsLoading && (
-          <p className="text-sm text-gray-400">Loading collections...</p>
-        )}
-        {!collectionsLoading && collections.length === 0 && (
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-gray-500">
-              Couldn&apos;t load inspirations. Please try again in a moment.
-            </p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94]"
-            >
-              Retry
-            </button>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6" aria-label="Loading inspirations">
+            {Array.from({ length: 3 }, (_, index) => (
+              <LoadingCard key={index} className="h-52" />
+            ))}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
-          {collections.map((item, i) => (
+        {!collectionsLoading && collectionsError && (
+          <InlineError
+            message="We couldn’t load travel inspirations."
+            onRetry={retryCollections}
+          />
+        )}
+        {!collectionsLoading && !collectionsError && collections.length === 0 && (
+          <div className="rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+            <p className="text-base font-semibold text-gray-800">No inspirations available right now.</p>
+            <p className="mt-1 text-sm text-gray-500">Check back soon for more ideas.</p>
+          </div>
+        )}
+        {!collectionsLoading && !collectionsError && collections.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+            {collections.map((item, i) => (
             <Link
               key={item.id}
               href={collectionDetailPath(item.id)}
@@ -146,8 +188,9 @@ export default function CuratedInspirations() {
                 </div>
               </div>
             </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 活动与节日区域（数据来自 Cloudflare D1，点击卡片外部打开官方 url） */}
@@ -179,19 +222,31 @@ export default function CuratedInspirations() {
           )}
         </div>
         {eventsLoading && (
-          <p className="text-sm text-gray-400">Loading events...</p>
+          <div className="flex gap-4 overflow-hidden pb-2 md:gap-6" aria-label="Loading events">
+            {Array.from({ length: 3 }, (_, index) => (
+              <LoadingCard key={index} className="min-w-[300px] max-w-[300px]" />
+            ))}
+          </div>
         )}
-        {!eventsLoading && events.length === 0 && (
-          <p className="text-sm text-gray-500">
-            No events available yet. Sync them via the DEV page.
-          </p>
+        {!eventsLoading && eventsError && (
+          <InlineError
+            message="We couldn’t load upcoming events."
+            onRetry={retryEvents}
+          />
+        )}
+        {!eventsLoading && !eventsError && events.length === 0 && (
+          <div className="rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+            <p className="text-base font-semibold text-gray-800">No upcoming events found.</p>
+            <p className="mt-1 text-sm text-gray-500">New festivals and activities will appear here soon.</p>
+          </div>
         )}
         {/* 横向滚动列表：触摸/触控板可滑动，亦可使用上方左右按钮移动 */}
-        <div
-          ref={eventsScrollerRef}
-          className="flex snap-x scroll-smooth gap-4 overflow-x-auto pb-2 md:gap-6"
-        >
-          {events.map((event) => (
+        {!eventsLoading && !eventsError && events.length > 0 && (
+          <div
+            ref={eventsScrollerRef}
+            className="flex snap-x scroll-smooth gap-4 overflow-x-auto pb-2 md:gap-6"
+          >
+            {events.map((event) => (
             <a
               key={event.id}
               href={safeHttpUrl(event.url)}
@@ -225,8 +280,9 @@ export default function CuratedInspirations() {
                 </div>
               )}
             </a>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

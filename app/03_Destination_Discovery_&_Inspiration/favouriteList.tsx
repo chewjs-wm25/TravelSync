@@ -196,7 +196,7 @@ export default function FavouriteList({
             <div
               key={item.id}
               onClick={() => handleOpenPlace(item)}
-              className="flex cursor-pointer gap-4 rounded-2xl border border-gray-200 p-4 transition-all duration-150 hover:bg-gray-100 active:scale-[0.99] active:bg-gray-200"
+              className="flex cursor-pointer gap-4 rounded-2xl border border-gray-200 p-4 transition-all duration-150 hover:bg-gray-100 active:scale-[0.99] active:bg-gray-200 has-[button:active]:scale-100 has-[button:active]:bg-transparent"
             >
               {(() => {
                 // 图片优先级：统一图片链路结果（真实图片 + 署名）→ 旧数据

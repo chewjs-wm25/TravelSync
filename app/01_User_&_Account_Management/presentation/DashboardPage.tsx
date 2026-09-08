@@ -3,7 +3,6 @@
 import { useState } from "react";
 import ProfileTab from "./ProfileTab";
 import SecurityTab from "./SecurityTab";
-import SettingsTab, { AccountSettings } from "./SettingsTab";
 import DeleteAccountTab from "./DeleteAccountTab";
 import { useAuthStore, mapAccountUser } from "@/app/Admin_Panel/authUser";
 
@@ -26,7 +25,7 @@ export type AccountAction = (
   data?: Record<string, unknown>
 ) => Promise<{ success: boolean; user?: DashboardUser; message?: string }>;
 
-type Tab = "profile" | "security" | "settings" | "delete";
+type Tab = "profile" | "security" | "delete";
 
 export default function DashboardPage({
   user,
@@ -45,7 +44,6 @@ export default function DashboardPage({
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "profile", label: "Profile" },
     { id: "security", label: "Security" },
-    { id: "settings", label: "Settings" },
     { id: "delete", label: "Delete account" },
   ];
 
@@ -65,7 +63,7 @@ export default function DashboardPage({
           <p className="text-xs font-semibold uppercase tracking-widest text-teal-700">
             Account Center
           </p>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">Settings</h1>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">Account</h1>
           <nav className="mt-6 space-y-1.5">
             {tabs.map((item) => (
               <button
@@ -115,13 +113,6 @@ export default function DashboardPage({
             )}
             {tab === "security" && (
               <SecurityTab user={user} onSave={(data) => run("password", data)} />
-            )}
-            {tab === "settings" && (
-              <SettingsTab
-                onSave={(data) =>
-                  run("settings", data as unknown as Record<string, unknown>)
-                }
-              />
             )}
             {tab === "delete" && (
               <DeleteAccountTab

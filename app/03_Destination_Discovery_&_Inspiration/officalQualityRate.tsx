@@ -7,14 +7,14 @@
 //       Wikimedia Commons Geosearch 按经纬度 → Mapillary 兜底，马来西亚限定，
 //       见 getPlaceImage）；图片底部展示作者与许可署名（开源协议合规）
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import type { PoiItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { googleMapsUrl } from "./routes";
 import { usePlaceImages } from "./hooks";
 import { StarIcon } from "./favouriteList";
 import PlaceImageAttribution from "./placeImageAttribution";
 import { safeHttpUrl } from "./safeUrl";
-import { ImageOff } from "lucide-react";
+import { AlertCircle, ImageOff, RefreshCw } from "lucide-react";
 
 /** 每页展示的地点数（4 列网格 × 2 行） */
 const PAGE_SIZE = 8;
@@ -22,6 +22,8 @@ const PAGE_SIZE = 8;
 interface OfficalQualityRateProps {
   pois: PoiItem[];
   isLoading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
   /** 将地点加入行程（模块 02，经 RoutePlannerBridge 真实导入接口）；传入后卡片显示 Add to Trip 按钮 */
   onAddToTrip?: (poi: PoiItem) => void;
   /** 正在加入行程的地点 id（按钮 loading 态） */
@@ -39,21 +41,40 @@ const BADGE_LABEL: Record<NonNullable<PoiItem["qualityBadge"]>, string> = {
   silver: "Silver",
 };
 
-export default function officalQualityRate({
+function PlaceCardSkeleton() {
+  return (
+    <div
+      className="animate-pulse overflow-hidden rounded-3xl border border-gray-200 bg-white p-2 shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
+      aria-hidden="true"
+    >
+      <div className="h-48 rounded-2xl bg-gray-200" />
+      <div className="p-4 pt-3">
+        <div className="h-6 w-4/5 rounded bg-gray-200" />
+        <div className="mt-4 h-4 w-full rounded bg-gray-100" />
+        <div className="mt-2 h-4 w-3/4 rounded bg-gray-100" />
+        <div className="mt-5 h-9 rounded-full bg-gray-100" />
+      </div>
+    </div>
+  );
+}
+
+export default function OfficialQualityRate({
   pois,
   isLoading,
+  error = false,
+  onRetry,
   onAddToTrip,
   addingToTripId,
   favouriteIds,
   onToggleFavourite,
 }: OfficalQualityRateProps) {
   /** 当前页码（分页为纯前端 UI 行为，状态内聚于组件） */
-  const [page, setPage] = useState(1);
+  const [pageState, setPageState] = useState({ key: "", page: 1 });
+  const poisKey = pois.map((poi) => poi.id).join("|");
   const totalPages = Math.max(1, Math.ceil(pois.length / PAGE_SIZE));
-  /** 数据/筛选变化时回到第一页 */
-  useEffect(() => {
-    setPage(1);
-  }, [pois]);
+  const page = pageState.key === poisKey ? pageState.page : 1;
+  const setPage = (nextPage: number) =>
+    setPageState({ key: poisKey, page: nextPage });
   const safePage = Math.min(page, totalPages);
   const visiblePois = pois.slice(
     (safePage - 1) * PAGE_SIZE,
@@ -76,22 +97,42 @@ export default function officalQualityRate({
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
         {isLoading && (
-          <p className="col-span-full text-sm text-gray-400">
-            Loading places...
-          </p>
+          <>
+            {Array.from({ length: PAGE_SIZE }, (_, index) => (
+              <PlaceCardSkeleton key={index} />
+            ))}
+          </>
         )}
-        {!isLoading && pois.length === 0 && (
-          <p className="col-span-full text-sm text-gray-500">
-            No officially rated places available yet.
-          </p>
+        {!isLoading && error && (
+          <div className="col-span-full flex flex-col items-center justify-center rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+            <AlertCircle className="h-8 w-8 text-semantic-warning" aria-hidden="true" />
+            <p className="mt-3 text-base font-semibold text-gray-800">We couldn’t load recommended places.</p>
+            <p className="mt-1 text-sm text-gray-500">Please try again in a moment.</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary-500 px-6 py-3 text-sm font-semibold text-white transition-all duration-150 hover:bg-primary-500/90 active:scale-[0.96]"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                Try again
+              </button>
+            )}
+          </div>
         )}
-        {visiblePois.map((poi) => (
+        {!isLoading && !error && pois.length === 0 && (
+          <div className="col-span-full rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+            <p className="text-base font-semibold text-gray-800">No recommended places available right now.</p>
+            <p className="mt-1 text-sm text-gray-500">Check back soon for new places to explore.</p>
+          </div>
+        )}
+        {!isLoading && !error && visiblePois.map((poi) => (
           <a
             key={poi.id}
             href={googleMapsUrl(`${poi.name} ${poi.formatted ?? ""}`.trim())}
             target="_blank"
             rel="noopener noreferrer"
-            className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.98] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
+            className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.98] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)] has-[button:active]:translate-y-0 has-[button:active]:scale-100 has-[button:active]:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
           >
             {/* 带质量徽章的图片区（真实图片；加载中/无图时以 Icon 表示无图） */}
             <div className="relative m-2 h-48 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
@@ -102,11 +143,13 @@ export default function officalQualityRate({
                   alt={poi.name}
                   className="h-full w-full object-cover"
                 />
-              ) : (
+              ) : images[poi.id] ? (
                 <ImageOff
                   className="absolute top-1/2 left-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 text-gray-400"
                   aria-label="No image available"
                 />
+              ) : (
+                <div className="absolute inset-0 animate-pulse bg-gray-200" aria-label="Loading image" />
               )}
               {/* 作者与许可署名（开源协议合规：CC BY-SA 等要求保留原作者与许可声明） */}
               {images[poi.id]?.url && (
@@ -203,7 +246,7 @@ export default function officalQualityRate({
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           <button
             type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => setPage(Math.max(1, safePage - 1))}
             disabled={safePage <= 1}
             className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -226,7 +269,7 @@ export default function officalQualityRate({
           ))}
           <button
             type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => setPage(Math.min(totalPages, safePage + 1))}
             disabled={safePage >= totalPages}
             className="cursor-pointer rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
           >

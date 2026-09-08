@@ -21,14 +21,14 @@ const getServerSnapshot = () => false;
 
 const MENU_ITEMS = [
   {
-    name: "Trip Planning",
-    icon: Map,
-    href: "/02_Trip_Planning_&_Itinerary_Management",
-  },
-  {
     name: "Discovery & Idea",
     icon: Lightbulb,
     href: "/03_Destination_Discovery_&_Inspiration",
+  },
+  {
+    name: "Trip Planning",
+    icon: Map,
+    href: "/02_Trip_Planning_&_Itinerary_Management",
   },
   {
     name: "Logistics & Maps",

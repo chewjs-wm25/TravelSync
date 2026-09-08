@@ -1,14 +1,14 @@
 "use client";
 // 地点详情页：按 placeId 重查 Geoapify（携带搜索词 q）展示地点完整详情
 // 数据来源：Business Logic Layer（discoveryService.getPlaceDetail）
-// 交互：返回搜索结果页 / 返回探索主页
+// 交互：以面包屑呈现浏览层级，并提供单一的搜索结果返回入口
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { discoveryService } from "../../../../business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
 import type { PlaceDetail } from "../../../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
-import { MODULE_03_HOME, SEARCH_PAGE, searchPagePath } from "../../routes";
+import { MODULE_03_HOME, searchPagePath } from "../../routes";
 import { StarIcon } from "../../favouriteList";
 import { useFavorites, usePlaceImages } from "../../hooks";
 import PlaceImageAttribution from "../../placeImageAttribution";
@@ -27,6 +27,16 @@ function PlaceDetailView() {
   const searchParams = useSearchParams();
   const placeId = params.placeId ?? "";
   const q = searchParams.get("q") ?? "";
+  const sceneParam = searchParams.get("scene");
+  const scene =
+    sceneParam === "indoor" || sceneParam === "outdoor" || sceneParam === "all"
+      ? sceneParam
+      : undefined;
+  const searchResultsHref = searchPagePath(q, {
+    experienceType: searchParams.get("exp") || undefined,
+    scene,
+    state: searchParams.get("state") || undefined,
+  });
   const [place, setPlace] = useState<PlaceDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,21 +72,37 @@ function PlaceDetailView() {
   return (
     // pb-24：为全局收藏夹悬浮按钮（Module 03 布局）预留底部空间，避免遮挡内容
     <div className="space-y-6 pb-24">
-      {/* 返回导航 */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href={q.trim() ? searchPagePath(q) : SEARCH_PAGE}
-          className="cursor-pointer rounded-full bg-gray-100 px-6 py-3 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-200 hover:text-gray-700 active:scale-[0.94]"
-        >
-          ← Back to Search Results
-        </Link>
+      {/* 浏览层级：用面包屑替代两个同等权重的返回按钮 */}
+      <nav
+        aria-label="Breadcrumb"
+        className="flex flex-wrap items-center gap-2 text-sm text-gray-500"
+      >
         <Link
           href={MODULE_03_HOME}
-          className="cursor-pointer rounded-full bg-gray-100 px-6 py-3 text-sm font-semibold text-gray-500 transition-all duration-150 hover:bg-gray-200 hover:text-gray-700 active:scale-[0.94]"
+          className="transition-colors hover:text-primary-500"
         >
-          ← Back to Explore
+          Explore
         </Link>
-      </div>
+        <span aria-hidden="true">/</span>
+        <Link
+          href={searchResultsHref}
+          className="transition-colors hover:text-primary-500"
+        >
+          Search Results
+        </Link>
+        <span aria-hidden="true">/</span>
+        <span className="max-w-56 truncate text-gray-600" aria-current="page">
+          {place?.name ?? "Place Details"}
+        </span>
+      </nav>
+
+      {/* 单一主要返回入口：符合从搜索结果进入详情的用户预期 */}
+      <Link
+        href={searchResultsHref}
+        className="inline-flex cursor-pointer items-center rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-500 shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-150 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:scale-[0.96]"
+      >
+        ← Back to Search Results
+      </Link>
 
       {/* 加载态 */}
       {isLoading && <p className="text-sm text-gray-400">Loading place…</p>}

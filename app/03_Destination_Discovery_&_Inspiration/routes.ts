@@ -38,9 +38,24 @@ export const searchPagePath = (
   return query ? `${SEARCH_PAGE}?${query}` : SEARCH_PAGE;
 };
 
-/** 地点详情页路径（placeId + 原始搜索词 q，详情页据此重查 API） */
-export const placeDetailPath = (placeId: string, q: string): string =>
-  `${MODULE_03_HOME}/place/${encodeURIComponent(placeId)}?q=${encodeURIComponent(q)}`;
+/** 地点详情页路径（placeId + 搜索上下文，详情页据此重查 API） */
+export const placeDetailPath = (
+  placeId: string,
+  q: string,
+  filters?: SearchUrlFilters
+): string => {
+  const params = new URLSearchParams();
+  const trimmed = q.trim();
+  if (trimmed) params.set("q", trimmed);
+  if (filters?.experienceType) params.set("exp", filters.experienceType);
+  if (filters?.scene && filters.scene !== "all")
+    params.set("scene", filters.scene);
+  if (filters?.state) params.set("state", filters.state);
+  const query = params.toString();
+  return `${MODULE_03_HOME}/place/${encodeURIComponent(placeId)}${
+    query ? `?${query}` : ""
+  }`;
+};
 
 /** Google Maps 搜索 URL（Recommended Places 卡片点击后新标签页打开） */
 export const googleMapsUrl = (query: string): string =>

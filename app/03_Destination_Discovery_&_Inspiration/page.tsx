@@ -32,6 +32,8 @@ export default function TravelInspirationPage() {
     filterOptions,
     pois,
     isLoading,
+    error: placesError,
+    retry: retryPlaces,
   } = useSearchAndFilter();
   const { toggleItem, savedItems } = useFavorites();
   /** 已收藏地点 id 集合（Recommended Places 卡片星标状态；toggleItem 后随 savedItems 即时更新） */
@@ -136,6 +138,8 @@ export default function TravelInspirationPage() {
           <UpcomingFestivalsEvent
             pois={pois}
             isLoading={isLoading}
+            error={placesError}
+            onRetry={retryPlaces}
             onAddToTrip={handleAddToTrip}
             favouriteIds={favouriteIds}
             onToggleFavourite={toggleItem}
