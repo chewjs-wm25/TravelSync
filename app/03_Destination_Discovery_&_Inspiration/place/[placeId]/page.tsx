@@ -216,10 +216,12 @@ function PlaceDetailView() {
                 {place.country && (
                   <DetailField label="Country" value={place.country} />
                 )}
-                <DetailField
-                  label="Coordinates"
-                  value={`${place.lat.toFixed(5)}, ${place.lon.toFixed(5)}`}
-                />
+                {place.lat != null && place.lon != null && (
+                  <DetailField
+                    label="Coordinates"
+                    value={`${place.lat.toFixed(5)}, ${place.lon.toFixed(5)}`}
+                  />
+                )}
                 <DetailField
                   label="Scene"
                   value={place.scene === "indoor" ? "Indoor" : "Outdoor"}

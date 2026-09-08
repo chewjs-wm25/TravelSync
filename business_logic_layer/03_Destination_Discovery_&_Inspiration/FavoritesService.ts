@@ -89,7 +89,9 @@ export class FavoritesService {
     }
     await this.repo.addItem({
       id: poi.id,
-      placeId: poi.id.startsWith("geo-") ? poi.id.slice("geo-".length) : poi.id,
+      placeId:
+        poi.placeId ??
+        (poi.id.startsWith("geo-") ? poi.id.slice("geo-".length) : poi.id),
       name: poi.name,
       thumbnailUrl: poi.imageUrl,
       experienceType: poi.experienceType,

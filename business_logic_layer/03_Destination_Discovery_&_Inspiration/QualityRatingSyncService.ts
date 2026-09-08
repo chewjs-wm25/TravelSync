@@ -26,6 +26,10 @@
  */
 
 import { nominatimApi } from "../../api_layer/03_Destination_Discovery_&_Inspiration/NominatimApi";
+import {
+  geoapifyGeocodingApi,
+  type GeoapifyPlaceDto,
+} from "../../api_layer/03_Destination_Discovery_&_Inspiration/GeoapifyGeocodingApi";
 import { remoteQualityRatingRepository } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/RemoteQualityRatingRepository";
 import type { OfficialQualityRatingEntity } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/OfficialQualityRatingRepository";
 
@@ -49,6 +53,10 @@ export interface QualityRatingSyncResult {
   synced: number;
   /** 地理编码阶段成功补全经纬度的条数 */
   newlyGeocoded: number;
+  /** Records enriched with a trusted Geoapify place entity. */
+  geoapifyEnriched: number;
+  /** Records whose coordinates were supplied by the Nominatim fallback. */
+  nominatimFallback: number;
   /** 地理编码失败（无匹配或瞬时失败）条数，lat/lon 保持 null 照常入库 */
   failed: number;
   /** 地理编码失败明细，供 UI 终端打印具体地点 */
@@ -57,6 +65,82 @@ export interface QualityRatingSyncResult {
   pruned?: number;
   /** 服务端解析失败被跳过的官网卡片数（>25% 时服务端不执行清理） */
   skipped?: number;
+}
+
+const GENERIC_PLACE_WORDS = new Set([
+  "and", "the", "golf", "club", "country", "hotel", "resort", "centre",
+  "center", "malaysia", "sdn", "bhd", "berhad", "company", "corporation",
+]);
+const REJECTED_RESULT_TYPES = new Set([
+  "street", "road", "postcode", "suburb", "district", "county", "state",
+]);
+
+function words(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3);
+}
+
+/** Select only candidates with a distinctive name match and supporting
+ * address or provider confidence. This deliberately prefers no match to an
+ * incorrect official place id. */
+function pickTrustedPlace(
+  item: OfficialQualityRatingEntity,
+  candidates: GeoapifyPlaceDto[]
+): GeoapifyPlaceDto | null {
+  const distinctive = words(item.companyName).filter(
+    (word) => !GENERIC_PLACE_WORDS.has(word)
+  );
+  const addressWords = new Set(words(item.companyAddress));
+  const ranked = candidates
+    .filter((candidate) => !REJECTED_RESULT_TYPES.has(candidate.resultType ?? ""))
+    .map((candidate) => {
+      const candidateName = new Set(words(candidate.name));
+      const candidateAddress = new Set(words(candidate.formatted));
+      const nameMatches = distinctive.filter((word) => candidateName.has(word)).length;
+      const addressMatches = [...addressWords].filter((word) => candidateAddress.has(word)).length;
+      const confidence = candidate.confidence ?? 0;
+      return {
+        candidate,
+        nameMatches,
+        addressMatches,
+        confidence,
+        score: nameMatches * 4 + Math.min(addressMatches, 4) + confidence * 2,
+      };
+    })
+    .filter(({ nameMatches, addressMatches, confidence }) =>
+      distinctive.length > 0
+        ? nameMatches > 0 && (addressMatches >= 2 || confidence >= 0.7)
+        : addressMatches >= 3 && confidence >= 0.8
+    )
+    .sort((a, b) => b.score - a.score);
+  return ranked[0]?.candidate ?? null;
+}
+
+function enrichFromGeoapify(
+  item: OfficialQualityRatingEntity,
+  place: GeoapifyPlaceDto
+): OfficialQualityRatingEntity {
+  return {
+    ...item,
+    placeId: place.placeId,
+    name: place.name,
+    formatted: place.formatted,
+    addressLine1: place.addressLine1 ?? null,
+    addressLine2: place.addressLine2 ?? null,
+    city: place.city ?? null,
+    state: place.state ?? null,
+    country: place.country,
+    countryCode: place.countryCode,
+    category: place.category ?? null,
+    resultType: place.resultType ?? null,
+    lat: place.lat,
+    lon: place.lon,
+    confidence: place.confidence ?? null,
+    syncedAt: Date.now(),
+  };
 }
 
 /** 同步进度回调（阶段②每处理完一条调用一次，供 UI 展示进度与超时提醒） */
@@ -94,46 +178,75 @@ export class QualityRatingSyncService {
         );
       }
 
-      // ---- 阶段②：仅对缺失坐标的行做客户端地理编码补全 ----
+      // ---- Phase 2: trusted Geoapify entity enrichment, then Nominatim fallback ----
       const items = await remoteQualityRatingRepository.listAll();
-      const needGeo = items.filter((item) => item.lat == null || item.lon == null);
+      const needGeo = items.filter(
+        (item) => !item.placeId || !item.name || item.lat == null || item.lon == null
+      );
 
       const toUpsert: OfficialQualityRatingEntity[] = [];
       const failures: QualityRatingSyncFailure[] = [];
       let newlyGeocoded = 0;
+      let geoapifyEnriched = 0;
+      let nominatimFallback = 0;
       for (let i = 0; i < needGeo.length; i++) {
         const item = needGeo[i];
-        let lat: number | null = null;
-        let lon: number | null = null;
+        let resolved = item;
+        let geoapifyFailure = "";
         try {
-          const coord = await nominatimApi.geocodeAddress(item.companyAddress);
-          if (coord) {
-            lat = coord.lat;
-            lon = coord.lon;
-            newlyGeocoded += 1;
+          const candidates = await geoapifyGeocodingApi.searchPlaces(
+            `${item.companyName} ${item.companyAddress}`,
+            10
+          );
+          const trusted = pickTrustedPlace(item, candidates);
+          if (trusted) {
+            resolved = enrichFromGeoapify(item, trusted);
+            geoapifyEnriched += 1;
+            newlyGeocoded += item.lat == null || item.lon == null ? 1 : 0;
           } else {
-            // 请求成功但全部降级尝试均无匹配：不落库"有坐标"结论，记录明细
+            geoapifyFailure = "Geoapify returned no trusted place match";
+          }
+        } catch (err) {
+          geoapifyFailure = err instanceof Error ? err.message : String(err);
+        }
+
+        if (resolved.lat == null || resolved.lon == null) {
+          try {
+            const coord = await nominatimApi.geocodeAddress(item.companyAddress);
+            if (coord) {
+              resolved = { ...resolved, lat: coord.lat, lon: coord.lon, syncedAt: Date.now() };
+              newlyGeocoded += 1;
+              nominatimFallback += 1;
+            } else {
+              const failure: QualityRatingSyncFailure = {
+                jsonId: item.jsonId,
+                companyName: item.companyName,
+                companyAddress: item.companyAddress,
+                reason: `${geoapifyFailure}; Nominatim returned no match`,
+              };
+              failures.push(failure);
+              console.warn("[SyncQualityRatings] place enrichment failed:", failure);
+            }
+          } catch (err) {
             const failure: QualityRatingSyncFailure = {
               jsonId: item.jsonId,
               companyName: item.companyName,
               companyAddress: item.companyAddress,
-              reason: "no-match (all fallback attempts returned empty)",
+              reason: `${geoapifyFailure}; ${err instanceof Error ? err.message : String(err)}`,
             };
             failures.push(failure);
-            console.warn("[SyncQualityRatings] geocode failed:", failure);
+            console.warn("[SyncQualityRatings] place enrichment failed:", failure);
           }
-        } catch (err) {
-          // 瞬时失败（网络/限流）：该条 lat/lon 保持 null，记录明细，允许下次重试
+        } else if (!resolved.placeId && geoapifyFailure) {
           const failure: QualityRatingSyncFailure = {
             jsonId: item.jsonId,
             companyName: item.companyName,
             companyAddress: item.companyAddress,
-            reason: err instanceof Error ? err.message : String(err),
+            reason: geoapifyFailure,
           };
           failures.push(failure);
-          console.warn("[SyncQualityRatings] geocode failed:", failure);
         }
-        toUpsert.push({ ...item, lat, lon, syncedAt: Date.now() });
+        toUpsert.push({ ...resolved, syncedAt: Date.now() });
         onProgress?.(i + 1, needGeo.length);
       }
 
@@ -145,6 +258,8 @@ export class QualityRatingSyncService {
         total: web.total,
         synced: web.synced,
         newlyGeocoded,
+        geoapifyEnriched,
+        nominatimFallback,
         failed: failures.length,
         failures,
         pruned: web.pruned,
@@ -177,6 +292,8 @@ export class QualityRatingSyncService {
         total: web.total,
         synced: web.synced,
         newlyGeocoded: 0,
+        geoapifyEnriched: 0,
+        nominatimFallback: 0,
         failed: 0,
         failures: [],
         pruned: 0,

@@ -491,18 +491,60 @@ function normalizeSearchText(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+const OFFICIAL_NAME_GENERIC_WORDS = new Set([
+  "and", "the", "golf", "club", "country", "hotel", "resort", "centre",
+  "center", "malaysia", "sdn", "bhd", "berhad", "company", "corporation",
+]);
+
+function officialMatchWords(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3);
+}
+
+/** Conservative runtime match for legacy records that have not been enriched. */
+function pickTrustedOfficialDetail(
+  item: OfficialQualityRatingEntity,
+  candidates: GeoapifyPlaceDto[]
+): GeoapifyPlaceDto | null {
+  const distinctive = officialMatchWords(item.companyName).filter(
+    (word) => !OFFICIAL_NAME_GENERIC_WORDS.has(word)
+  );
+  if (distinctive.length === 0) return null;
+  const addressWords = new Set(officialMatchWords(item.companyAddress));
+  return (
+    candidates
+      .map((candidate) => {
+        const candidateName = new Set(officialMatchWords(candidate.name));
+        const candidateAddress = new Set(officialMatchWords(candidate.formatted));
+        const nameMatches = distinctive.filter((word) => candidateName.has(word)).length;
+        const addressMatches = [...addressWords].filter((word) => candidateAddress.has(word)).length;
+        return { candidate, nameMatches, addressMatches };
+      })
+      .filter(({ candidate, nameMatches, addressMatches }) =>
+        nameMatches > 0 &&
+        (addressMatches >= 2 || (candidate.confidence ?? 0) >= 0.7)
+      )
+      .sort(
+        (a, b) =>
+          b.nameMatches * 4 + b.addressMatches -
+          (a.nameMatches * 4 + a.addressMatches)
+      )[0]?.candidate ?? null
+  );
+}
+
 /**
  * 地点图片缓存的 sessionStorage 键（跨页面导航复用结果，避免重复消耗免费额度）。
- * v5：统一图片链路（v5，见 getPlaceImage）新增 Wikivoyage 首环节、并携带
- * 作者/许可署名信息（attribution，开源协议展示合规），v4 及更早缓存（旧值
- * 格式无署名、且旧"确定无图"结果会阻挡新环节）整体失效、重新查询；
- * 旧键在读取时顺手清除。
- * v5 值格式：值为 PlaceImageCacheEntry 的 JSON 序列化（wikimedia url +
+ * v6 applies strict place-name relevance checks and invalidates permissive v5
+ * image matches. Values remain PlaceImageCacheEntry JSON (wikimedia url +
  * attribution / mapillary imageId + attribution / "" 无图）。
  */
-const PLACE_IMAGE_CACHE_KEY = "module03-place-image-cache-v5";
-/** 旧版缓存键（v1–v4 可能含脏"无图"结果与旧值格式，读取时顺手清除） */
+const PLACE_IMAGE_CACHE_KEY = "module03-place-image-cache-v6";
+/** Older browser caches may contain permissive or stale image decisions. */
 const LEGACY_PLACE_IMAGE_CACHE_KEYS = [
+  "module03-place-image-cache-v5",
   "module03-place-image-cache-v4",
   "module03-place-image-cache-v3",
   "module03-place-image-cache-v2",
@@ -521,7 +563,7 @@ const MAPILLARY_URL_TTL_MS = 60 * 60 * 1000;
  * 命中的区域中心，需大半径覆盖附近地标；精确坐标也统一使用
  * （geosearch 按距离排序取首图，仍相对相关；文件坐标逐条马来西亚校验）。
  */
-const RECOMMENDED_GEOSEARCH_RADIUS_METERS = 5000;
+const GEOSEARCH_RADIUS_STAGES_METERS = [300, 1000] as const;
 
 /**
  * Mapillary 图片的固定署名（Mapillary 服务条款：图片为 CC BY-SA 4.0，
@@ -748,6 +790,12 @@ export class DiscoveryService {
     placeId: string,
     queryText: string
   ): Promise<PlaceDetail | null> {
+    if (placeId.startsWith("json-")) {
+      return this.getQualityRatedDetailByJsonId(
+        placeId.slice("json-".length),
+        queryText
+      );
+    }
     const rated = await this.findQualityRatedByPlaceId(placeId);
     if (rated) return this.toQualityRatedPlaceDetail(rated);
 
@@ -769,6 +817,62 @@ export class DiscoveryService {
     return place
       ? { ...toPlaceDetail(place), qualityBadge: badgeMap.get(place.placeId) }
       : null;
+  }
+
+  /**
+   * Resolve Recommended Places by their stable official-record identifier.
+   * Existing json-* favourites therefore remain valid even when no external
+   * provider place id was captured. Geoapify enriches the view when available;
+   * the official record is always the final display fallback.
+   */
+  private async getQualityRatedDetailByJsonId(
+    jsonId: string,
+    queryText: string
+  ): Promise<PlaceDetail | null> {
+    let item: OfficialQualityRatingEntity | undefined;
+    try {
+      item = (await this.qualityRatingRepo.listAll()).find(
+        (candidate) => candidate.jsonId === jsonId
+      );
+    } catch {
+      return null;
+    }
+    if (!item) return null;
+
+    const complete = this.toQualityRatedPlaceDetail(item);
+    if (complete) return complete;
+
+    try {
+      const query =
+        `${item.companyName} ${item.companyAddress}`.trim() || queryText.trim();
+      const best = pickTrustedOfficialDetail(
+        item,
+        await this.geocodingApi.searchPlaces(query, DETAIL_SEARCH_LIMIT)
+      );
+      if (best) {
+        return {
+          ...toPlaceDetail(best),
+          id: `json-${item.jsonId}`,
+          qualityBadge: awardCategoryToBadge(item.awardCategory),
+          ratingDuration: item.duration,
+          phone: item.companyPhone ?? undefined,
+          formatted: item.companyAddress || best.formatted,
+        };
+      }
+    } catch {
+      // Enrichment is optional; continue with authoritative MOTAC fields.
+    }
+
+    return {
+      ...toQualityRatedPoiItem(item, false),
+      id: `json-${item.jsonId}`,
+      placeId: `json-${item.jsonId}`,
+      formatted: item.companyAddress,
+      country: item.country ?? "Malaysia",
+      countryCode: item.countryCode ?? "my",
+      lat: item.lat ?? undefined,
+      lon: item.lon ?? undefined,
+    };
   }
 
   /**
@@ -823,7 +927,7 @@ export class DiscoveryService {
       try {
         const detail = await this.getPlaceDetail(trimmedPlaceId, name);
         if (detail && isFinitePair(detail.lat, detail.lon)) {
-          return { lat: detail.lat, lon: detail.lon };
+          return { lat: detail.lat as number, lon: detail.lon as number };
         }
       } catch {
         // 瞬时失败：继续走名称搜索兜底
@@ -968,6 +1072,8 @@ export class DiscoveryService {
   ): Promise<PlaceImageResult | null> {
     const cacheKey = placeId.trim() || placeName.trim();
     if (!cacheKey) return null;
+    const hasTrustedCoordinates =
+      lat != null && lon != null && !placeId.startsWith("json-");
 
     // 1. 内存短期 URL 缓存（wikimedia 长期 / mapillary 1 小时）
     const cached = this.getImageUrlCache().get(cacheKey);
@@ -1029,18 +1135,23 @@ export class DiscoveryService {
 
       // 6. Wikimedia Commons Geosearch（前端直连，仅当经纬度齐全且上一步无图）：
       //    按经纬度搜索图片（API 层强制：入口坐标须在马来西亚 bbox 内、
-      //    半径上限 5000m、逐文件坐标/标题过滤、标题含地点名者优先）
+      //    分级小半径、逐文件坐标/标题过滤，并要求地点辨识词命中）
       let geosearchDeterminate = true;
-      if (!result && lat != null && lon != null) {
+      if (!result && hasTrustedCoordinates) {
         try {
-          const geosearchImage =
-            await this.wikimediaGeosearchClient.findImageByCoords({
-              lat,
-              lon,
-              radiusMeters: RECOMMENDED_GEOSEARCH_RADIUS_METERS,
-              placeName,
-            });
-          if (geosearchImage) result = this.wikimediaResult(geosearchImage);
+          for (const radiusMeters of GEOSEARCH_RADIUS_STAGES_METERS) {
+            const geosearchImage =
+              await this.wikimediaGeosearchClient.findImageByCoords({
+                lat: lat as number,
+                lon: lon as number,
+                radiusMeters,
+                placeName,
+              });
+            if (geosearchImage) {
+              result = this.wikimediaResult(geosearchImage);
+              break;
+            }
+          }
         } catch {
           geosearchDeterminate = false; // 瞬时失败：不得据此缓存"无图"
         }
@@ -1051,9 +1162,12 @@ export class DiscoveryService {
       //    （客户端 + 服务端双层马来西亚 bbox 校验，见 MapillaryApi / Route API；
       //    固定署名 Mapillary contributors, CC BY-SA 4.0）
       let mapillaryDeterminate = true;
-      if (!result && lat != null && lon != null) {
+      if (!result && hasTrustedCoordinates) {
         try {
-          const foundId = await this.mapillaryClient.findImageId(lat, lon);
+          const foundId = await this.mapillaryClient.findImageId(
+            lat as number,
+            lon as number
+          );
           if (foundId) {
             mapillaryImageId = foundId;
             const url = await this.mapillaryClient.getImageUrl(foundId);

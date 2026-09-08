@@ -225,6 +225,8 @@ export default function SyncQualityRatingsBTN() {
         synced: res.synced,
         total: res.total,
         pruned: res.pruned ?? 0,
+        geoapifyEnriched: res.geoapifyEnriched,
+        nominatimFallback: res.nominatimFallback,
         newlyGeocoded: res.newlyGeocoded,
         failed: res.failed,
       });
@@ -298,7 +300,7 @@ export default function SyncQualityRatingsBTN() {
       {/* 进度（地理编码阶段逐条计数；快速测试模式无逐条进度） */}
       {isSyncing && lastMode === "full" && progress && (
         <p className="text-sm text-gray-500">
-          Geocoding missing coordinates {progress.done}/{progress.total}…
+          Enriching official places {progress.done}/{progress.total}…
         </p>
       )}
 
@@ -306,7 +308,7 @@ export default function SyncQualityRatingsBTN() {
       {isSyncing && timedOut && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           ⚠ Sync has been running for {runSeconds}s and is still not finished.
-          Geocoding is rate-limited to 1 request/s by Nominatim — please be
+          Nominatim fallback geocoding is rate-limited to 1 request/s — please be
           patient, do NOT click again. If it hangs for long, check the network
           status in the Console.
         </p>
@@ -330,7 +332,9 @@ export default function SyncQualityRatingsBTN() {
       {result && (
         <p className="text-sm text-gray-700">
           MOTAC synced {result.synced}/{result.total} · pruned{" "}
-          {result.pruned ?? 0} · newly geocoded {result.newlyGeocoded} · failed{" "}
+          {result.pruned ?? 0} · Geoapify enriched {result.geoapifyEnriched} ·
+          Nominatim fallback {result.nominatimFallback} · newly geocoded{" "}
+          {result.newlyGeocoded} · failed{" "}
           {result.failed} · took {elapsedSec?.toFixed(1)}s
         </p>
       )}

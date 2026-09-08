@@ -197,7 +197,7 @@ export interface SuggestionItem {
  * 由 BL 聚合（toPlaceDetail），供搜索结果页与地点详情页使用。
  */
 export interface PlaceDetail extends PoiItem {
-  /** Geoapify place_id */
+  /** Geoapify place_id, or json-{jsonId} for an official-record fallback */
   placeId: string;
   /** 完整格式化地址 */
   formatted: string;
@@ -211,8 +211,9 @@ export interface PlaceDetail extends PoiItem {
   category?: string;
   /** 结果类型（city / amenity / tourism / street ...） */
   resultType?: string;
-  lat: number;
-  lon: number;
+  /** Coordinates can be absent when an official record cannot be geocoded. */
+  lat?: number;
+  lon?: number;
 }
 
 /** 收藏夹条目（领域形态，与 DA 实体一致；每个用户只有一个收藏夹） */

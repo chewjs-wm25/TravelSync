@@ -44,6 +44,7 @@
 import {
   extractFileNameFromThumbUrl,
   isNonPlaceImageTitle,
+  placeNameMatchScore,
   titleContainsPlaceName,
 } from "./WikimediaImageFilters";
 import {
@@ -173,8 +174,16 @@ export class WikivoyageImageApi {
         // 3. 文件名黑名单过滤
         const fileName = extractFileNameFromThumbUrl(thumb);
         if (!fileName || isNonPlaceImageTitle(fileName)) return [];
-        return [{ fileName, thumbUrl: thumb }];
-      });
+        return [{
+          fileName,
+          thumbUrl: thumb,
+          score:
+            placeNameMatchScore(title, placeName) * 2 +
+            placeNameMatchScore(fileName, placeName),
+        }];
+      })
+      .sort((a, b) => b.score - a.score)
+      .map(({ fileName, thumbUrl }) => ({ fileName, thumbUrl }));
   }
 
   /** 判定图片 URL 是否来自 Wikimedia Commons（本地文件路径不含 /commons/） */
