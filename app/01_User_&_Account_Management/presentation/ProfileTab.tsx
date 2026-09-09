@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useState } from "react";
 import type { DashboardUser } from "./DashboardPage";
+import { normalizePhone, PHONE_INPUT_PATTERN, validatePhone } from "@/business_logic_layer/01_User_&_Account_Management/phoneValidation";
 
 /**
  * 将图片缩放并压缩至最大 256x256，以防止超大 Base64 导致存储溢出
@@ -88,7 +89,7 @@ export default function ProfileTab({
     try {
       await onSave({
         fullName: name.trim(),
-        phone: phone.trim() || null,
+        phone: validatePhone(phone),
         profilePicture: picture || null,
       });
       setEditing(false);
@@ -158,9 +159,12 @@ export default function ProfileTab({
         <label className="block text-sm font-medium text-slate-700">
           Phone Number <span className="font-normal text-slate-400">(optional)</span>
           <input
+            type="tel"
+            pattern={PHONE_INPUT_PATTERN}
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(normalizePhone(e.target.value) ?? "")}
             placeholder="+60 12-345 6789"
+            title="Enter an international phone number, for example +60123456789. Spaces and hyphens are allowed."
             className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none transition focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
           />
         </label>

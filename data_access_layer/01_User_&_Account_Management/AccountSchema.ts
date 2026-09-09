@@ -5,7 +5,14 @@ const ACCOUNT_SCHEMA = [
     email TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
-    phone TEXT,
+    phone TEXT CHECK (
+      phone IS NULL OR (
+        length(phone) BETWEEN 9 AND 16
+        AND substr(phone, 1, 1) = '+'
+        AND length(substr(phone, 2)) BETWEEN 8 AND 15
+        AND substr(phone, 2) NOT GLOB '*[^0-9]*'
+      )
+    ),
     ic_hash TEXT,
     profile_picture TEXT,
     is_verified INTEGER NOT NULL DEFAULT 0,
@@ -49,6 +56,24 @@ const ACCOUNT_SCHEMA = [
     created_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
   )`,
+  `CREATE TRIGGER IF NOT EXISTS validate_users_phone_insert
+   BEFORE INSERT ON users
+   WHEN NEW.phone IS NOT NULL AND NOT (
+     length(NEW.phone) BETWEEN 9 AND 16
+     AND substr(NEW.phone, 1, 1) = '+'
+     AND length(substr(NEW.phone, 2)) BETWEEN 8 AND 15
+     AND substr(NEW.phone, 2) NOT GLOB '*[^0-9]*'
+   )
+   BEGIN SELECT RAISE(ABORT, 'Invalid international phone number'); END`,
+  `CREATE TRIGGER IF NOT EXISTS validate_users_phone_update
+   BEFORE UPDATE OF phone ON users
+   WHEN NEW.phone IS NOT NULL AND NOT (
+     length(NEW.phone) BETWEEN 9 AND 16
+     AND substr(NEW.phone, 1, 1) = '+'
+     AND length(substr(NEW.phone, 2)) BETWEEN 8 AND 15
+     AND substr(NEW.phone, 2) NOT GLOB '*[^0-9]*'
+   )
+   BEGIN SELECT RAISE(ABORT, 'Invalid international phone number'); END`,
 ];
 
 // Demo123! 的 PBKDF2 预计算哈希（salt: travelsyncsalt1234567890abcdef12，100000 次迭代，SHA-256）。

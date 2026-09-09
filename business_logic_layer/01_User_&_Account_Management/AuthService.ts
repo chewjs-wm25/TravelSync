@@ -5,6 +5,7 @@ import { PasswordResetRepository } from "../../data_access_layer/01_User_&_Accou
 import type { UserRecord } from "../../data_access_layer/01_User_&_Account_Management/types";
 import { sendPasswordResetEmail } from "../../api_layer/01_User_&_Account_Management/EmailVerificationApi";
 import type { GoogleUserProfile } from "../../api_layer/01_User_&_Account_Management/GoogleOAuthApi";
+import { validatePhone } from "./phoneValidation";
 import { consumeVerificationToken, saveVerificationToken } from "./VerificationTokenStore";
 
 const SESSION_TTL = 30 * 60 * 1000;
@@ -165,7 +166,7 @@ export class AuthService {
     const username = (input.username || "").trim().toLowerCase();
     const fullName = (input.fullName || "").trim();
     const email = input.email?.trim() ? normalizeEmail(input.email) : null;
-    const phone = input.phone?.trim() || null;
+    const phone = validatePhone(input.phone);
     const icNumber = input.icNumber?.trim() || null;
     const password = input.password || "";
 
@@ -322,7 +323,7 @@ export class AuthService {
   ): Promise<PublicUser> {
     const user = await this.authorize(token);
     if (!fullName || !fullName.trim()) throw new Error("Full name cannot be empty.");
-    await this.users.updateProfile(user.id, fullName.trim(), phone, profilePicture);
+    await this.users.updateProfile(user.id, fullName.trim(), validatePhone(phone), profilePicture);
     const updated = await this.users.findById(user.id);
     return publicUser(updated!);
   }
