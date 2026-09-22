@@ -1,8 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { ItineraryItemCard, type ItineraryItem } from "./ItineraryItemCard";
+import { fetchRouteShape } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/osrmApi";
+import {
+  useTripNavigationStore,
+  type Stop,
+} from "@/business_logic_layer/04_Travel_Logistics_&_Map_Route_Planning/useTripNavigationStore";
+import {
+  getLocalSuggestions,
+  type LocalSuggestion,
+} from "../api/localSuggestionApi";
+
+type LocalSuggestionItem = LocalSuggestion;
 
 export type DayItinerary = {
   id: string;
@@ -13,20 +25,36 @@ export type DayItinerary = {
   items: ItineraryItem[];
 };
 
+// In DayItineraryCard.tsx
 type DayItineraryCardProps = {
   day: DayItinerary;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  onSelectSuggestion?: (suggestion?: {
+    placeId: string;
+    formatted: string;
+    name?: string;
+    imageUrl?: string;
+    lat?: number;
+    lon?: number;
+  }) => void;
   onAddItem: () => void;
   onDeleteItem: (itemId: string) => void | Promise<void>;
   onDeleteDay: () => void;
-  onAddDayBefore: () => void;
-  onAddDayAfter: () => void;
+  onAddDayBefore: (dayId: string) => void;
+  onAddDayAfter: (dayId: string) => void;
   onToggleCollapse: (collapseValue?: boolean) => void;
   onToggleItemEdit: (itemId: string) => void;
+  // FIX: Change startTime and endTime to start_time and end_time
   onSaveItem: (
     itemId: string,
-    payload: { name: string; note: string; position?: number }
+    payload: {
+      name: string;
+      note: string;
+      position?: number;
+      start_time?: string;
+      end_time?: string;
+    }
   ) => void | Promise<void>;
   onSaveNote: (note: string) => Promise<boolean> | boolean;
   onEditDay: (title: string, date: string) => void;
@@ -51,6 +79,7 @@ export function DayItineraryCard({
   day,
   searchValue,
   onSearchChange,
+  onSelectSuggestion,
   onAddItem,
   onDeleteItem,
   onDeleteDay,
@@ -62,6 +91,10 @@ export function DayItineraryCard({
   onSaveNote,
   onEditDay,
 }: DayItineraryCardProps) {
+  const router = useRouter();
+  const setRouteLocation = useTripNavigationStore(
+    (state) => state.setRouteLocation
+  );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(day.title);
@@ -69,7 +102,173 @@ export function DayItineraryCard({
   const [draftNote, setDraftNote] = useState(day.note ?? "");
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [suggestions, setSuggestions] = useState<LocalSuggestionItem[]>([]);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+
+  // Route segments are temporary page-session results. They must not survive
+  // an item-list change because the adjacent pairs may have changed.
+  type RouteSegment = { distanceKm: number; timeMinutes: number } | null;
+  const [routeSegmentState, setRouteSegmentState] = useState<{
+    itemCalculationKey: string;
+    segments: Record<string, RouteSegment>;
+  }>({ itemCalculationKey: "", segments: {} });
+  const [loadingSegmentState, setLoadingSegmentState] = useState<{
+    itemCalculationKey: string;
+    keys: Set<string>;
+  }>({ itemCalculationKey: "", keys: new Set() });
+  const segmentCacheRef = useRef<{
+    itemCalculationKey: string;
+    segments: Record<string, RouteSegment>;
+  }>({ itemCalculationKey: "", segments: {} });
+
+  const itemCalculationKey = day.items
+    .map((item) => `${item.id}:${item.lat ?? ""}:${item.lon ?? ""}`)
+    .join("|");
+
+  // Calculate each adjacent pair once for the current item list. The local
+  // state is intentionally discarded on unmount when navigating away.
+  useEffect(() => {
+    let cancelled = false;
+
+    if (segmentCacheRef.current.itemCalculationKey !== itemCalculationKey) {
+      segmentCacheRef.current = { itemCalculationKey, segments: {} };
+    }
+
+    if (day.items.length < 2) {
+      return;
+    }
+
+    const calculateSegments = async () => {
+      for (let i = 0; i < day.items.length - 1; i++) {
+        if (cancelled) break;
+
+        const from = day.items[i]!;
+        const to = day.items[i + 1]!;
+        const key = `${from.id}->${to.id}`;
+
+        // Skip pairs without coordinates
+        if (
+          from.lat == null ||
+          from.lon == null ||
+          to.lat == null ||
+          to.lon == null
+        ) {
+          segmentCacheRef.current.segments[key] = null;
+          if (!cancelled) {
+            setRouteSegmentState((previous) => ({
+              itemCalculationKey,
+              segments: {
+                ...(previous.itemCalculationKey === itemCalculationKey
+                  ? previous.segments
+                  : {}),
+                [key]: null,
+              },
+            }));
+          }
+          continue;
+        }
+
+        const cachedSegment = segmentCacheRef.current.segments[key];
+        if (cachedSegment !== undefined) {
+          if (!cancelled) {
+            setRouteSegmentState((previous) => ({
+              itemCalculationKey,
+              segments: {
+                ...(previous.itemCalculationKey === itemCalculationKey
+                  ? previous.segments
+                  : {}),
+                [key]: cachedSegment,
+              },
+            }));
+          }
+          continue;
+        }
+
+        // Mark as loading
+        if (!cancelled) {
+          setLoadingSegmentState((previous) => ({
+            itemCalculationKey,
+            keys: new Set(
+              previous.itemCalculationKey === itemCalculationKey
+                ? previous.keys
+                : []
+            ).add(key),
+          }));
+        }
+
+        try {
+          const result = await fetchRouteShape(
+            { lat: from.lat, lng: from.lon },
+            { lat: to.lat, lng: to.lon },
+            "car",
+            "fastest"
+          );
+
+          if (!cancelled) {
+            const nextSegment = {
+              distanceKm: result.distanceKm,
+              timeMinutes: result.durationMinutes,
+            };
+            segmentCacheRef.current.segments[key] = nextSegment;
+            setRouteSegmentState((previous) => ({
+              itemCalculationKey,
+              segments: {
+                ...(previous.itemCalculationKey === itemCalculationKey
+                  ? previous.segments
+                  : {}),
+                [key]: nextSegment,
+              },
+            }));
+          }
+        } catch {
+          if (!cancelled) {
+            segmentCacheRef.current.segments[key] = null;
+            setRouteSegmentState((previous) => ({
+              itemCalculationKey,
+              segments: {
+                ...(previous.itemCalculationKey === itemCalculationKey
+                  ? previous.segments
+                  : {}),
+                [key]: null,
+              },
+            }));
+          }
+        } finally {
+          if (!cancelled) {
+            setLoadingSegmentState((previous) => {
+              const next = new Set(
+                previous.itemCalculationKey === itemCalculationKey
+                  ? previous.keys
+                  : []
+              );
+              next.delete(key);
+              return { itemCalculationKey, keys: next };
+            });
+          }
+        }
+      }
+    };
+
+    void calculateSegments();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemCalculationKey]);
+
+  const routeSegments =
+    routeSegmentState.itemCalculationKey === itemCalculationKey
+      ? routeSegmentState.segments
+      : {};
+  const loadingSegmentKeys =
+    loadingSegmentState.itemCalculationKey === itemCalculationKey
+      ? loadingSegmentState.keys
+      : new Set<string>();
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -78,6 +277,14 @@ export function DayItineraryCard({
         !dropdownRef.current.contains(event.target as Node)
       ) {
         setIsDropdownOpen(false);
+      }
+
+      if (
+        searchContainerRef.current &&
+        event.target instanceof Node &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsSuggestionsOpen(false);
       }
     }
 
@@ -90,6 +297,38 @@ export function DayItineraryCard({
   const handleOpenNoteEditor = () => {
     setDraftNote(day.note ?? "");
     setIsEditingNote(true);
+  };
+
+  useEffect(() => {
+    const trimmedValue = searchValue.trim();
+    if (!trimmedValue) {
+      setSuggestions([]);
+      setIsSuggestionsOpen(false);
+      onSelectSuggestion?.(undefined);
+      return;
+    }
+
+    void getLocalSuggestions(trimmedValue).then((nextSuggestions) => {
+      setSuggestions(nextSuggestions);
+      setIsSuggestionsOpen(nextSuggestions.length > 0);
+    });
+  }, [searchValue, onSelectSuggestion]);
+
+  const handleSuggestionSelect = (suggestion: LocalSuggestionItem) => {
+    const formatted =
+      suggestion.value || suggestion.formatted || suggestion.name || "";
+    setSuggestions([]);
+    setIsSuggestionsOpen(false);
+    onSearchChange(formatted);
+    onSelectSuggestion?.({
+      placeId: suggestion.id,
+      formatted,
+      name: suggestion.name,
+      imageUrl: suggestion.imageUrl,
+      lat: suggestion.lat,
+      lon: suggestion.lon,
+    });
+    inputRef.current?.focus();
   };
 
   const handleSaveNote = async (nextNote: string) => {
@@ -120,7 +359,7 @@ export function DayItineraryCard({
           <button
             type="button"
             onClick={() => setIsDropdownOpen((previous) => !previous)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-2xs hover:bg-gray-100"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-2xs transition-colors hover:bg-gray-100 active:scale-90"
             aria-label="Itinerary Card Options"
           >
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -138,7 +377,7 @@ export function DayItineraryCard({
                   setIsEditing(true);
                   setIsDropdownOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
               >
                 <svg
                   className="h-4 w-4 text-gray-500"
@@ -158,20 +397,20 @@ export function DayItineraryCard({
               <button
                 type="button"
                 onClick={() => {
-                  onAddDayBefore();
+                  onAddDayBefore(day.id);
                   setIsDropdownOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
               >
                 <span className="font-bold">+</span> Add Day Before
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  onAddDayAfter();
+                  onAddDayAfter(day.id);
                   setIsDropdownOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
               >
                 <span className="font-bold">+</span> Add Day After
               </button>
@@ -184,7 +423,7 @@ export function DayItineraryCard({
                     onToggleCollapse(false);
                     setIsDropdownOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
                 >
                   <svg
                     className="h-4 w-4 text-gray-500"
@@ -208,7 +447,7 @@ export function DayItineraryCard({
                     onToggleCollapse(true);
                     setIsDropdownOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
                 >
                   <svg
                     className="h-4 w-4 text-gray-500"
@@ -242,7 +481,7 @@ export function DayItineraryCard({
                   onDeleteDay();
                   setIsDropdownOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 active:bg-red-100"
               >
                 <svg
                   className="h-4 w-4 text-red-500"
@@ -287,7 +526,7 @@ export function DayItineraryCard({
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 active:scale-95"
             >
               Cancel
             </button>
@@ -297,7 +536,7 @@ export function DayItineraryCard({
                 setIsEditing(false);
                 onEditDay(draftTitle, draftDate);
               }}
-              className="bg-primary-500 hover:bg-primary-500/90 rounded-lg px-3 py-2 text-xs font-semibold text-white"
+              className="bg-primary-500 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-all duration-150 hover:bg-[#ff5252] active:scale-95"
             >
               Save
             </button>
@@ -328,7 +567,7 @@ export function DayItineraryCard({
                     }
                   }}
                   disabled={isSavingNote}
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -338,7 +577,7 @@ export function DayItineraryCard({
                     void handleSaveNote(draftNote);
                   }}
                   disabled={isSavingNote}
-                  className="rounded-lg bg-[#ff6b6b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:bg-gray-300"
+                  className="rounded-lg bg-[#ff6b6b] px-3 py-2 text-xs font-semibold text-white transition-all duration-150 hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSavingNote ? "Saving..." : "Save Note"}
                 </button>
@@ -350,7 +589,7 @@ export function DayItineraryCard({
                 <p className="text-[11px] font-semibold tracking-[0.18em] text-[#ff6b6b] uppercase">
                   Itinerary Note
                 </p>
-                <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-gray-700">
+                <p className="mt-2 text-xs leading-5 whitespace-pre-wrap text-gray-700">
                   {day.note}
                 </p>
               </div>
@@ -358,7 +597,7 @@ export function DayItineraryCard({
                 <button
                   type="button"
                   onClick={handleOpenNoteEditor}
-                  className="text-right text-xs font-medium text-[#ff6b6b] hover:underline"
+                  className="self-end rounded-md px-2 py-1 text-right text-xs font-medium text-[#ff6b6b] transition-colors hover:bg-[#ff6b6b]/10 hover:underline active:opacity-70"
                 >
                   Edit
                 </button>
@@ -368,7 +607,7 @@ export function DayItineraryCard({
                     void handleSaveNote("");
                   }}
                   disabled={isSavingNote}
-                  className="text-right text-xs font-medium text-red-500 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  className="self-end rounded-md px-2 py-1 text-right text-xs font-medium text-red-500 transition-colors hover:bg-[#ff6b6b]/10 hover:underline active:opacity-70 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Clear
                 </button>
@@ -378,7 +617,7 @@ export function DayItineraryCard({
             <button
               type="button"
               onClick={handleOpenNoteEditor}
-              className="inline-flex items-center gap-2 text-xs font-semibold text-[#ff6b6b] hover:underline"
+              className="-my-1 inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs font-semibold text-[#ff6b6b] transition-colors hover:bg-[#ff6b6b]/10 hover:underline active:opacity-70"
             >
               <span className="text-base leading-none">+</span>
               Add Itinerary Note
@@ -395,37 +634,234 @@ export function DayItineraryCard({
                 No items found
               </div>
             ) : (
-              day.items.map((item) => (
-                <ItineraryItemCard
-                  key={item.id}
-                  item={item}
-                  onDelete={() => onDeleteItem(item.id)}
-                  onToggleEdit={() => onToggleItemEdit(item.id)}
-                  onSaveItem={(payload) => onSaveItem(item.id, payload)}
-                />
-              ))
+              day.items.map((item, index) => {
+                const previousItem =
+                  index > 0 ? day.items[index - 1] : undefined;
+                const nextItem = day.items[index + 1];
+                const previousEndTime = previousItem?.end_time;
+                const segmentKey = previousItem
+                  ? `${previousItem.id}->${item.id}`
+                  : null;
+                const isSegmentLoading = segmentKey
+                  ? loadingSegmentKeys.has(segmentKey)
+                  : false;
+                const segment = segmentKey
+                  ? routeSegments[segmentKey]
+                  : undefined;
+                const nextSegment = nextItem
+                  ? routeSegments[`${item.id}->${nextItem.id}`]
+                  : undefined;
+                const canViewDirection = Boolean(
+                  segment &&
+                  previousItem?.lat != null &&
+                  previousItem?.lon != null &&
+                  item.lat != null &&
+                  item.lon != null
+                );
+
+                const handleViewDirection = () => {
+                  if (
+                    !canViewDirection ||
+                    !previousItem ||
+                    previousItem.lat == null ||
+                    previousItem.lon == null ||
+                    item.lat == null ||
+                    item.lon == null
+                  ) {
+                    return;
+                  }
+
+                  const origin: Stop = {
+                    id: previousItem.id,
+                    name: previousItem.name,
+                    lat: previousItem.lat,
+                    lng: previousItem.lon,
+                  };
+                  const destination: Stop = {
+                    id: item.id,
+                    name: item.name,
+                    lat: item.lat,
+                    lng: item.lon,
+                  };
+
+                  setRouteLocation("origin", origin);
+                  setRouteLocation("destination", destination);
+                  router.push("/04_Travel_Logistics_&_Map_Route_Planning");
+                };
+
+                return (
+                  <div key={item.id}>
+                    {segmentKey && (
+                      <div className="flex items-center gap-2 px-1 py-1">
+                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+                        <div className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-medium shadow-sm">
+                          {isSegmentLoading ? (
+                            <>
+                              <svg
+                                className="h-3 w-3 animate-spin text-gray-400"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                                />
+                              </svg>
+                              <span className="text-gray-400">
+                                Calculating…
+                              </span>
+                            </>
+                          ) : segment ? (
+                            <>
+                              <svg
+                                className="h-3 w-3 text-[#ff6b6b]"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"
+                                />
+                              </svg>
+                              <span className="text-gray-600">
+                                {segment.distanceKm.toFixed(1)} km
+                              </span>
+                              <span className="text-gray-300">·</span>
+                              <svg
+                                className="h-3 w-3 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              <span className="text-gray-600">
+                                {segment.timeMinutes < 60
+                                  ? `${Math.round(segment.timeMinutes)} min`
+                                  : `${Math.floor(segment.timeMinutes / 60)}h ${Math.round(segment.timeMinutes % 60)}min`}
+                              </span>
+                              {canViewDirection && (
+                                <button
+                                  type="button"
+                                  onClick={handleViewDirection}
+                                  className="ml-1 border-l border-gray-200 pl-2 font-semibold text-[#ff6b6b] transition-colors hover:text-[#ff5252]"
+                                >
+                                  Direction
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <svg
+                                className="h-3 w-3 text-gray-300"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"
+                                />
+                              </svg>
+                              <span className="text-gray-400">
+                                No route data
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+                      </div>
+                    )}
+                    <ItineraryItemCard
+                      item={item}
+                      previousEndTime={previousEndTime}
+                      travelTimeMinutes={segment?.timeMinutes}
+                      nextStartTime={nextItem?.start_time}
+                      nextTravelTimeMinutes={nextSegment?.timeMinutes}
+                      onDelete={() => onDeleteItem(item.id)}
+                      onToggleEdit={() => onToggleItemEdit(item.id)}
+                      onSaveItem={(payload) => onSaveItem(item.id, payload)}
+                    />
+                  </div>
+                );
+              })
             )}
           </div>
 
           <div className="mt-2 border-t border-gray-200/60 pt-2">
             <div className="relative flex items-center">
-              <input
-                type="text"
-                placeholder="Add a place"
-                value={searchValue}
-                onChange={(event) => onSearchChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && searchValue.trim()) {
-                    onAddItem();
-                  }
-                }}
-                className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-10 pl-4 text-xs text-gray-800 shadow-2xs focus:ring-2 focus:outline-none"
-              />
+              <div ref={searchContainerRef} className="relative w-full">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Add a place"
+                  value={searchValue}
+                  onChange={(event) => {
+                    onSearchChange(event.target.value);
+                    onSelectSuggestion?.(undefined);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && searchValue.trim()) {
+                      onAddItem();
+                    }
+                  }}
+                  className="focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-10 pl-4 text-xs text-gray-800 shadow-2xs focus:ring-2 focus:outline-none"
+                />
+
+                {isSuggestionsOpen && suggestions.length > 0 && (
+                  <ul className="absolute top-full right-9 left-0 z-30 max-h-56 w-full overflow-auto rounded-md border border-gray-200 bg-white text-left text-xs shadow-lg">
+                    {suggestions.map((suggestion) => (
+                      <li
+                        key={suggestion.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          handleSuggestionSelect(suggestion);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleSuggestionSelect(suggestion);
+                          }
+                        }}
+                        className="cursor-pointer px-3 py-2 hover:bg-gray-50 focus-visible:bg-gray-100 active:bg-gray-100"
+                      >
+                        <div className="font-medium text-gray-800">
+                          {suggestion.name}
+                        </div>
+                        <div className="text-gray-500">
+                          {suggestion.formatted}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={onAddItem}
                 disabled={!searchValue.trim()}
-                className="bg-primary-500 hover:bg-primary-500/90 absolute right-2 flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors disabled:cursor-not-allowed disabled:bg-gray-300"
+                className="bg-primary-500 absolute right-2 flex h-8 w-8 items-center justify-center rounded-lg text-white transition-all duration-150 hover:bg-[#ff5252] active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Add location"
               >
                 <svg

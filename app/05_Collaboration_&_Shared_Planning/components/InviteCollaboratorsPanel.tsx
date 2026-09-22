@@ -14,7 +14,7 @@ const ROLE_OPTIONS: InviteRole[] = ["Editor", "Viewer"];
 
 export default function InviteCollaboratorsPanel() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const inviteCollaborator = useCollabStore((s) => s.inviteCollaborator);
@@ -31,7 +31,7 @@ export default function InviteCollaboratorsPanel() {
 
   const handleSend = async () => {
     const res = await inviteCollaborator(email, role);
-    if (!res.ok || !res.invite) {
+    if (!res.success || !res.invite) {
       setNotice({ ok: false, text: res.message ?? "Could not send invite." });
       setTimeout(() => setNotice(null), 4000);
       return;
@@ -44,7 +44,7 @@ export default function InviteCollaboratorsPanel() {
     const mailRes = await sendInviteEmail({
       inviteeEmail: res.invite.email,
       role,
-      tripName: trip.name,
+      tripName: trip.tripName,
       inviteLink,
       invitedBy: me.name,
       expiresInDays: daysRemaining(res.invite.expiresAt),
@@ -52,12 +52,12 @@ export default function InviteCollaboratorsPanel() {
     setSending(false);
 
     setNotice({
-      ok: mailRes.ok,
-      text: mailRes.ok
+      ok: mailRes.success,
+      text: mailRes.success
         ? `Invitation email sent to ${res.invite.email}.`
         : `${mailRes.message} Copy the link to share manually.`,
     });
-    if (mailRes.ok) setEmail("");
+    if (mailRes.success) setEmail("");
     setTimeout(() => setNotice(null), 6000);
   };
 
@@ -75,14 +75,14 @@ export default function InviteCollaboratorsPanel() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Email Address
+                Email Address or Username
               </label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="colleague@email.com"
+                placeholder="Registered email or username (e.g. alex@mail.com or alex99)"
                 className="w-full rounded-lg border border-gray-200 bg-[#FAF8FF] px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />
             </div>

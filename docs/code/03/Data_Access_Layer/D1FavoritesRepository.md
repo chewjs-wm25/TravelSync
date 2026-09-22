@@ -9,7 +9,7 @@
 
 本文件是模块 03 收藏夹（Favourite List）仓储的 **Cloudflare D1 直接实现**，运行于**服务端**（Cloudflare Workers / Route API），将用户收藏条目持久化到 D1 数据库，实现 `FavoritesRepository` 接口。全部数据库操作（建表、查询、插入、删除）内聚在本类，**不包含任何 HTTP / 路由逻辑**（传输由 Route API 承担）。
 
-使用方式：由 Route API（`app/api/discovery/favorites`）以 D1 binding 实例化，浏览器端经 `RemoteFavoritesRepository` → Route API → 本类完成读写。
+使用方式：由 Route API（`/03_Destination_Discovery_&_Inspiration/api/favourites`）以 D1 binding **与会话解析出的 userId** 实例化（`new D1FavoritesRepository(env.TEST_DB, userId)`），浏览器端经 `RemoteFavoritesRepository` → Route API → 本类完成读写。userId 由 Route API 从服务端会话（`Authorization: Bearer <token>`）解析后注入，不信任任何前端参数（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）。
 
 ### 关键实现点
 
@@ -31,7 +31,7 @@
 
 ### 方法调用流程
 
-1. Route API 收到请求 → 实例化 `D1FavoritesRepository(env.DB)`；
+1. Route API 收到请求 → 解析会话 userId → 实例化 `D1FavoritesRepository(env.TEST_DB, userId)`；
 2. 三个方法内部均先调 `ensureTable()`（幂等建表）；
 3. `listItems`：SELECT（列别名对应实体字段）→ `bind(userId)` → 返回数组（`created_at DESC`）；
 4. `addItem`：INSERT（`created_at = Date.now()` 服务端注入）→ 原样返回 `item`；
@@ -51,12 +51,12 @@
 ### `D1FavoritesRepository`
 
 - 类型：类（`implements FavoritesRepository`）
-- 传入：构造器 `constructor(private readonly db: D1Database)` —— 注入 D1 数据库 binding。
-- 传出：三个接口方法 + 一个私有方法：
+- 传入：构造器 `constructor(private readonly db: D1Database, private readonly userId: string)` —— 注入 D1 数据库 binding 与**会话解析出的当前用户 ID**（由 Route API 传入，不信任前端参数）。
+- 传出：三个接口方法（userId 全部来自构造器注入，方法本身不再接收 userId 参数）+ 一个私有方法：
   - `ensureTable(): Promise<void>`（私有）—— 执行 `CREATE TABLE IF NOT EXISTS favorite_items (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, place_id TEXT NOT NULL, name TEXT NOT NULL, thumbnail_url TEXT NOT NULL DEFAULT '', experience_type TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL)`；幂等，首次访问时建表。
-  - `listItems(userId: string): Promise<FavoriteItemEntity[]>` —— 先 `ensureTable()`，再 `SELECT id, place_id AS placeId, name, thumbnail_url AS thumbnailUrl, experience_type AS experienceType FROM favorite_items WHERE user_id = ? ORDER BY created_at DESC`（`.bind(userId)`）；结果直接映射为 `FavoriteItemEntity[]`（列别名与实体字段一一对应）。
-  - `addItem(userId: string, item: FavoriteItemEntity): Promise<FavoriteItemEntity>` —— 先 `ensureTable()`，执行 `INSERT INTO favorite_items (id, user_id, place_id, name, thumbnail_url, experience_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`，`bind(item.id, userId, item.placeId, item.name, item.thumbnailUrl, item.experienceType, Date.now())`；成功后原样返回 `item`。
-  - `removeItem(userId: string, id: string): Promise<void>` —— 先 `ensureTable()`，执行 `DELETE FROM favorite_items WHERE id = ? AND user_id = ?`（`bind(id, userId)`）；无返回体。`id` 与 `user_id` 双重限定防止越权删除他人收藏。
+  - `listItems(): Promise<FavoriteItemEntity[]>` —— 先 `ensureTable()`，再 `SELECT id, place_id AS placeId, name, thumbnail_url AS thumbnailUrl, experience_type AS experienceType FROM favorite_items WHERE user_id = ? ORDER BY created_at DESC`（`.bind(this.userId)`）；结果直接映射为 `FavoriteItemEntity[]`（列别名与实体字段一一对应）。
+  - `addItem(item: FavoriteItemEntity): Promise<FavoriteItemEntity>` —— 先 `ensureTable()`，执行 `INSERT INTO favorite_items (id, user_id, place_id, name, thumbnail_url, experience_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`，`bind(item.id, this.userId, item.placeId, item.name, item.thumbnailUrl, item.experienceType, Date.now())`；成功后原样返回 `item`。
+  - `removeItem(id: string): Promise<void>` —— 先 `ensureTable()`，执行 `DELETE FROM favorite_items WHERE id = ? AND user_id = ?`（`bind(id, this.userId)`）；无返回体。`id` 与 `user_id` 双重限定防止越权删除他人收藏。
 - 用处：服务端收藏数据的唯一持久化入口。`addItem` 使用普通 `INSERT`（非 upsert）：同一 `id` 重复收藏会因主键冲突报错，由 BL 层负责去重/幂等；`thumbnail_url`、`experience_type` 有默认空串兜底。
 
 ## 边界情况与错误处理
@@ -72,7 +72,7 @@
 - **无事务/批量**：三个方法均为单条 SQL，简单直接；收藏操作频率低、单条写入，无需批量优化。
 - **创建时间不可由客户端指定**：`created_at` 恒为服务端 `Date.now()`，保证排序可信且防客户端伪造。
 - **删除不检查影响行数**：`removeItem` 不校验 `meta.changes`，即使目标条目不存在也静默成功（幂等删除），符合「删除不存在条目不算错误」的语义。
-- **与 Remote 实现的对应**：本类由 Route API 直接持有，`RemoteFavoritesRepository` 通过 HTTP 契约与其解耦；本类无单例导出，与 Remote 端保持一致（Remote 端同样无单例）。
+- **与 Remote 实现的对应**：本类由 Route API 直接持有（以 `env.TEST_DB` + 会话 userId 构造），`RemoteFavoritesRepository` 通过 HTTP 契约与其解耦；Remote 端导出 `remoteFavoritesRepository` 单例（BL 层共享），本类为服务端实现、无单例导出，由 Route API 每次请求按会话实例化。
 
 ## 关联文档
 

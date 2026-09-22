@@ -9,26 +9,34 @@
 
 `official-quality-ratings/route.ts` 是模块 03 官方品质评级的 Route API，职责单一：HTTP 传输层——解析/校验请求参数、获取 Cloudflare D1 binding（`TEST_DB`）、实例化 `D1QualityRatingRepository` 并委托其方法、序列化响应。**本文件不含任何 SQL / 数据库逻辑**（数据库操作全部位于 Data Access 层 `D1QualityRatingRepository` 内）。
 
-数据流（读取方向）：`officalQualityRate` 组件 → `hooks.useSearchAndFilter` 的 `pois` → BL 层 `discoveryService.getQualityRatedPois` → 本 Route API → `D1QualityRatingRepository` → Cloudflare D1（`TEST_DB`）。注意 BL 层 `getQualityRatedPois` **不接受筛选条件**——无论主页筛选状态如何始终返回全部官方评级数据（Recommended Places 与搜索栏完全解绑）。写入方向：`officalQualityRating_hardcode.json` 同步时经 `POST` 批量 upsert，`DELETE` 清空数据。
+数据流（读取方向）：`officalQualityRate` 组件 → `hooks.useSearchAndFilter` 的 `pois` → BL 层 `discoveryService.getQualityRatedPois` → 本 Route API → `D1QualityRatingRepository` → Cloudflare D1（`TEST_DB`）。注意 BL 层 `getQualityRatedPois` **不接受筛选条件**——无论主页筛选状态如何始终返回全部官方评级数据（Recommended Places 与搜索栏完全解绑）。
 
-端点提供三个操作：
-- `GET /api/discovery/official-quality-ratings` —— 返回全部官方评级条目（`OfficialQualityRatingEntity[]`）；
-- `POST /api/discovery/official-quality-ratings`（body `{ items }`）—— 批量 upsert（非空数组校验），供 hardcode 数据同步；
-- `DELETE /api/discovery/official-quality-ratings` —— 清空全部官方评级数据，返回 `{ cleared }`。
+写入方向（两条链路）：
+- **服务端爬虫同步（主链路）**：每日 Cloudflare Cron / DEV 按钮经 **子端点 `POST /…/official-quality-ratings/sync`** 触发（本文件 `sync/route.ts`），由服务端完成"MOTAC 官网爬取 → upsert → 跳过率 ≤25% 时镜像清理"（见 `server/QualityRatingWebSyncService` / `api_layer/MotacMyTqaApi`）；
+- **地理编码补全**：DEV 全量按钮阶段②以 `POST`（body `{ items }`）批量 upsert 已补坐标的条目；`DELETE` 清空数据。
+（原 hardcode JSON 同步链路已移除，数据源切换为官网爬虫。）
 
-`POST` 校验 body 中 `items` 必须为非空数组，否则返回 400；响应携带同步条数 `{ synced }`（201 Created）。
+端点提供三个操作（基础 CRUD）：
+- `GET /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 返回全部官方评级条目（`OfficialQualityRatingEntity[]`）；
+- `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`（body `{ items }`）—— 批量 upsert（非空数组校验），供客户端地理编码补全回写；
+- `DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings` —— 清空全部官方评级数据，返回 `{ cleared }`。
+
+另有子端点（`sync/route.ts`）：
+- `POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings/sync`（body 可选 `{ limit }`）—— 触发服务端官网爬虫同步，返回 `{ total, synced, failed, pruned, skipped }`；`limit` 未传 = 全量（跳过率 ≤25% 时清理旧行），`1 ≤ limit ≤ 200` = 快速测试（仅导入前 N 条、永不清库）；并发 409 / 失败 502。
+
+`POST`（基础）校验 body 中 `items` 必须为非空数组，否则返回 400；响应携带同步条数 `{ synced }`（201 Created）。
 
 ## 请求 / 响应示例
 
 ```
-GET  /api/discovery/official-quality-ratings
+GET  /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings
      → 200 [ { "id": "json-1", "name": "Batu Caves", "qualityBadge": "gold", "formatted": "...", "phone": "...", "ratingDuration": "2024-2026", "lat": 3.237, "lon": 101.684 } ]
 
-POST /api/discovery/official-quality-ratings
+POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings
      body: { "items": [ { "id": "json-1", "name": "Batu Caves", ... } ] }
      → 201 { "synced": 1 }
 
-DELETE /api/discovery/official-quality-ratings
+DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings
      → 200 { "cleared": true }
 ```
 
@@ -36,7 +44,7 @@ DELETE /api/discovery/official-quality-ratings
 
 | 状态码 | 场景 | 响应体 |
 | --- | --- | --- |
-| 400 | `items` 缺失 / 非数组 / 空数组 | `{ "error": "items (non-empty array) is required" }` |
+| 400 | `items` 缺失 / 非数组 / 空数组 | `{ "message": "items (non-empty array) is required" }` |
 | 400 | body 非合法 JSON | 同 items 校验错误（按空 body 处理） |
 | 500（默认） | D1 绑定缺失 / 数据库异常 | 框架默认错误页（未捕获异常） |
 
@@ -46,6 +54,7 @@ DELETE /api/discovery/official-quality-ratings
 - **binding 获取**：`getCloudflareContext({ async: true })` 在 Cloudflare Workers 环境异步解析 `TEST_DB` binding；
 - **批量 upsert 语义**：`POST` 一次写入整批（`officalQualityRating_hardcode.json` 同步入口），空数组拒绝；
 - **只读消费**：`GET` 是主页 Recommended Places（`getQualityRatedPois`）的唯一数据入口；BL 层不接收筛选条件，始终全量返回（与搜索栏筛选解绑的设计基础）。
+- **DEV 写入口无会话授权**：POST（批量 upsert）/ DELETE（清空）为 DEV 工具同步/清空入口，不再要求管理员会话（原 requireAdmin 限制已移除）；`GET` 保持匿名公开读。仅保留 `items` 非空校验。
 
 ## 依赖
 
@@ -65,21 +74,21 @@ DELETE /api/discovery/official-quality-ratings
 
 ### `GET`
 - 类型：函数（Route API handler）
-- HTTP 方法：`GET /api/discovery/official-quality-ratings`
+- HTTP 方法：`GET /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`
 - 请求参数：无
 - 响应体：`Response.json(items)` —— 全部官方评级条目（`OfficialQualityRatingEntity[]`，空数组表示暂无数据）。
 - 用处：`repo.listAll()` 委托 Data Access 层读取全表；主页 Recommended Places 数据源（BL 层 `getQualityRatedPois` 不接收筛选条件，始终返回全部官方评级数据；组件侧空列表时显示「No officially rated places available yet.」）。
 
 ### `POST`
 - 类型：函数（Route API handler）
-- HTTP 方法：`POST /api/discovery/official-quality-ratings`
-- 请求参数：body `{ items: OfficialQualityRatingEntity[] }`；`request.json()` 解析失败（`.catch(() => null)`）视为空 body。校验：`items` 非数组或空数组返回 400 `{ error: "items (non-empty array) is required" }`。
+- HTTP 方法：`POST /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`
+- 请求参数：body `{ items: OfficialQualityRatingEntity[] }`；`request.json()` 解析失败（`.catch(() => null)`）视为空 body。校验：`items` 非数组或空数组返回 400 `{ message: "items (non-empty array) is required" }`。
 - 响应体：`Response.json({ synced }, { status: 201 })` —— 同步成功条数。
 - 用处：`repo.upsertAll(items)` 委托 Data Access 层批量 upsert 到 D1（`officalQualityRating_hardcode.json` 同步入口，幂等更新）。
 
 ### `DELETE`
 - 类型：函数（Route API handler）
-- HTTP 方法：`DELETE /api/discovery/official-quality-ratings`
+- HTTP 方法：`DELETE /03_Destination_Discovery_&_Inspiration/api/official-quality-ratings`
 - 请求参数：无
 - 响应体：`Response.json({ cleared })` —— 清除操作结果。
 - 用处：`repo.clearAll()` 委托 Data Access 层清空全部官方评级数据。

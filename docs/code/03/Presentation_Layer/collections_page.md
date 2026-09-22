@@ -55,6 +55,7 @@ CollectionDetailView（本页核心组件）
 | --- | --- |
 | `../../hooks`（`useCollectionDetail`、`useNearbyInspirations`） | 合辑详情与附近灵感的 BL 数据封装 |
 | `../../routes`（`MODULE_03_HOME`、`searchPagePath`、`WIKIVOYAGE_HOME`） | 路由与 Wikivoyage 外链常量 |
+| `../../safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，所有 `<img src>` 与外部 `<a href>` 渲染前过滤，防存储型 XSS） |
 | 外部库：`react`、`next/navigation`（`useParams`）、`next/link`、`lucide-react`（`Compass`/`ExternalLink`/`ImageOff`/`Search`/`Star`） | UI 与路由能力 |
 
 ## 导出与函数明细
@@ -85,8 +86,8 @@ CollectionDetailView（本页核心组件）
   - `itemsWithCoords = useMemo(() => detail?.items.filter(有 lat/lon) ?? [], [detail])`；`selectedItem = itemsWithCoords.find(id === selectedItemId) ?? itemsWithCoords[0]`（默认首个有坐标成员）。
   - `useNearbyInspirations(selectedItem?.lat, selectedItem?.lon)` 得 `{ nearby, isLoading: nearbyLoading }`（Wikivoyage geosearch，马来西亚限定）。
   - Hero：`detail.imageUrl` 有则渲染封面大图，无则渐变色块占位；叠加 `from-gray-800/70 via-gray-800/30 to-transparent` 渐变遮罩保证文字可读；展示标题、副标题（有则）、成员数徽章（`memberCount` 带单复数）、`starCount > 0` 时展示 Wikivoyage Star 徽章（`Star` 实心图标）。
-  - 成员卡（`detail.items.map`）：图片区（`item.imageUrl` 或 `ImageOff` 图标）、`item.isStar` 时左上角 Wikivoyage Star 徽章（社区质量评级，注释明确区别于官方品质徽章）、有坐标成员右下角 Nearby 切换按钮（选中态 `bg-primary-500 text-white`）；正文标题、`line-clamp-3` 导语；行动按钮区——「Search in TravelSync」（`Link` 到 `searchPagePath(item.title)`，`Search` 图标）与「Read guide」（`<a href={item.wikivoyageUrl}>`，`ExternalLink` 图标）。
-  - 附近灵感区：仅 `selectedItem` 存在时渲染；标题「Nearby {selectedItem.title}」；`nearbyLoading` 显示加载文案、空列表显示「No nearby destinations found.」；`snap-x` 横滑卡片（`min-w-[220px]`）展示缩略图/`ImageOff`、右上角距离标签（`formatDistance(place.distanceMeters)`）、标题（`truncate`）、`isStar` 时 Star 徽章；整卡外链 `place.wikivoyageUrl`。
+  - 成员卡（`detail.items.map`）：图片区（`safeHttpUrl(item.imageUrl)` 或 `ImageOff` 图标）、`item.isStar` 时左上角 Wikivoyage Star 徽章（社区质量评级，注释明确区别于官方品质徽章）、有坐标成员右下角 Nearby 切换按钮（选中态 `bg-primary-500 text-white`）；正文标题、`line-clamp-3` 导语；行动按钮区——「Search in TravelSync」（`Link` 到 `searchPagePath(item.title)`，`Search` 图标）与「Read guide」（`<a href={safeHttpUrl(item.wikivoyageUrl)}>`，`ExternalLink` 图标）。
+  - 附近灵感区：仅 `selectedItem` 存在时渲染；标题「Nearby {selectedItem.title}」；`nearbyLoading` 显示加载文案、空列表显示「No nearby destinations found.」；`snap-x` 横滑卡片（`min-w-[220px]`）展示缩略图（`safeHttpUrl(place.imageUrl)`）/`ImageOff`、右上角距离标签（`formatDistance(place.distanceMeters)`）、标题（`truncate`）、`isStar` 时 Star 徽章；整卡外链 `safeHttpUrl(place.wikivoyageUrl)`。
 
 ### `CollectionDetailPage`（默认导出）
 - 类型：React 组件（页面入口）

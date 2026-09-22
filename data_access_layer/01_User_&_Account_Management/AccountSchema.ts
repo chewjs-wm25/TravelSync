@@ -5,7 +5,14 @@ const ACCOUNT_SCHEMA = [
     email TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
-    phone TEXT,
+    phone TEXT CHECK (
+      phone IS NULL OR (
+        length(phone) BETWEEN 9 AND 16
+        AND substr(phone, 1, 1) = '+'
+        AND length(substr(phone, 2)) BETWEEN 8 AND 15
+        AND substr(phone, 2) NOT GLOB '*[^0-9]*'
+      )
+    ),
     ic_hash TEXT,
     profile_picture TEXT,
     is_verified INTEGER NOT NULL DEFAULT 0,
@@ -15,7 +22,8 @@ const ACCOUNT_SCHEMA = [
     lock_until TEXT,
     last_login TEXT,
     created_at TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user'
+    role TEXT NOT NULL DEFAULT 'user',
+    has_password INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE TABLE IF NOT EXISTS user_sessions (
     id TEXT PRIMARY KEY,
@@ -48,6 +56,36 @@ const ACCOUNT_SCHEMA = [
     created_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
   )`,
+  `CREATE TRIGGER IF NOT EXISTS validate_users_phone_insert
+   BEFORE INSERT ON users
+   WHEN NEW.phone IS NOT NULL AND NOT (
+     length(NEW.phone) BETWEEN 9 AND 16
+     AND substr(NEW.phone, 1, 1) = '+'
+     AND length(substr(NEW.phone, 2)) BETWEEN 8 AND 15
+     AND substr(NEW.phone, 2) NOT GLOB '*[^0-9]*'
+   )
+   BEGIN SELECT RAISE(ABORT, 'Invalid international phone number'); END`,
+  `CREATE TRIGGER IF NOT EXISTS validate_users_phone_update
+   BEFORE UPDATE OF phone ON users
+   WHEN NEW.phone IS NOT NULL AND NOT (
+     length(NEW.phone) BETWEEN 9 AND 16
+     AND substr(NEW.phone, 1, 1) = '+'
+     AND length(substr(NEW.phone, 2)) BETWEEN 8 AND 15
+     AND substr(NEW.phone, 2) NOT GLOB '*[^0-9]*'
+   )
+   BEGIN SELECT RAISE(ABORT, 'Invalid international phone number'); END`,
+];
+
+// Demo123! 的 PBKDF2 预计算哈希（salt: travelsyncsalt1234567890abcdef12，100000 次迭代，SHA-256）。
+// 迭代次数必须与 AuthService 的 PBKDF2_ITERATIONS 保持一致，且不能超过
+// Cloudflare Workers（workerd）crypto.subtle 的 100000 上限。
+const DEFAULT_PASSWORD_HASH = "travelsyncsalt1234567890abcdef12.VMv0RTD0pkj2oNF6wFBjQmyTHjsSiYKc_lQY9QfA2O4"; // Demo123!
+
+const SEED_USERS = [
+  { id: "dev-user-001", username: "flandre", email: "flandre@travelsync.com", fullName: "Flandre Scarlet", role: "admin", picture: "/images.jpg" },
+  { id: "m_marcus", username: "marcus", email: "marcus@travelsync.com", fullName: "Marcus Vance", role: "user", picture: null },
+  { id: "m_elena", username: "elena", email: "elena@travelsync.com", fullName: "Elena Rostova", role: "user", picture: null },
+  { id: "m_jordan", username: "jordan", email: "jordan@travelsync.com", fullName: "Jordan Lee", role: "user", picture: null },
 ];
 
 let initialized: Promise<void> | null = null;
@@ -57,6 +95,31 @@ export function ensureAccountSchema(db: D1Database): Promise<void> {
     try { await db.prepare("ALTER TABLE users ADD COLUMN username TEXT").run(); } catch { /* Existing databases already have the column. */ }
     try { await db.prepare("ALTER TABLE users ADD COLUMN ic_hash TEXT").run(); } catch { /* Existing databases already have the column. */ }
     try { await db.prepare("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'").run(); } catch { /* Existing databases already have the column. */ }
+    try { await db.prepare("ALTER TABLE users ADD COLUMN has_password INTEGER NOT NULL DEFAULT 1").run(); } catch { /* Existing databases already have the column. */ }
+
+    // Seed or update default test accounts
+    const now = new Date().toISOString();
+    for (const u of SEED_USERS) {
+      try {
+        await db.prepare(
+          `INSERT INTO users (id, username, email, password_hash, full_name, profile_picture, is_verified, is_active, failed_attempts, is_locked, lock_until, created_at, role)
+           VALUES (?, ?, ?, ?, ?, ?, 1, 1, 0, 0, NULL, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             username = excluded.username,
+             email = excluded.email,
+             password_hash = excluded.password_hash,
+             full_name = excluded.full_name,
+             is_verified = 1,
+             is_active = 1,
+             failed_attempts = 0,
+             is_locked = 0,
+             lock_until = NULL,
+             role = excluded.role`
+        ).bind(u.id, u.username, u.email, DEFAULT_PASSWORD_HASH, u.fullName, u.picture, now, u.role).run();
+      } catch {
+        /* Ignore error */
+      }
+    }
   });
   return initialized.catch((error) => {
     initialized = null;

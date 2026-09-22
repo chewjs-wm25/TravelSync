@@ -39,7 +39,7 @@ export default function PlaceImageAttribution({
                 e.stopPropagation();
                 window.open(licenseUrl, "_blank", "noopener,noreferrer");
               }}
-              className="underline decoration-white/50 underline-offset-1 hover:text-white"
+              className="underline decoration-white/50 underline-offset-1 transition-colors duration-150 hover:text-white hover:decoration-white active:opacity-70"
             >
               {licenseName}
             </a>

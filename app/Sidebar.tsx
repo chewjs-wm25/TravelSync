@@ -6,23 +6,29 @@ import {
   MapPin,
   Users,
   Settings,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+import { useAuthStore } from "@/app/Admin_Panel/authUser";
+
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 const MENU_ITEMS = [
-  {
-    name: "Trip Planning",
-    icon: Map,
-    href: "/02_Trip_Planning_&_Itinerary_Management",
-  },
   {
     name: "Discovery & Idea",
     icon: Lightbulb,
     href: "/03_Destination_Discovery_&_Inspiration",
+  },
+  {
+    name: "Trip Planning",
+    icon: Map,
+    href: "/02_Trip_Planning_&_Itinerary_Management",
   },
   {
     name: "Logistics & Maps",
@@ -35,27 +41,38 @@ const MENU_ITEMS = [
     href: "/05_Collaboration_&_Shared_Planning",
   },
   {
-    name: "[Abandoned] Account Settings",
-    icon: Settings,
-    href: "/DEV-ACCOUNT-STATE",
-  },
-  {
-    name: "REAL Account Settings",
+    name: "Account",
     icon: Settings,
     href: "/01_User_&_Account_Management",
   },
 ];
 
+/** Admin Panel 入口：仅管理员可见（useAuthStore.user.role === "admin" 时并入菜单） */
+const ADMIN_ITEM = {
+  name: "Admin Panel",
+  icon: ShieldCheck,
+  href: "/Admin_Panel",
+};
+
 export default function Sidebar() {
   const { isOpen, toggleSidebar } = useSidebarStore();
+  const { isLoggedIn, user } = useAuthStore();
   const pathname = usePathname();
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted)
-    return (
-      <div className="hidden h-full w-24 border-r-2 border-gray-200 bg-white md:block"></div>
-    );
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    getClientSnapshot,
+    getServerSnapshot
+  );
+
+  // When not mounted yet or user is not logged in, do not render sidebar
+  if (!mounted || !isLoggedIn) {
+    return null;
+  }
+
+  // 管理员额外显示 Admin Panel 入口（role 由服务端会话投影提供）
+  const menuItems =
+    user?.role === "admin" ? [...MENU_ITEMS, ADMIN_ITEM] : MENU_ITEMS;
 
   return (
     <aside
@@ -73,7 +90,7 @@ export default function Sidebar() {
 
       {/* 菜单列表容器 */}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-6">
-        {MENU_ITEMS.map((item) => {
+        {menuItems.map((item) => {
           const isActive =
             item.href === "/"
               ? pathname === "/"
@@ -84,6 +101,19 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={(e) => {
+                if (isActive) {
+                  e.preventDefault();
+                  return;
+                }
+                const target = item.href;
+                const current = window.location.pathname;
+                setTimeout(() => {
+                  if (window.location.pathname === current && !window.location.pathname.startsWith(target)) {
+                    window.location.href = target;
+                  }
+                }, 150);
+              }}
               className={`group flex items-center gap-4 rounded-2xl transition-all duration-200 ease-out active:scale-[0.98] ${
                 isOpen ? "px-5 py-4" : "justify-center p-4"
               } ${

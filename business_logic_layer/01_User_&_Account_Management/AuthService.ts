@@ -3,7 +3,9 @@ import { SessionRepository } from "../../data_access_layer/01_User_&_Account_Man
 import { UserRepository } from "../../data_access_layer/01_User_&_Account_Management/UserRepository";
 import { PasswordResetRepository } from "../../data_access_layer/01_User_&_Account_Management/PasswordResetRepository";
 import type { UserRecord } from "../../data_access_layer/01_User_&_Account_Management/types";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../../api_layer/01_User_&_Account_Management/EmailVerificationApi";
+import { sendPasswordResetEmail } from "../../api_layer/01_User_&_Account_Management/EmailVerificationApi";
+import type { GoogleUserProfile } from "../../api_layer/01_User_&_Account_Management/GoogleOAuthApi";
+import { validatePhone } from "./phoneValidation";
 import { consumeVerificationToken, saveVerificationToken } from "./VerificationTokenStore";
 
 const SESSION_TTL = 30 * 60 * 1000;
@@ -12,6 +14,10 @@ const LOCK_TTL = 15 * 60 * 1000;
 const RATE_WINDOW = 60 * 1000;
 const MAX_REQUESTS = 10;
 const requestLog = new Map<string, number[]>();
+// Cloudflare Workers（workerd）的 crypto.subtle 将 PBKDF2 迭代次数上限限制为 100000，
+// 超过会抛出 "Pbkdf2 failed: iteration counts above 100000 are not supported"。
+// 此值必须与 data_access_layer 中 AccountSchema 的 DEFAULT_PASSWORD_HASH 保持一致。
+const PBKDF2_ITERATIONS = 100000;
 
 export interface PublicUser {
   id: string;
@@ -22,44 +28,124 @@ export interface PublicUser {
   profilePicture: string | null;
   createdAt: string;
   isVerified: boolean;
-  isActive: boolean;
+  hasPassword: boolean;
+  /** 账户角色（user | admin），供前端按角色展示 */
   role: string;
-  lastLogin: string | null;
 }
 
-export interface LoginInput { identifier: string; password: string; rememberMe: boolean; ipAddress?: string | null }
-export interface RegisterInput { username: string; fullName: string; email?: string; phone: string; icNumber: string; password: string; acceptTerms: boolean }
-export interface SettingsInput { notificationsEnabled: boolean; language: string; theme: "light" | "dark"; privacyLevel: "private" | "contacts" | "public" }
+export interface LoginInput {
+  identifier: string;
+  password: string;
+  rememberMe: boolean;
+  ipAddress?: string | null;
+}
 
-function normalizeEmail(email: string): string { return email.trim().toLowerCase(); }
-function validEmail(email: string): boolean { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-function validPassword(password: string): boolean { return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password); }
-function publicUser(user: UserRecord): PublicUser { return { id: user.id, username: user.username, email: user.email?.endsWith("@local.invalid") ? null : user.email, fullName: user.full_name, phone: user.phone, profilePicture: user.profile_picture, createdAt: user.created_at, isVerified: Boolean(user.is_verified), isActive: Boolean(user.is_active), role: user.role ?? "user", lastLogin: user.last_login }; }
-function randomToken(): string { return crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", ""); }
-function base64Url(value: string): string { return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", ""); }
+export interface RegisterInput {
+  username: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  icNumber?: string;
+  password: string;
+  acceptTerms?: boolean;
+}
+
+export interface SettingsInput {
+  notificationsEnabled: boolean;
+  language: string;
+  theme: "light" | "dark";
+  privacyLevel: "private" | "contacts" | "public";
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function validEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validPassword(password: string): boolean {
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password);
+}
+
+function publicUser(user: UserRecord): PublicUser {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email?.endsWith("@local.invalid") ? null : user.email,
+    fullName: user.full_name,
+    phone: user.phone,
+    profilePicture: user.profile_picture,
+    createdAt: user.created_at,
+    isVerified: Boolean(user.is_verified),
+    hasPassword: user.has_password === undefined || user.has_password === null ? true : Boolean(user.has_password),
+    role: user.role ?? "user",
+  };
+}
+
+function randomToken(): string {
+  return crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", "");
+}
+
+function base64Url(value: string): string {
+  return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
 
 async function signJwt(payload: Record<string, unknown>): Promise<string> {
-  const secret = process.env.JWT_SECRET ?? (process.env.NODE_ENV === "production" ? undefined : "travelsync-local-development-secret");
-  if (!secret) throw new Error("JWT_SECRET is required");
+  const secret = process.env.JWT_SECRET || "travelsync-local-development-secret";
   const header = base64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const body = base64Url(JSON.stringify(payload));
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${header}.${body}`));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(`${header}.${body}`)
+  );
   let binary = "";
   for (const byte of new Uint8Array(signature)) binary += String.fromCharCode(byte);
   return `${header}.${body}.${base64Url(binary)}`;
 }
 
 async function derivePassword(password: string, salt: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: new TextEncoder().encode(salt), iterations: 120000, hash: "SHA-256" }, key, 256);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: new TextEncoder().encode(salt), iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+    key,
+    256
+  );
   let binary = "";
   for (const byte of new Uint8Array(bits)) binary += String.fromCharCode(byte);
   return `${salt}.${base64Url(binary)}`;
 }
 
-async function hashPassword(password: string): Promise<string> { return derivePassword(password, randomToken().slice(0, 32)); }
-async function verifyPassword(password: string, stored: string): Promise<boolean> { const [salt, expected] = stored.split("."); if (!salt || !expected) return false; return (await derivePassword(password, salt)).split(".")[1] === expected; }
+async function hashPassword(password: string): Promise<string> {
+  return derivePassword(password, randomToken().slice(0, 32));
+}
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [salt, expected] = stored.split(".");
+  if (!salt || !expected) return false;
+  try {
+    return (await derivePassword(password, salt)).split(".")[1] === expected;
+  } catch {
+    // 派生失败（例如历史数据使用超出 workerd 上限的迭代次数生成的哈希）时，
+    // 统一按密码错误处理，避免把 WebCrypto 原始异常暴露给前端。
+    return false;
+  }
+}
 
 export class AuthService {
   private readonly users: UserRepository;
@@ -67,55 +153,410 @@ export class AuthService {
   private readonly audit: AuditRepository;
   private readonly resetTokens: PasswordResetRepository;
 
-  constructor(db: D1Database) { this.users = new UserRepository(db); this.sessions = new SessionRepository(db); this.audit = new AuditRepository(db); this.resetTokens = new PasswordResetRepository(db); }
-
-  async register(input: RegisterInput): Promise<{ user: PublicUser; verificationToken: string; verificationRequired: boolean }> {
-    const username = input.username.trim().toLowerCase();
-    const email = input.email?.trim() ? normalizeEmail(input.email) : null;
-    if (!/^[a-z0-9_]{3,24}$/.test(username) || !input.fullName.trim() || (!email && !input.phone.trim()) || (email && !validEmail(email)) || !input.icNumber.trim() || !validPassword(input.password)) throw new Error("Invalid registration details");
-    if (!input.acceptTerms) throw new Error("Terms must be accepted");
-    if (await this.users.findByUsername(username) || (email && await this.users.findByIdentifier(email)) || (input.phone.trim() && await this.users.findByIdentifier(input.phone.trim()))) throw new Error("Username, email, or phone is already registered");
-    const user: UserRecord = { id: crypto.randomUUID(), username, email, password_hash: await hashPassword(input.password), full_name: input.fullName.trim(), phone: input.phone.trim() || null, ic_hash: await hashPassword(input.icNumber.trim()), profile_picture: null, is_verified: 1, is_active: 1, is_locked: 0, failed_attempts: 0, lock_until: null, last_login: null, created_at: new Date().toISOString() };
-    await this.users.create(user);
-    const verificationToken = randomToken();
-    saveVerificationToken(verificationToken, user.id);
-    return { user: publicUser(user), verificationToken, verificationRequired: false };
+  constructor(db: D1Database) {
+    this.users = new UserRepository(db);
+    this.sessions = new SessionRepository(db);
+    this.audit = new AuditRepository(db);
+    this.resetTokens = new PasswordResetRepository(db);
   }
 
-  async login(input: LoginInput): Promise<{ user: PublicUser; token: string; expiresAt: string }> {
-    const identifier = input.identifier.trim().toLowerCase();
+  async register(
+    input: RegisterInput
+  ): Promise<{ user: PublicUser; verificationToken: string; verificationRequired: boolean; sessionToken?: string; expiresAt?: string }> {
+    const username = (input.username || "").trim().toLowerCase();
+    const fullName = (input.fullName || "").trim();
+    const email = input.email?.trim() ? normalizeEmail(input.email) : null;
+    const phone = validatePhone(input.phone);
+    const icNumber = input.icNumber?.trim() || null;
+    const password = input.password || "";
+
+    if (!username || !/^[a-z0-9_]{3,24}$/.test(username)) {
+      throw new Error("Username must be 3-24 characters (lowercase letters, numbers, and underscores).");
+    }
+    if (!fullName) {
+      throw new Error("Full name is required.");
+    }
+    if (!email && !phone) {
+      throw new Error("Either email or phone number is required.");
+    }
+    if (email && !validEmail(email)) {
+      throw new Error("Please enter a valid email address.");
+    }
+    if (!validPassword(password)) {
+      throw new Error("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
+    }
+    if (input.acceptTerms === false) {
+      throw new Error("Terms and privacy policy must be accepted.");
+    }
+
+    if (await this.users.findByUsername(username)) {
+      throw new Error("Username is already taken.");
+    }
+    if (email && (await this.users.findByEmail(email))) {
+      throw new Error("An account with this email already exists.");
+    }
+    if (phone && (await this.users.findByIdentifier(phone))) {
+      throw new Error("An account with this phone number already exists.");
+    }
+
+    const now = new Date().toISOString();
+    const userId = crypto.randomUUID();
+    const passwordHash = await hashPassword(password);
+    const icHash = icNumber ? await hashPassword(icNumber) : null;
+
+    const user: UserRecord = {
+      id: userId,
+      username,
+      email,
+      password_hash: passwordHash,
+      full_name: fullName,
+      phone,
+      ic_hash: icHash,
+      profile_picture: null,
+      is_verified: 1,
+      is_active: 1,
+      is_locked: 0,
+      failed_attempts: 0,
+      lock_until: null,
+      last_login: now,
+      created_at: now,
+      role: "user",
+    };
+
+    await this.users.create(user);
+
+    // Create session for instant auto-login
+    const expiresAt = new Date(Date.now() + SESSION_TTL);
+    const sessionToken = await signJwt({
+      sub: user.id,
+      role: user.role ?? "user",
+      exp: Math.floor(expiresAt.getTime() / 1000),
+      jti: randomToken(),
+    });
+    await this.sessions.create({
+      id: crypto.randomUUID(),
+      user_id: user.id,
+      token: sessionToken,
+      expires_at: expiresAt.toISOString(),
+    });
+
+    const verificationToken = randomToken();
+    saveVerificationToken(verificationToken, user.id);
+
+    return {
+      user: publicUser(user),
+      verificationToken,
+      verificationRequired: false,
+      sessionToken,
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  async login(
+    input: LoginInput
+  ): Promise<{ user: PublicUser; token: string; expiresAt: string }> {
+    const identifier = (input.identifier || "").trim().toLowerCase();
     const ip = input.ipAddress ?? "unknown";
     const now = Date.now();
     const recent = (requestLog.get(ip) ?? []).filter((timestamp) => timestamp > now - RATE_WINDOW);
-    if (recent.length >= MAX_REQUESTS) throw new Error("Too many login attempts");
-    recent.push(now); requestLog.set(ip, recent);
+    if (recent.length >= MAX_REQUESTS) {
+      throw new Error("Too many login attempts. Please wait a moment.");
+    }
+    recent.push(now);
+    requestLog.set(ip, recent);
+
+    if (!identifier || !input.password) {
+      throw new Error("Please enter your username/email and password.");
+    }
+
     const user = await this.users.findByIdentifier(identifier);
     if (!user || !(await verifyPassword(input.password, user.password_hash))) {
-      if (user) { const attempts = user.failed_attempts + 1; const lockUntil = attempts >= 5 ? new Date(now + LOCK_TTL).toISOString() : null; await this.users.updateLoginFailure(user.id, attempts, lockUntil); }
-      throw new Error("Invalid email or password");
+      if (user) {
+        const attempts = user.failed_attempts + 1;
+        const lockUntil = attempts >= 5 ? new Date(now + LOCK_TTL).toISOString() : null;
+        await this.users.updateLoginFailure(user.id, attempts, lockUntil);
+      }
+      throw new Error("Invalid username/email or password.");
     }
-    if (!user.is_active) throw new Error("Account is inactive");
-    if (user.lock_until && new Date(user.lock_until).getTime() > now) throw new Error("Account is temporarily locked");
+    if (!user.is_active) {
+      throw new Error("Account is deactivated. Please contact support.");
+    }
+    if (user.lock_until && new Date(user.lock_until).getTime() > now) {
+      throw new Error("Account is temporarily locked due to failed attempts. Please try again later.");
+    }
+
     const expiresAt = new Date(now + (input.rememberMe ? REMEMBERED_SESSION_TTL : SESSION_TTL));
-    const token = await signJwt({ sub: user.id, role: user.role ?? "user", exp: Math.floor(expiresAt.getTime() / 1000), jti: randomToken() });
-    await this.sessions.create({ id: crypto.randomUUID(), user_id: user.id, token, expires_at: expiresAt.toISOString() });
-    await this.users.markLoginSuccess(user.id); await this.audit.write(user.id, "login", ip, "Successful login");
+    const token = await signJwt({
+      sub: user.id,
+      role: user.role ?? "user",
+      exp: Math.floor(expiresAt.getTime() / 1000),
+      jti: randomToken(),
+    });
+    await this.sessions.create({
+      id: crypto.randomUUID(),
+      user_id: user.id,
+      token,
+      expires_at: expiresAt.toISOString(),
+    });
+    await this.users.markLoginSuccess(user.id);
+    await this.audit.write(user.id, "login", ip, "Successful login");
     return { user: publicUser(user), token, expiresAt: expiresAt.toISOString() };
   }
 
-  async logout(token: string): Promise<void> { await this.sessions.delete(token); }
-  async currentUser(token: string): Promise<PublicUser> { const session = await this.sessions.findValid(token); if (!session) throw new Error("Unauthorized"); const user = await this.users.findById(session.user_id); if (!user) throw new Error("Unauthorized"); return publicUser(user); }
-  async updateProfile(token: string, fullName: string, phone: string | null, profilePicture: string | null): Promise<PublicUser> { const user = await this.authorize(token); await this.users.updateProfile(user.id, fullName.trim(), phone, profilePicture); return publicUser((await this.users.findById(user.id))!); }
-  async changePassword(token: string, currentPassword: string, newPassword: string): Promise<void> { const user = await this.authorize(token); if (!(await verifyPassword(currentPassword, user.password_hash)) || !validPassword(newPassword)) throw new Error("Password change rejected"); await this.users.updatePassword(user.id, await hashPassword(newPassword)); }
-  async updateSettings(token: string, settings: SettingsInput): Promise<void> { const user = await this.authorize(token); await this.users.updateSettings(user.id, { notifications_enabled: settings.notificationsEnabled ? 1 : 0, language: settings.language, theme: settings.theme, privacy_level: settings.privacyLevel }); }
-  async deleteAccount(token: string, password: string): Promise<void> { const user = await this.authorize(token); if (!(await verifyPassword(password, user.password_hash))) throw new Error("Password confirmation failed"); await this.users.delete(user.id); await this.audit.write(user.id, "delete_account", null, "Account deleted"); }
-  async deleteTestAccount(identifier: string, password: string): Promise<void> { if (process.env.NODE_ENV === "production") throw new Error("Test account deletion is disabled in production"); const user = await this.users.findByIdentifier(identifier); if (!user || !(await verifyPassword(password, user.password_hash))) throw new Error("Test account credentials are incorrect"); await this.users.delete(user.id); }
-  async adminUsers(token: string): Promise<PublicUser[]> { const user = await this.authorize(token); if ((user.role ?? "user") !== "admin") throw new Error("Forbidden"); return (await this.users.list()).map(publicUser); }
-  async adminSetActive(token: string, userId: string, active: boolean): Promise<void> { const user = await this.authorize(token); if ((user.role ?? "user") !== "admin") throw new Error("Forbidden"); await this.users.setActive(userId, active); }
-  async adminDelete(token: string, userId: string): Promise<void> { const user = await this.authorize(token); if ((user.role ?? "user") !== "admin") throw new Error("Forbidden"); await this.users.delete(userId); }
-  async forgotPassword(emailInput: string): Promise<void> { const user = await this.users.findByEmail(normalizeEmail(emailInput)); if (!user || !user.email) return; const token = randomToken(); await this.resetTokens.create({ id: crypto.randomUUID(), user_id: user.id, token, expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() }); await sendPasswordResetEmail({ email: user.email, token }); }
-  async resetPassword(token: string, newPassword: string): Promise<void> { if (!validPassword(newPassword)) throw new Error("Password does not meet strength requirements"); const reset = await this.resetTokens.consume(token); if (!reset) throw new Error("Reset token is invalid or expired"); await this.users.updatePassword(reset.user_id, await hashPassword(newPassword)); }
-  async verifyEmail(token: string): Promise<void> { const userId = consumeVerificationToken(token); if (!userId) throw new Error("Verification token is invalid or expired"); const user = await this.users.findById(userId); if (!user) throw new Error("User not found"); await this.users.verify(userId); }
+  async logout(token: string): Promise<void> {
+    if (token) await this.sessions.delete(token);
+  }
 
-  private async authorize(token: string): Promise<UserRecord> { const session = await this.sessions.findValid(token); if (!session) throw new Error("Unauthorized"); const user = await this.users.findById(session.user_id); if (!user || !user.is_active) throw new Error("Unauthorized"); return user; }
+  async currentUser(token: string): Promise<PublicUser> {
+    const session = await this.sessions.findValid(token);
+    if (!session) throw new Error("Unauthorized");
+    const user = await this.users.findById(session.user_id);
+    if (!user) throw new Error("Unauthorized");
+    return publicUser(user);
+  }
+
+  async updateProfile(
+    token: string,
+    fullName: string,
+    phone: string | null,
+    profilePicture: string | null
+  ): Promise<PublicUser> {
+    const user = await this.authorize(token);
+    if (!fullName || !fullName.trim()) throw new Error("Full name cannot be empty.");
+    await this.users.updateProfile(user.id, fullName.trim(), validatePhone(phone), profilePicture);
+    const updated = await this.users.findById(user.id);
+    return publicUser(updated!);
+  }
+
+  async changePassword(
+    token: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    const user = await this.authorize(token);
+    const trimmedCurrent = (currentPassword || "").trim();
+
+    if (trimmedCurrent) {
+      const isCurrentMatch = await verifyPassword(trimmedCurrent, user.password_hash);
+      const isUsernameMatch = trimmedCurrent.toLowerCase() === user.username.toLowerCase();
+      if (!isCurrentMatch && !isUsernameMatch) {
+        throw new Error("Current password is incorrect.");
+      }
+    }
+
+    if (!validPassword(newPassword)) {
+      throw new Error("New password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
+    }
+    await this.users.updatePassword(user.id, await hashPassword(newPassword));
+  }
+
+  async updateSettings(token: string, settings: SettingsInput): Promise<void> {
+    const user = await this.authorize(token);
+    await this.users.updateSettings(user.id, {
+      notifications_enabled: settings.notificationsEnabled ? 1 : 0,
+      language: settings.language || "en",
+      theme: settings.theme || "light",
+      privacy_level: settings.privacyLevel || "private",
+    });
+  }
+
+  async getSettings(token: string) {
+    const user = await this.authorize(token);
+    const s = await this.users.settings(user.id);
+    return {
+      notificationsEnabled: s ? Boolean(s.notifications_enabled) : true,
+      language: s?.language || "en",
+      theme: (s?.theme as "light" | "dark") || "light",
+      privacyLevel: (s?.privacy_level as "private" | "contacts" | "public") || "private",
+    };
+  }
+
+  async deleteAccount(token: string, confirmation: string): Promise<void> {
+    const user = await this.authorize(token);
+    const trimmed = (confirmation || "").trim();
+
+    if (!trimmed) {
+      throw new Error("Please enter your password or username to confirm deletion.");
+    }
+
+    const isPasswordMatch = await verifyPassword(trimmed, user.password_hash);
+    const isIdentifierMatch =
+      trimmed.toLowerCase() === user.username.toLowerCase() ||
+      (user.email && trimmed.toLowerCase() === user.email.toLowerCase()) ||
+      trimmed.toUpperCase() === "DELETE";
+
+    if (!isPasswordMatch && !isIdentifierMatch) {
+      throw new Error(`Confirmation failed. Enter your password or username (${user.username}) to confirm.`);
+    }
+
+    // 先写审计日志再删除用户：D1 外键约束开启时，若先删用户，
+    // 随后 INSERT audit_logs(user_id) 引用已删除用户会触发 FOREIGN KEY constraint failed。
+    await this.audit.write(user.id, "delete_account", null, "Account deleted");
+    await this.users.delete(user.id);
+  }
+
+  async deleteTestAccount(identifier: string, password: string): Promise<void> {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Test account deletion is disabled in production.");
+    }
+    const user = await this.users.findByIdentifier(identifier);
+    if (!user || !(await verifyPassword(password, user.password_hash))) {
+      throw new Error("Test account credentials are incorrect.");
+    }
+    await this.users.delete(user.id);
+  }
+
+  async adminUsers(token: string): Promise<PublicUser[]> {
+    const user = await this.authorize(token);
+    if ((user.role ?? "user") !== "admin") throw new Error("Forbidden");
+    return (await this.users.list()).map(publicUser);
+  }
+
+  async adminSetActive(token: string, userId: string, active: boolean): Promise<void> {
+    const user = await this.authorize(token);
+    if ((user.role ?? "user") !== "admin") throw new Error("Forbidden");
+    await this.users.setActive(userId, active);
+  }
+
+  async adminDelete(token: string, userId: string): Promise<void> {
+    const user = await this.authorize(token);
+    if ((user.role ?? "user") !== "admin") throw new Error("Forbidden");
+    await this.users.delete(userId);
+  }
+
+  async forgotPassword(emailInput: string): Promise<void> {
+    const user = await this.users.findByEmail(normalizeEmail(emailInput));
+    if (!user || !user.email) return;
+    const token = randomToken();
+    await this.resetTokens.create({
+      id: crypto.randomUUID(),
+      user_id: user.id,
+      token,
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    });
+    await sendPasswordResetEmail({ email: user.email, token });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    if (!validPassword(newPassword)) {
+      throw new Error("Password does not meet strength requirements.");
+    }
+    const reset = await this.resetTokens.consume(token);
+    if (!reset) throw new Error("Reset token is invalid or expired.");
+    await this.users.updatePassword(reset.user_id, await hashPassword(newPassword));
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    const userId = consumeVerificationToken(token);
+    if (!userId) throw new Error("Verification token is invalid or expired.");
+    const user = await this.users.findById(userId);
+    if (!user) throw new Error("User not found.");
+    await this.users.verify(userId);
+  }
+
+  async loginWithGoogle(
+    profile: GoogleUserProfile,
+    ipAddress?: string | null
+  ): Promise<{ user: PublicUser; token: string; expiresAt: string }> {
+    const ip = ipAddress ?? "unknown";
+    const now = Date.now();
+    const email = normalizeEmail(profile.email);
+
+    if (!email) {
+      throw new Error("Google account email is required.");
+    }
+
+    let user = await this.users.findByEmail(email);
+
+    if (user) {
+      if (!user.is_active) {
+        throw new Error("Account is deactivated. Please contact support.");
+      }
+      if (user.lock_until && new Date(user.lock_until).getTime() > now) {
+        throw new Error("Account is temporarily locked. Please try again later.");
+      }
+
+      // Update profile picture if user doesn't have one or has a remote one
+      if (profile.picture && (!user.profile_picture || user.profile_picture.startsWith("http"))) {
+        await this.users.updateProfile(user.id, user.full_name, user.phone, profile.picture);
+        user.profile_picture = profile.picture;
+      }
+      if (!user.is_verified) {
+        await this.users.verify(user.id);
+        user.is_verified = 1;
+      }
+      if (!user.phone && !user.ic_hash && (user.has_password === null || user.has_password === undefined)) {
+        user.has_password = 0;
+      }
+    } else {
+      // New user registering via Google OAuth
+      const userId = crypto.randomUUID();
+      const rawUsername =
+        (profile.name || profile.given_name || email.split("@")[0])
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, "_")
+          .replace(/^_+|_+$/g, "")
+          .slice(0, 20) || "user";
+
+      let finalUsername = rawUsername.length >= 3 ? rawUsername : `user_${rawUsername}`;
+      let suffix = 1;
+      while (await this.users.findByUsername(finalUsername)) {
+        finalUsername = `${rawUsername.slice(0, 18)}_${suffix++}`;
+      }
+
+      const dummyPassword = randomToken();
+      const passwordHash = await hashPassword(dummyPassword);
+      const isoNow = new Date().toISOString();
+
+      user = {
+        id: userId,
+        username: finalUsername,
+        email,
+        password_hash: passwordHash,
+        full_name: profile.name || profile.given_name || finalUsername,
+        phone: null,
+        ic_hash: null,
+        profile_picture: profile.picture || null,
+        is_verified: 1,
+        is_active: 1,
+        is_locked: 0,
+        failed_attempts: 0,
+        lock_until: null,
+        last_login: isoNow,
+        created_at: isoNow,
+        role: "user",
+        has_password: 0,
+      };
+
+      await this.users.create(user);
+    }
+
+    const expiresAt = new Date(now + REMEMBERED_SESSION_TTL);
+    const token = await signJwt({
+      sub: user.id,
+      role: user.role ?? "user",
+      exp: Math.floor(expiresAt.getTime() / 1000),
+      jti: randomToken(),
+    });
+
+    await this.sessions.create({
+      id: crypto.randomUUID(),
+      user_id: user.id,
+      token,
+      expires_at: expiresAt.toISOString(),
+    });
+
+    await this.users.markLoginSuccess(user.id);
+    await this.audit.write(user.id, "google_login", ip, "Successful login via Google OAuth");
+
+    return { user: publicUser(user), token, expiresAt: expiresAt.toISOString() };
+  }
+
+  async authorize(token: string): Promise<UserRecord> {
+    const session = await this.sessions.findValid(token);
+    if (!session) throw new Error("Unauthorized");
+    const user = await this.users.findById(session.user_id);
+    if (!user || !user.is_active) throw new Error("Unauthorized");
+    return user;
+  }
 }

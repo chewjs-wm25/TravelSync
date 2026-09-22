@@ -1,16 +1,16 @@
 import {
   addItineraryItem,
+  compactItineraryItemPositions,
   deleteItineraryItem,
   getItineraryItemById,
   getItineraryItemsByItineraryId,
   updateItineraryItem as updateItineraryItemRecord,
   type ItineraryItemRecord,
-} from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
-import { getItineraryById } from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
-import {
-  hasMalaysiaBlocklistMatch,
-  normalizeText,
-} from "./textValidation";
+} from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryItemRepository";
+import { getItineraryById } from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
+import { normalizeText } from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
+
+import type { ImportPlaceInput, ImportPlacesResult } from "./types";
 
 export type ItineraryItemServiceInput = {
   itineraryId?: string | null;
@@ -19,6 +19,12 @@ export type ItineraryItemServiceInput = {
   destination?: string | null;
   image?: string | null;
   note?: string | null;
+  referenceId?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  type?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
 };
 
 export type UpdateItineraryItemInput = {
@@ -29,6 +35,13 @@ export type UpdateItineraryItemInput = {
   position?: number | string | null;
   order_index?: number | string | null;
   image?: string | null;
+  destination?: string | null;
+  referenceId?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  type?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
 };
 
 export type DeleteItineraryItemInput = {
@@ -37,31 +50,28 @@ export type DeleteItineraryItemInput = {
 };
 
 type ItineraryItemServiceSuccess = {
-  ok: true;
+  success: true;
   item: ItineraryItemRecord;
 };
 
 type DeleteItineraryItemSuccess = {
-  ok: true;
+  success: true;
 };
 
 type ItineraryItemServiceFailure = {
-  ok: false;
+  success: false;
   status: number;
   message: string;
 };
 
 export type ItineraryItemServiceResult =
-  | ItineraryItemServiceSuccess
-  | ItineraryItemServiceFailure;
+  ItineraryItemServiceSuccess | ItineraryItemServiceFailure;
 
 export type UpdateItineraryItemResult =
-  | ItineraryItemServiceSuccess
-  | ItineraryItemServiceFailure;
+  ItineraryItemServiceSuccess | ItineraryItemServiceFailure;
 
 export type DeleteItineraryItemResult =
-  | DeleteItineraryItemSuccess
-  | ItineraryItemServiceFailure;
+  DeleteItineraryItemSuccess | ItineraryItemServiceFailure;
 
 function normalizeUpdatePosition(
   value: number | string | null | undefined
@@ -84,12 +94,24 @@ function normalizeUpdatePosition(
   return parsed;
 }
 
+function hasValidCoordinates(
+  lat: number | null | undefined,
+  lon: number | null | undefined
+): boolean {
+  return (
+    typeof lat === "number" &&
+    Number.isFinite(lat) &&
+    typeof lon === "number" &&
+    Number.isFinite(lon)
+  );
+}
+
 export function validateItineraryItemPayload(
   itineraryId: string | null,
   input: ItineraryItemServiceInput
 ):
   | {
-      ok: true;
+      success: true;
       itineraryId: string;
       normalized: {
         place: string;
@@ -104,17 +126,9 @@ export function validateItineraryItemPayload(
   const image = normalizeText(input.image);
   const note = normalizeText(input.note);
 
-  if (note && hasMalaysiaBlocklistMatch(note)) {
-    return {
-      ok: false,
-      status: 400,
-      message: "Itinerary item note must stay within Malaysia",
-    };
-  }
-
   if (!resolvedItineraryId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary ID is required",
     };
@@ -122,14 +136,22 @@ export function validateItineraryItemPayload(
 
   if (!place) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Place Not Found!",
     };
   }
 
+  if (!hasValidCoordinates(input.lat, input.lon)) {
+    return {
+      success: false,
+      status: 400,
+      message: "Place not found",
+    };
+  }
+
   return {
-    ok: true,
+    success: true,
     itineraryId: resolvedItineraryId,
     normalized: {
       place,
@@ -147,21 +169,22 @@ export async function createItineraryItem(
   const itineraryId = normalizeText(input.itineraryId);
   const validation = validateItineraryItemPayload(itineraryId, input);
 
-  if (!validation.ok) {
+  if (!validation.success) {
     return validation;
   }
 
   const existingItinerary = await getItineraryById(db, validation.itineraryId);
   if (!existingItinerary) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary not found",
     };
   }
 
   const nextOrderIndex =
-    (await getItineraryItemsByItineraryId(db, validation.itineraryId)).length + 1;
+    (await getItineraryItemsByItineraryId(db, validation.itineraryId)).length +
+    1;
   const itemId = `itm_${crypto.randomUUID()}`;
   const wasInserted = await addItineraryItem(
     db,
@@ -172,30 +195,46 @@ export async function createItineraryItem(
     validation.normalized.note,
     nextOrderIndex,
     validation.normalized.destination,
-    "other"
+    normalizeText(input.type) ?? "other",
+    normalizeText(input.referenceId) ?? undefined,
+    normalizeText(input.startTime) ?? undefined,
+    normalizeText(input.endTime) ?? undefined,
+    typeof input.lat === "number" ? input.lat : null,
+    typeof input.lon === "number" ? input.lon : null
   );
 
   if (!wasInserted) {
     return {
-      ok: false,
+      success: false,
       status: 500,
       message: "Failed to add itinerary item",
     };
   }
 
+  // Trigger itinerary change notification (module 02 event bus)
+  try {
+    // Import here to avoid circular dependency at module init time
+    const events = await import("./events");
+    events.triggerItineraryChanged(validation.itineraryId);
+  } catch (e) {
+    // ignore errors from the event trigger
+  }
+
   return {
-    ok: true,
+    success: true,
     item: {
       item_id: itemId,
       itinerary_id: validation.itineraryId,
       item_name: validation.normalized.place,
       image_url: validation.normalized.image ?? null,
-      itinerary_note: validation.normalized.note ?? null,
+      itinerary_item_note: validation.normalized.note ?? null,
       destination: validation.normalized.destination,
-      reference_id: null,
-      type: "other",
-      start_time: null,
-      end_time: null,
+      reference_id: normalizeText(input.referenceId),
+      lat: typeof input.lat === "number" ? input.lat : null,
+      lon: typeof input.lon === "number" ? input.lon : null,
+      type: normalizeText(input.type) ?? "other",
+      start_time: normalizeText(input.startTime),
+      end_time: normalizeText(input.endTime),
       position: nextOrderIndex,
       order_index: nextOrderIndex,
     },
@@ -211,7 +250,7 @@ export async function updateItineraryItemById(
 
   if (!itemId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Item ID is required",
     };
@@ -220,7 +259,7 @@ export async function updateItineraryItemById(
   const existingItem = await getItineraryItemById(db, itemId);
   if (!existingItem) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary item not found",
     };
@@ -228,7 +267,7 @@ export async function updateItineraryItemById(
 
   if (itineraryId && existingItem.itinerary_id !== itineraryId) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary item not found",
     };
@@ -241,16 +280,30 @@ export async function updateItineraryItemById(
     input.position !== undefined && input.position !== null;
   const hasOrderIndexUpdate =
     input.order_index !== undefined && input.order_index !== null;
+  const hasDestinationUpdate = input.destination !== undefined;
+  const hasReferenceIdUpdate = input.referenceId !== undefined;
+  const hasLatUpdate = input.lat !== undefined && input.lat !== null;
+  const hasLonUpdate = input.lon !== undefined && input.lon !== null;
+  const hasTypeUpdate = input.type !== undefined;
+  const hasStartTimeUpdate = input.startTime !== undefined;
+  const hasEndTimeUpdate = input.endTime !== undefined;
 
   if (
     !hasNameUpdate &&
     !hasNoteUpdate &&
     !hasImageUpdate &&
     !hasPositionUpdate &&
-    !hasOrderIndexUpdate
+    !hasOrderIndexUpdate &&
+    !hasDestinationUpdate &&
+    !hasReferenceIdUpdate &&
+    !hasLatUpdate &&
+    !hasLonUpdate &&
+    !hasTypeUpdate &&
+    !hasStartTimeUpdate &&
+    !hasEndTimeUpdate
   ) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "No itinerary item updates provided",
     };
@@ -259,17 +312,9 @@ export async function updateItineraryItemById(
   const normalizedName = hasNameUpdate ? normalizeText(input.name) : null;
   const normalizedNote = hasNoteUpdate ? normalizeText(input.note) : null;
 
-  if (hasNoteUpdate && normalizedNote && hasMalaysiaBlocklistMatch(normalizedNote)) {
-    return {
-      ok: false,
-      status: 400,
-      message: "Itinerary item note must stay within Malaysia",
-    };
-  }
-
   if (hasNameUpdate && !normalizedName) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary item name is required",
     };
@@ -287,7 +332,7 @@ export async function updateItineraryItemById(
     Number.isNaN(normalizedPosition)
   ) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Position must be a positive integer",
     };
@@ -298,10 +343,31 @@ export async function updateItineraryItemById(
     normalizedUpdates.item_name = normalizedName;
   }
   if (hasNoteUpdate) {
-    normalizedUpdates.itinerary_note = normalizedNote ?? "";
+    normalizedUpdates.itinerary_item_note = normalizedNote ?? "";
   }
   if (hasImageUpdate) {
     normalizedUpdates.image_url = normalizeText(input.image) ?? "";
+  }
+  if (input.destination !== undefined) {
+    normalizedUpdates.destination = normalizeText(input.destination);
+  }
+  if (input.referenceId !== undefined) {
+    normalizedUpdates.reference_id = normalizeText(input.referenceId);
+  }
+  if (hasLatUpdate) {
+    normalizedUpdates.lat = input.lat;
+  }
+  if (hasLonUpdate) {
+    normalizedUpdates.lon = input.lon;
+  }
+  if (input.type !== undefined) {
+    normalizedUpdates.type = normalizeText(input.type);
+  }
+  if (input.startTime !== undefined) {
+    normalizedUpdates.start_time = normalizeText(input.startTime);
+  }
+  if (input.endTime !== undefined) {
+    normalizedUpdates.end_time = normalizeText(input.endTime);
   }
   if (
     normalizedPosition !== null &&
@@ -315,20 +381,27 @@ export async function updateItineraryItemById(
   const wasUpdated = await updateItineraryItemRecord(db, itemId, {
     name: normalizedUpdates.item_name ?? undefined,
     note:
-      typeof normalizedUpdates.itinerary_note === "string"
-        ? normalizedUpdates.itinerary_note
+      typeof normalizedUpdates.itinerary_item_note === "string"
+        ? normalizedUpdates.itinerary_item_note
         : undefined,
     image:
       typeof normalizedUpdates.image_url === "string"
         ? normalizedUpdates.image_url
         : undefined,
+    destination: normalizedUpdates.destination ?? undefined,
+    reference_id: normalizedUpdates.reference_id ?? undefined,
+    lat: normalizedUpdates.lat ?? undefined,
+    lon: normalizedUpdates.lon ?? undefined,
+    type: normalizedUpdates.type ?? undefined,
+    start_time: normalizedUpdates.start_time ?? undefined,
+    end_time: normalizedUpdates.end_time ?? undefined,
     position: normalizedUpdates.position ?? undefined,
     order_index: normalizedUpdates.order_index ?? undefined,
   });
 
   if (!wasUpdated) {
     return {
-      ok: false,
+      success: false,
       status: 500,
       message: "Failed to update itinerary item",
     };
@@ -337,14 +410,22 @@ export async function updateItineraryItemById(
   const updatedItem = await getItineraryItemById(db, itemId);
   if (!updatedItem) {
     return {
-      ok: false,
+      success: false,
       status: 500,
       message: "Failed to update itinerary item",
     };
   }
 
+  // Trigger itinerary change notification (module 02 event bus)
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(updatedItem.itinerary_id);
+  } catch (e) {
+    // ignore
+  }
+
   return {
-    ok: true,
+    success: true,
     item: updatedItem,
   };
 }
@@ -358,7 +439,7 @@ export async function deleteItineraryItemById(
 
   if (!itemId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Item ID is required",
     };
@@ -367,7 +448,7 @@ export async function deleteItineraryItemById(
   const existingItem = await getItineraryItemById(db, itemId);
   if (!existingItem) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary item not found",
     };
@@ -375,7 +456,7 @@ export async function deleteItineraryItemById(
 
   if (itineraryId && existingItem.itinerary_id !== itineraryId) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary item not found",
     };
@@ -384,13 +465,31 @@ export async function deleteItineraryItemById(
   const wasDeleted = await deleteItineraryItem(db, itemId);
   if (!wasDeleted) {
     return {
-      ok: false,
+      success: false,
       status: 500,
       message: "Failed to delete itinerary item",
     };
   }
 
-  return { ok: true };
+  try {
+    await compactItineraryItemPositions(db, existingItem.itinerary_id);
+  } catch {
+    return {
+      success: false,
+      status: 500,
+      message: "Failed to rearrange itinerary items",
+    };
+  }
+
+  // Trigger itinerary change notification (module 02 event bus)
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(existingItem.itinerary_id);
+  } catch (e) {
+    // ignore
+  }
+
+  return { success: true };
 }
 
 export async function getItineraryItemsForItinerary(
@@ -411,4 +510,73 @@ export async function getItineraryItemsForDay(
   itineraryId?: string | null
 ) {
   return getItineraryItemsForItinerary(db, itineraryId);
+}
+
+/**
+ * Import multiple places into an itinerary as itinerary items.
+ */
+export async function importPlaces(
+  db: D1Database,
+  itineraryId: string,
+  items: ImportPlaceInput[]
+): Promise<ImportPlacesResult> {
+  const resolvedItineraryId = normalizeText(itineraryId);
+  if (!resolvedItineraryId) {
+    return { success: false, importedCount: 0 };
+  }
+
+  const existingItinerary = await getItineraryById(db, resolvedItineraryId);
+  if (!existingItinerary) {
+    return { success: false, importedCount: 0 };
+  }
+
+  for (const entry of items) {
+    const name = normalizeText(entry.name);
+    if (name && !hasValidCoordinates(entry.lat, entry.lon)) {
+      return { success: false, importedCount: 0 };
+    }
+  }
+
+  let importedCount = 0;
+  let nextOrderIndex =
+    (await getItineraryItemsByItineraryId(db, resolvedItineraryId)).length + 1;
+
+  for (const entry of items) {
+    const name = normalizeText(entry.name);
+    if (!name) continue;
+
+    const itemId = `itm_${crypto.randomUUID()}`;
+    const wasInserted = await addItineraryItem(
+      db,
+      itemId,
+      resolvedItineraryId,
+      name,
+      undefined,
+      undefined,
+      nextOrderIndex,
+      name,
+      "other",
+      normalizeText(entry.placeId) ?? undefined,
+      undefined,
+      undefined,
+      typeof entry.lat === "number" ? entry.lat : null,
+      typeof entry.lon === "number" ? entry.lon : null
+    );
+
+    if (wasInserted) {
+      importedCount += 1;
+      nextOrderIndex += 1;
+    }
+  }
+
+  if (importedCount > 0) {
+    try {
+      const events = await import("./events");
+      events.triggerItineraryChanged(resolvedItineraryId);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  return { success: true, importedCount };
 }

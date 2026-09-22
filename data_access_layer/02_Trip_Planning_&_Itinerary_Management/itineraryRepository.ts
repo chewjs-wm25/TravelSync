@@ -19,10 +19,31 @@ export type UpdateItineraryInput = {
   note?: string | null;
 };
 
+function wasD1MutationSuccessful(result: {
+  success?: boolean;
+  meta?: {
+    changes?: number;
+  } | null;
+} | null | undefined): boolean {
+  if (!result) {
+    return false;
+  }
+
+  const changes = result.meta?.changes;
+  if (typeof changes === "number") {
+    return changes > 0;
+  }
+
+  return result.success !== false;
+}
+
+import { ensureTripSchema } from "./tripSchema";
+
 export async function createItinerary(
   db: D1Database,
   input: CreateItineraryInput
 ): Promise<ItineraryRecord> {
+  await ensureTripSchema(db);
   const itineraryId = crypto.randomUUID();
 
   await db
@@ -48,6 +69,7 @@ export async function createItinerary(
 }
 
 export async function getItineraryById(db: D1Database, itineraryId: string) {
+  await ensureTripSchema(db);
   return db
     .prepare(
       `SELECT
@@ -64,6 +86,7 @@ export async function getItineraryById(db: D1Database, itineraryId: string) {
 }
 
 export async function getItinerariesByTripId(db: D1Database, tripId: string) {
+  await ensureTripSchema(db);
   const result = await db
     .prepare(
       `SELECT
@@ -86,6 +109,7 @@ export async function deleteItinerary(
   db: D1Database,
   itineraryId: string
 ): Promise<boolean> {
+  await ensureTripSchema(db);
   const result = await db
     .prepare(
       `DELETE FROM itineraries
@@ -94,7 +118,7 @@ export async function deleteItinerary(
     .bind(itineraryId)
     .run();
 
-  return (result.meta?.changes ?? 0) > 0;
+  return wasD1MutationSuccessful(result);
 }
 
 export async function updateItinerary(
@@ -102,6 +126,7 @@ export async function updateItinerary(
   itineraryId: string,
   updates: UpdateItineraryInput
 ): Promise<boolean> {
+  await ensureTripSchema(db);
   const setClauses: string[] = [];
   const values: Array<string | number | null> = [];
 
@@ -133,5 +158,5 @@ export async function updateItinerary(
     .bind(...values, itineraryId)
     .run();
 
-  return (result.meta?.changes ?? 0) > 0;
+  return wasD1MutationSuccessful(result);
 }

@@ -51,6 +51,15 @@ const NON_PLACE_TITLE_PATTERNS = [
   "textbook",
   "handbill",
   "flyer",
+  "portrait",
+  "selfie",
+  "headshot",
+  "profile",
+  "group photo",
+  "wedding",
+  "ceremony",
+  "speaker",
+  "player",
 ];
 
 /** 编译后的黑名单正则（词边界匹配，避免误伤如 "Maple"、"Flagship"） */
@@ -76,6 +85,22 @@ const STOP_WORDS = new Set([
   "a",
   "an",
   "&",
+]);
+
+/** Generic venue words are useful search terms but are not distinctive enough
+ * to prove that an image depicts the requested place. */
+const GENERIC_PLACE_WORDS = new Set([
+  "club",
+  "golf",
+  "hotel",
+  "resort",
+  "centre",
+  "center",
+  "country",
+  "malaysia",
+  "building",
+  "restaurant",
+  "park",
 ]);
 
 /**
@@ -129,6 +154,21 @@ export function placeNameKeywords(name: string): string[] {
     .filter((token) => token.length >= 3 && !STOP_WORDS.has(token));
 }
 
+/** Distinctive place-name tokens required by the strict image policy. */
+export function distinctivePlaceNameKeywords(name: string): string[] {
+  return placeNameKeywords(name).filter(
+    (keyword) => !GENERIC_PLACE_WORDS.has(keyword)
+  );
+}
+
+/** Count distinctive name tokens present in a candidate title. */
+export function placeNameMatchScore(title: string, placeName: string): number {
+  const normalizedTitle = title.toLowerCase();
+  return distinctivePlaceNameKeywords(placeName).filter((keyword) =>
+    normalizedTitle.includes(keyword)
+  ).length;
+}
+
 /**
  * 判定文件标题是否包含地点名关键词（任一关键词命中即 true）。
  * 地点名无有效关键词时返回 true（不提供偏好，交给调用方回退逻辑）。
@@ -137,8 +177,7 @@ export function titleContainsPlaceName(
   title: string,
   placeName: string
 ): boolean {
-  const keywords = placeNameKeywords(placeName);
-  if (keywords.length === 0) return true;
-  const normalizedTitle = title.toLowerCase();
-  return keywords.some((keyword) => normalizedTitle.includes(keyword));
+  const keywords = distinctivePlaceNameKeywords(placeName);
+  if (keywords.length === 0) return false;
+  return placeNameMatchScore(title, placeName) > 0;
 }

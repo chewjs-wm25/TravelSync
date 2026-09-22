@@ -32,6 +32,8 @@ export type {
   OfficialQualityRatingRepository,
 } from "../../data_access_layer/03_Destination_Discovery_&_Inspiration/OfficialQualityRatingRepository";
 
+export type { PushToRoutePlannerResult } from "./RoutePlannerBridge";
+
 // ---------------------------------------------------------------------------
 // 领域类型
 // ---------------------------------------------------------------------------
@@ -153,7 +155,7 @@ export interface PoiItem {
   experienceType: string;
 }
 
-/** 节日/活动条目（数据源：Cloudflare D1 中 parsed_events.json 同步的官方活动） */
+/** 节日/活动条目（数据源：Cloudflare D1 中由 malaysia.travel 官网爬取同步的官方活动） */
 export interface EventItem {
   id: string;
   /** 活动名称 */
@@ -195,7 +197,7 @@ export interface SuggestionItem {
  * 由 BL 聚合（toPlaceDetail），供搜索结果页与地点详情页使用。
  */
 export interface PlaceDetail extends PoiItem {
-  /** Geoapify place_id */
+  /** Geoapify place_id, or json-{jsonId} for an official-record fallback */
   placeId: string;
   /** 完整格式化地址 */
   formatted: string;
@@ -209,12 +211,26 @@ export interface PlaceDetail extends PoiItem {
   category?: string;
   /** 结果类型（city / amenity / tourism / street ...） */
   resultType?: string;
-  lat: number;
-  lon: number;
+  /** Coordinates can be absent when an official record cannot be geocoded. */
+  lat?: number;
+  lon?: number;
 }
 
 /** 收藏夹条目（领域形态，与 DA 实体一致；每个用户只有一个收藏夹） */
 export type SavedItem = FavoriteItemEntity;
+
+/**
+ * "加入行程"（模块 02）导入条目：SavedItem + 可选坐标。
+ * 模块 02 的 importPlaces 强制要求有效坐标，因此坐标缺失时调用方应先经
+ * `discoveryService.resolveImportCoordinates` 解析补齐（见 AddToTripService）。
+ * 类型本身不新增必需字段，SavedItem 可直接赋值（向后兼容）。
+ */
+export type AddToTripImportItem = SavedItem & {
+  /** 纬度（可选；缺失时由 BL 解析补齐，否则模块 02 拒绝导入） */
+  lat?: number | null;
+  /** 经度（可选；缺失时由 BL 解析补齐，否则模块 02 拒绝导入） */
+  lon?: number | null;
+};
 
 /** 筛选面板的候选项（体验类型 / 马来西亚州属） */
 export interface FilterOptions {
@@ -233,4 +249,21 @@ export interface PlaceImageResult {
   url: string;
   /** 作者/许可署名信息（开源协议展示合规） */
   attribution?: PlaceImageAttribution;
+}
+
+/**
+ * 州/省信息（供模块 02 创建旅行时选择州/省；字段遵循 guideline §5 坐标标准，
+ * 数据源见 api_layer DiscoveryExternalApi.fetchStateInfo，当前为静态候选占位）。
+ */
+export interface StateInfo {
+  /** 州/联邦直辖区标识（小写 slug，如 "penang"、"kuala-lumpur"） */
+  stateId: string;
+  /** 州/联邦直辖区显示名（如 "Penang"） */
+  name: string;
+  /** 州首府/主要城市纬度 */
+  lat: number;
+  /** 州首府/主要城市经度 */
+  lon: number;
+  /** 州封面图 URL（暂无数据源，空串由前端渐变占位） */
+  imageUrl: string;
 }

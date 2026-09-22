@@ -154,45 +154,35 @@ export default function CreateItineraryModal({
     setErrorMessage("");
 
     try {
-      const response = await fetch(
-        "/02_Trip_Planning_&_Itinerary_Management/api/itinerary",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tripId: trip.trip_id,
-            title,
-            date,
-            note,
-          }),
-        }
+      // Use server action for creating an itinerary (consistent with other create actions)
+      // import createItineraryAction at top of file
+      // The server action will throw on failure with a meaningful message
+      // (e.g., "Invalid date!") which we surface to the user.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore Server action import from a 'use server' module
+      const { createItineraryAction } = await import(
+        "@/app/02_Trip_Planning_&_Itinerary_Management/api/itineraryApi"
       );
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-
-      if (!response.ok) {
-        if (payload?.error === "Invalid date!") {
-          setErrorMessage("Date must fall within trip duration");
-          onInvalidDate?.();
-        }
-
-        throw new Error(payload?.error ?? "Failed to create itinerary");
-      }
+      await createItineraryAction({
+        tripId: trip.trip_id,
+        title,
+        date,
+        note,
+      });
 
       onSuccess();
       onClose();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create itinerary";
-      setErrorMessage(
-        message === "Invalid date!"
-          ? "Date must fall within trip duration"
-          : message
-      );
+
+      if (message === "Invalid date!") {
+        setErrorMessage("Date must fall within trip duration");
+        onInvalidDate?.();
+      } else {
+        setErrorMessage(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -234,7 +224,7 @@ export default function CreateItineraryModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-900"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 active:scale-90"
               aria-label="Close modal"
             >
               <svg
@@ -315,7 +305,7 @@ export default function CreateItineraryModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95 disabled:opacity-60"
               disabled={isSubmitting}
             >
               Cancel
@@ -323,7 +313,7 @@ export default function CreateItineraryModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-full bg-[#ff6b6b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center justify-center rounded-full bg-[#ff6b6b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? "Creating..." : "Add Day"}
             </button>

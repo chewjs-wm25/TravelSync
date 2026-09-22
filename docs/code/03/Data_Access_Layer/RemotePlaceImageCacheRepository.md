@@ -7,7 +7,7 @@
 
 ## 责任
 
-本文件是模块 03 地点图片缓存仓储的「远程」实现，运行于**浏览器端**，通过 HTTP 调用 Route API（`app/api/discovery/place-image`）实现 `PlaceImageCacheRepository` 接口。职责单一：仅做参数序列化与响应解析，**不含任何 KV 读写逻辑**（KV 操作由服务端 `CloudflareKvPlaceImageCacheRepository` 承担）。
+本文件是模块 03 地点图片缓存仓储的「远程」实现，运行于**浏览器端**，通过 HTTP 调用 Route API（`app/03_Destination_Discovery_&_Inspiration/api/place-image`）实现 `PlaceImageCacheRepository` 接口。职责单一：仅做参数序列化与响应解析，**不含任何 KV 读写逻辑**（KV 操作由服务端 `CloudflareKvPlaceImageCacheRepository` 承担）。
 
 依赖方向为：浏览器端 BL → 本类 → Route API → `CloudflareKvPlaceImageCacheRepository` → Cloudflare KV。
 
@@ -22,9 +22,9 @@
 请求/响应示例（示意，非代码内固定值）：
 
 ```jsonc
-// GET /api/discovery/place-image?placeId=geo-123
+// GET /03_Destination_Discovery_&_Inspiration/api/place-image?placeId=geo-123
 { "entry": { "source": "wikimedia", "url": "https://...", "attribution": { "artist": "Chainwit.", "licenseName": "CC BY-SA 4.0" } } }
-// PUT /api/discovery/place-image
+// PUT /03_Destination_Discovery_&_Inspiration/api/place-image
 { "placeId": "geo-123", "entry": { "source": "none" } }
 ```
 
@@ -35,7 +35,9 @@
 
 **失败语义**：Route API 不可用（如本地未启动 / 网络错误 / 非 2xx）时抛出 `Error`，由 Business Logic 层决定降级（图片缓存不可用时静默跳过，不阻断查询）——这是图片链路「缓存是加速而非必需」的设计体现。
 
-**版本标注说明**：本文件头注释将值语义标注为「v3（来源引用格式，与 PlaceImageCacheRepository 一致）」，而 `PlaceImageCacheRepository.ts` 中键前缀为 `v5`（`module03:place-image:v5:`）。两处注释版本号不一致属注释遗留差异，实际行为（序列化格式、get 返回语义）以 `PlaceImageCacheRepository.ts` 中的序列化/反序列化函数为准，本类仅透传 `entry` 对象，不做任何格式判断。
+**授权（安全审计修复，见 docs/fix/module03-security-audit.md §3.1）**：`put`（写入缓存）为正常用户流程，携带当前会话凭证（登录要求，未登录服务端返回 401 并在此抛出 `Error`）；`clearAll`（清空缓存）为危险操作，携带当前会话凭证，服务端要求管理员会话（未登录 401 / 非 admin 403）。`get` 为公开读，无需凭证。
+
+**版本标注说明**：本文件与 `PlaceImageCacheRepository.ts` 统一为 **v5**（来源引用格式），KV 键前缀 `module03:place-image:v5:`（含署名信息，v4 及更早缓存整体失效）；值语义以 `PlaceImageCacheRepository.ts` 中的序列化/反序列化函数为准，本类仅透传 `entry` 对象，不做任何格式判断。
 
 ## 依赖
 
@@ -51,7 +53,7 @@
 
 - 类型：常量（未导出）
 - 传入：无
-- 传出：字符串 `"/api/discovery/place-image"`。
+- 传出：字符串 `"/03_Destination_Discovery_&_Inspiration/api/place-image"`。
 - 用处：Route API 端点（模块 03 地点图片缓存），三个方法共用；为相对路径，由浏览器端按当前站点 origin 解析。
 
 ### `RemotePlaceImageCacheRepository`

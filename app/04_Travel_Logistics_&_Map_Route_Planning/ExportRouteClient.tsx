@@ -27,10 +27,13 @@ export default function ExportRouteClient() {
     window.open(getGoogleMapsUrl(o, d), "_blank");
   };
 
-  const exportToWaze = (routeDest?: typeof destination) => {
+  const exportToWaze = (
+    routeDest?: typeof destination,
+    routeOrigin?: typeof origin
+  ) => {
     const d = routeDest || destination;
     if (!d) return;
-    window.open(getWazeUrl(d), "_blank");
+    window.open(getWazeUrl(d, routeOrigin || origin || undefined), "_blank");
   };
 
   return (
@@ -51,13 +54,13 @@ export default function ExportRouteClient() {
           <div className="mt-4 grid grid-cols-2 gap-3">
             <button
               onClick={() => exportToGoogleMaps()}
-              className="bg-primary-500 hover:bg-primary-500/90 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition"
+              className="bg-primary-500 hover:bg-primary-500/90 hover:shadow-sm rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-colors active:scale-[0.98]"
             >
               Open in Google Maps
             </button>
             <button
               onClick={() => exportToWaze()}
-              className="bg-secondary-500 hover:bg-secondary-500/90 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition"
+              className="bg-secondary-500 hover:bg-secondary-500/90 hover:shadow-sm rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-colors active:scale-[0.98]"
             >
               Open in Waze
             </button>
@@ -97,13 +100,15 @@ export default function ExportRouteClient() {
                       selectedRoute.destination
                     )
                   }
-                  className="bg-primary-500 hover:bg-primary-500/90 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition"
+                  className="bg-primary-500 hover:bg-primary-500/90 hover:shadow-sm rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-colors active:scale-[0.98]"
                 >
                   Google Maps
                 </button>
                 <button
-                  onClick={() => exportToWaze(selectedRoute.destination)}
-                  className="bg-secondary-500 hover:bg-secondary-500/90 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition"
+                  onClick={() =>
+                    exportToWaze(selectedRoute.destination, selectedRoute.origin)
+                  }
+                  className="bg-secondary-500 hover:bg-secondary-500/90 hover:shadow-sm rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-colors active:scale-[0.98]"
                 >
                   Waze
                 </button>

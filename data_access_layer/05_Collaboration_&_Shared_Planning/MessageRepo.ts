@@ -10,6 +10,7 @@ export interface ChatRow {
 
 export interface ChatWithAccount extends ChatRow {
   username: string;
+  full_name: string | null;
   profile_picture: string | null;
 }
 
@@ -17,9 +18,9 @@ export async function findByTrip(tripId: string): Promise<ChatWithAccount[]> {
   const db = await getDB();
   const res = await db
     .prepare(
-      `SELECT m.id, m.trip_id, m.user_id, m.text, m.created_at, a.username, a.profile_picture
+      `SELECT m.id, m.trip_id, m.user_id, m.text, m.created_at, u.username, u.full_name, u.profile_picture
        FROM chats m
-       JOIN Account a ON a.AccountID = m.user_id
+       JOIN users u ON u.id = m.user_id
        WHERE m.trip_id = ?
        ORDER BY m.id ASC`
     )
@@ -34,10 +35,11 @@ export async function insertChat(c: {
   trip_id: string;
   user_id: string;
   text: string;
-}): Promise<void> {
+}): Promise<number> {
   const db = await getDB();
-  await db
-    .prepare("INSERT INTO chats (trip_id, user_id, text) VALUES (?, ?, ?)")
+  const res = await db
+    .prepare("INSERT INTO chats (trip_id, user_id, text) VALUES (?, ?, ?) RETURNING id")
     .bind(c.trip_id, c.user_id, c.text)
-    .run();
+    .first<{ id: number }>();
+  return res?.id ?? 0;
 }

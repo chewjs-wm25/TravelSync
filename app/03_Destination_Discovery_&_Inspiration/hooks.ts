@@ -7,7 +7,14 @@
  *       使 UI 组件保持纯展示，不直接触碰下层（BL 以下）任何模块。
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type SetStateAction,
+} from "react";
 import { discoveryService } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService";
 import { favoritesService } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/FavoritesService";
 import {
@@ -53,6 +60,16 @@ export function useSearchAndFilter(initial?: SearchAndFilterInitial) {
   });
   const [pois, setPois] = useState<PoiItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
+  const updateSearchQuery = useCallback((value: SetStateAction<string>) => {
+    setSearchQuery(value);
+    if (typeof value === "string" && !value.trim()) {
+      setIsLoading(true);
+      setLoadError(false);
+    }
+  }, []);
 
   // 筛选面板候选项
   useEffect(() => {
@@ -76,10 +93,16 @@ export function useSearchAndFilter(initial?: SearchAndFilterInitial) {
     discoveryService
       .getQualityRatedPois()
       .then((result) => {
-        if (!cancelled) setPois(result);
+        if (!cancelled) {
+          setPois(result);
+          setLoadError(false);
+        }
       })
       .catch(() => {
-        if (!cancelled) setPois([]);
+        if (!cancelled) {
+          setPois([]);
+          setLoadError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -87,7 +110,13 @@ export function useSearchAndFilter(initial?: SearchAndFilterInitial) {
     return () => {
       cancelled = true;
     };
-  }, [searchQuery]);
+  }, [searchQuery, loadAttempt]);
+
+  const retry = useCallback(() => {
+    setIsLoading(true);
+    setLoadError(false);
+    setLoadAttempt((attempt) => attempt + 1);
+  }, []);
 
   // 输入联想：≥2 字符后防抖 300ms 调真实 Geoapify autocomplete
   // （<2 字符时不请求也不清空 state，由组件显示条件 searchQuery 长度控制下拉显隐）
@@ -144,7 +173,7 @@ export function useSearchAndFilter(initial?: SearchAndFilterInitial) {
     activeTab,
     setActiveTab,
     searchQuery,
-    setSearchQuery,
+    setSearchQuery: updateSearchQuery,
     suggestions,
     isSuggesting,
     selectSuggestion,
@@ -155,6 +184,8 @@ export function useSearchAndFilter(initial?: SearchAndFilterInitial) {
     filterOptions,
     pois,
     isLoading,
+    error: loadError,
+    retry,
     toggleFavourite,
   };
 }
@@ -216,6 +247,7 @@ export function useCollections() {
   const [isLoading, setIsLoading] = useState(
     () => loadCollectionsState() === null
   );
+  const [loadError, setLoadError] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasMore, setHasMore] = useState(() => {
     const restored = loadCollectionsState();
@@ -234,6 +266,7 @@ export function useCollections() {
       .then((result) => {
         if (!cancelled) {
           setCollections(result);
+          setLoadError(false);
           persistCollectionsState(result);
           setHasMore(
             result.length > 0 && result.length < MAX_COLLECTIONS_DISPLAYED
@@ -244,6 +277,7 @@ export function useCollections() {
         // 合辑加载失败不打断页面：保持空列表，由组件展示降级文案
         if (!cancelled) {
           setCollections([]);
+          setLoadError(true);
           setHasMore(false);
         }
       })
@@ -254,6 +288,11 @@ export function useCollections() {
       cancelled = true;
     };
   }, [isLoading]);
+
+  const retry = useCallback(() => {
+    setLoadError(false);
+    setIsLoading(true);
+  }, []);
 
   /** 生成更多合辑（追加下一批；进行中禁用，累计达上限后 hasMore=false） */
   const generateMore = useCallback(async () => {
@@ -274,7 +313,15 @@ export function useCollections() {
     }
   }, [collections, isGenerating]);
 
-  return { collections, isLoading, isGenerating, hasMore, generateMore };
+  return {
+    collections,
+    isLoading,
+    error: loadError,
+    retry,
+    isGenerating,
+    hasMore,
+    generateMore,
+  };
 }
 
 /** 合辑详情（数据源：Wikivoyage 主题聚合；跨会话直连详情页时按需聚合） */
@@ -372,13 +419,24 @@ export function useNearbyInspirations(lat?: number, lon?: number) {
 export function useEventFeed() {
   const [events, setEvents] = useState<EventFeedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     discoveryService
       .getEventFeed()
       .then((result) => {
-        if (!cancelled) setEvents(result);
+        if (!cancelled) {
+          setEvents(result);
+          setLoadError(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEvents([]);
+          setLoadError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -386,35 +444,77 @@ export function useEventFeed() {
     return () => {
       cancelled = true;
     };
+  }, [loadAttempt]);
+
+  const retry = useCallback(() => {
+    setIsLoading(true);
+    setLoadError(false);
+    setLoadAttempt((attempt) => attempt + 1);
   }, []);
 
-  return { events, isLoading };
+  return { events, isLoading, error: loadError, retry };
+}
+
+/** 收藏变更事件名：跨 useFavorites 实例同步——任一实例写操作（添加/移除收藏）成功后广播，
+ *  所有已挂载实例（页面卡片星标状态、收藏夹抽屉等）监听后统一重新拉取，保证
+ *  Recommended Places / 搜索结果 / 地点详情 / 收藏夹抽屉之间的收藏状态即时一致。 */
+const FAVOURITES_CHANGED_EVENT = "module03:favourites-changed";
+
+/** 广播收藏变更事件（浏览器端；SSR 环境安全跳过） */
+function notifyFavouritesChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(FAVOURITES_CHANGED_EVENT));
 }
 
 /** 收藏夹（Favourite List）：列表、计数、类型过滤、删除、切换收藏与加入行程 */
 export function useFavorites() {
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [activeType, setActiveType] = useState<string>("All");
+  const savedItemsRef = useRef<SavedItem[]>([]);
+  const pendingItemIdsRef = useRef(new Set<string>());
 
-  const refresh = useCallback(async () => {
-    setSavedItems(await favoritesService.getSavedItems());
+  /** 同步 React state 与事件处理器使用的最新快照，供收藏写操作乐观更新。 */
+  const updateSavedItems = useCallback(
+    (updater: (items: SavedItem[]) => SavedItem[]) => {
+      const nextItems = updater(savedItemsRef.current);
+      savedItemsRef.current = nextItems;
+      setSavedItems(nextItems);
+    },
+    []
+  );
+
+  const replaceSavedItems = useCallback((items: SavedItem[]) => {
+    savedItemsRef.current = items;
+    setSavedItems(items);
   }, []);
+
+  /** 重新拉取当前用户收藏夹（对外暴露；组件内部由收藏变更事件驱动刷新） */
+  const refresh = useCallback(async () => {
+    replaceSavedItems(await favoritesService.getSavedItems());
+  }, [replaceSavedItems]);
 
   useEffect(() => {
     let cancelled = false;
-    favoritesService
-      .getSavedItems()
-      .then((items) => {
-        if (!cancelled) setSavedItems(items);
-      })
-      .catch(() => {
-        // 收藏加载失败不打断页面：保持空列表即可
-        if (!cancelled) setSavedItems([]);
-      });
+    const loadItems = () => {
+      favoritesService
+        .getSavedItems()
+        .then((items) => {
+          if (!cancelled) replaceSavedItems(items);
+        })
+        .catch(() => {
+          // 收藏加载失败不打断页面：保持空列表即可
+          if (!cancelled) replaceSavedItems([]);
+        });
+    };
+    // 挂载时加载一次；此后任一实例发生收藏变更（事件广播）即自动刷新，
+    // 保证收藏夹抽屉与本页面收藏标记（favouriteIds）始终与 D1 一致。
+    loadItems();
+    window.addEventListener(FAVOURITES_CHANGED_EVENT, loadItems);
     return () => {
       cancelled = true;
+      window.removeEventListener(FAVOURITES_CHANGED_EVENT, loadItems);
     };
-  }, []);
+  }, [replaceSavedItems]);
 
   /** 类型过滤选项：自动从收藏夹内条目的体验类型去重生成 */
   const typeOptions = useMemo(
@@ -425,37 +525,87 @@ export function useFavorites() {
     [savedItems]
   );
 
-  /** 删除一条收藏（未登录/会话失效时提示用户，不中断页面） */
+  /** 删除一条收藏（未登录/会话失效时提示用户，不中断页面）；
+   *  成功后广播收藏变更事件，所有收藏夹实例自动刷新 */
   const removeItem = useCallback(
     async (id: string) => {
+      if (pendingItemIdsRef.current.has(id)) return;
+      const previousIndex = savedItemsRef.current.findIndex(
+        (item) => item.id === id
+      );
+      const previousItem = savedItemsRef.current[previousIndex];
+      if (!previousItem) return;
+
+      pendingItemIdsRef.current.add(id);
+      updateSavedItems((items) => items.filter((item) => item.id !== id));
       try {
         await favoritesService.removeSavedItem(id);
-        await refresh();
+        notifyFavouritesChanged();
       } catch (err) {
+        updateSavedItems((items) => {
+          if (items.some((item) => item.id === id)) return items;
+          const restoredItems = [...items];
+          restoredItems.splice(previousIndex, 0, previousItem);
+          return restoredItems;
+        });
         window.alert(
           err instanceof Error ? err.message : "Failed to remove favourite"
         );
+      } finally {
+        pendingItemIdsRef.current.delete(id);
       }
     },
-    [refresh]
+    [updateSavedItems]
   );
 
-  /** 切换地点收藏状态（收藏/取消收藏）并刷新列表（未登录时提示用户） */
+  /** 切换地点收藏状态（收藏/取消收藏）；成功后广播收藏变更事件，
+   *  收藏夹抽屉与各处星标状态自动刷新（未登录时提示用户） */
   const toggleItem = useCallback(
     async (poi: PoiItem) => {
+      if (pendingItemIdsRef.current.has(poi.id)) return;
+      const previousItem = savedItemsRef.current.find(
+        (item) => item.id === poi.id
+      );
+      const optimisticItem: SavedItem = {
+        id: poi.id,
+        placeId:
+          poi.placeId ??
+          (poi.id.startsWith("geo-")
+            ? poi.id.slice("geo-".length)
+            : poi.id),
+        name: poi.name,
+        thumbnailUrl: poi.imageUrl,
+        experienceType: poi.experienceType,
+      };
+
+      pendingItemIdsRef.current.add(poi.id);
+      updateSavedItems((items) =>
+        previousItem
+          ? items.filter((item) => item.id !== poi.id)
+          : [...items, optimisticItem]
+      );
       try {
         await favoritesService.togglePoiFavourite(poi);
-        await refresh();
+        notifyFavouritesChanged();
       } catch (err) {
+        updateSavedItems((items) =>
+          previousItem
+            ? items.some((item) => item.id === poi.id)
+              ? items
+              : [...items, previousItem]
+            : items.filter((item) => item.id !== poi.id)
+        );
         window.alert(
           err instanceof Error ? err.message : "Failed to toggle favourite"
         );
+      } finally {
+        pendingItemIdsRef.current.delete(poi.id);
       }
     },
-    [refresh]
+    [updateSavedItems]
   );
 
-  /** 将单个地点加入行程（经 RoutePlannerBridge stub，返回结果供 UI 反馈） */
+  /** 将单个地点加入行程（经 RoutePlannerBridge 调用模块 02 导入接口，返回结果供 UI 反馈） */
   const addToTrip = useCallback(
     async (item: SavedItem) => {
       return favoritesService.addToTrip(item);
@@ -523,7 +673,6 @@ export function usePlaceImages(
 
   useEffect(() => {
     let cancelled = false;
-    setImages({}); // 地点集合变化时重置，未加载完成的卡片显示占位
 
     const run = async () => {
       for (let i = 0; i < places.length; i += IMAGE_FETCH_CONCURRENCY) {

@@ -173,7 +173,8 @@ function SearchResults() {
   const images = usePlaceImages(places);
 
   return (
-    <div className="space-y-6">
+    // pb-24：为全局收藏夹悬浮按钮（Module 03 布局）预留底部空间，避免遮挡内容
+    <div className="space-y-6 pb-24">
       {/* 页头 */}
       <div className="flex items-end justify-between gap-4">
         <div>
@@ -257,8 +258,12 @@ function SearchResults() {
           {places.map((place) => (
             <Link
               key={place.placeId}
-              href={placeDetailPath(place.placeId, q)}
-              className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.98] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
+              href={placeDetailPath(place.placeId, q, {
+                experienceType: selectedExperienceType || undefined,
+                scene: activeTab,
+                state: selectedState || undefined,
+              })}
+              className="group block overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.03)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(255,107,107,0.15)] active:translate-y-0 active:scale-[0.98] active:shadow-[0_2px_20px_rgba(0,0,0,0.03)] has-[button:active]:translate-y-0 has-[button:active]:scale-100 has-[button:active]:shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
             >
               {/* 图片区（真实地点图片；加载中/无图时以 Icon 表示无图） */}
               <div className="relative m-2 h-40 overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-primary-500/20 via-secondary-500/20 to-accent-400/30">
@@ -296,7 +301,7 @@ function SearchResults() {
                   }
                   className={`absolute top-3 right-3 cursor-pointer rounded-full p-2 shadow-sm backdrop-blur-sm transition-all duration-150 active:scale-90 ${
                     favouriteIds.has(place.id)
-                      ? "bg-primary-500 text-white hover:bg-primary-500/90"
+                      ? "bg-primary-500 text-white hover:ring-2 hover:ring-white/60"
                       : "bg-white/90 text-gray-500 hover:bg-white hover:text-primary-500"
                   }`}
                 >

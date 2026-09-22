@@ -15,6 +15,7 @@
 3. 如果需要使用开发环境，在项目目录下运行devcontainer exec --workspace-folder . <command>
 4. 使用npm run preview而不是npm run build|dev
 5. 谨慎使用sudo|root权限
+6. 已部署至Cloudflare: travel-sync.chewjs-wm25.workers.dev
 
 # 可以做的事
 1. 如有必要，你可以调用Sub-Agent来帮助你完成任务

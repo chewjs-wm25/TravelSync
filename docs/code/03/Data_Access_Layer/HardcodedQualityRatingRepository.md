@@ -3,13 +3,15 @@
 > - 所属模块：03 Destination Discovery & Inspiration
 > - 所属 Layer：Data Access Layer
 > - 源文件：`data_access_layer/03_Destination_Discovery_&_Inspiration/HardcodedQualityRatingRepository.ts`
-> - 类型：仓储实现（浏览器端 · JSON 硬编码数据源）
+> - 类型：仓储实现（浏览器端 · JSON 硬编码数据源 · **@deprecated**）
 
 ## 责任
 
 本文件是模块 03 官方品质评级数据的「硬编码 JSON」数据源实现，运行于**浏览器端**。职责单一：读取官方评级爬取结果 `officalQualityRating_hardcode.json`（同目录数据文件，与内部接口 `RawOfficialQualityRating` 结构一致），映射为 `OfficialQualityRatingEntity` 列表供上层使用；不包含匹配/回退等业务判断（由 Business Logic Layer 负责）。
 
-它对应 `OfficialQualityRatingRepository` 接口的浏览器端直读实现，但**不 `implements` 该接口**：`listAll()` 为同步方法（JSON 在打包时内联，无需异步 IO）。典型使用场景是同步链路：本类提供评级原始数据快照 → BL 层经 Geoapify 匹配地点、补全详情 → `D1QualityRatingRepository.upsertAll()` 写入 D1。
+它对应 `OfficialQualityRatingRepository` 接口的浏览器端直读实现，但**不 `implements` 该接口**：`listAll()` 为同步方法（JSON 在打包时内联，无需异步 IO）。> ⚠ **已废弃（deprecated）**：本文件与 `officalQualityRating_hardcode.json` 已退出官方评级数据链路——数据源切换为 MOTAC 官网实时爬虫（`api_layer/.../MotacMyTqaApi` → 服务端 `QualityRatingWebSyncService`，每日 cron / DEV 按钮触发）。按仓库约定文件保留但不被任何代码引用，便于回滚（镜像 HardcodedEventRepository 先例）。
+
+历史典型使用场景：同步链路中本类提供评级原始数据快照 → BL 层经 Nominatim 匹配地点、补全坐标 → `D1QualityRatingRepository.upsertAll()` 写入 D1。
 
 ### 关键设计
 

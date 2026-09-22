@@ -4,7 +4,11 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useFavorites } from "./hooks";
+import { useFavorites, usePlaceImages } from "./hooks";
+import PlaceImageAttribution from "./placeImageAttribution";
+import AddToTripPicker, {
+  type AddToTripCandidate,
+} from "./AddToTripPicker";
 import type { SavedItem } from "../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types";
 import { placeDetailPath } from "./routes";
 import { safeHttpUrl } from "./safeUrl";
@@ -13,9 +17,6 @@ import { ImageOff } from "lucide-react";
 interface ChildProbs {
   isDrawerOpen: boolean;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  typeOptions: string[];
-  activeType: string;
-  setActiveType: React.Dispatch<React.SetStateAction<string>>;
 }
 
 /** 星星图标（heroicons outline star） */
@@ -46,47 +47,53 @@ export function StarIcon({
 export default function FavouriteList({
   isDrawerOpen,
   setIsDrawerOpen,
-  typeOptions,
-  activeType,
-  setActiveType,
 }: ChildProbs) {
   const router = useRouter();
   const {
     visibleItems,
     savedItemsCount,
+    typeOptions,
+    activeType,
+    setActiveType,
     removeItem,
-    addToTrip,
   } = useFavorites();
-  const [addingToTripId, setAddingToTripId] = useState<string | null>(null);
+  /**
+   * 收藏条目图片（统一图片链路，与 Recommended Places / Search Places 一致）：
+   * 经 discoveryService.getPlaceImage（Wikivoyage → Wikipedia 条目配图 → Commons
+   * Geosearch → Mapillary 兜底，马来西亚限定）动态获取并复用同一缓存——收藏保存的
+   * thumbnailUrl 恒为空（POI 的 imageUrl 均为占位，见 BL 层映射），因此缩略图必须
+   * 走与推荐/搜索一致的真实图片链路；缓存键为 placeId，同地点在其他页面已查过的
+   * 图直接命中，不重复消耗免费 API 额度。收藏条目无坐标，Geosearch/Mapillary
+   * 环节自动跳过，Wikivoyage/Wikipedia 名称搜索链路仍可正常取图。
+   */
+  const images = usePlaceImages(visibleItems);
+  /** 正在选择加入行程的收藏条目（非空时打开 AddToTripPicker 弹窗） */
+  const [addToTripCandidate, setAddToTripCandidate] =
+    useState<AddToTripCandidate | null>(null);
   const [tripToast, setTripToast] = useState<{
     status: "success" | "error";
     message: string;
   } | null>(null);
 
-  /** 收藏条目加入行程（经 stub 桥接；成功后本地 toast 反馈） */
-  const handleAddToTrip = async (
+  /** 展示加入行程反馈 toast（自动 3s 消失） */
+  const showTripToast = (
+    status: "success" | "error",
+    message: string
+  ) => {
+    setTripToast({ status, message });
+    setTimeout(() => setTripToast(null), 3000);
+  };
+
+  /**
+   * 收藏条目加入行程（模块 02）：打开 AddToTripPicker 弹窗，由用户选择目标
+   * 旅行与行程日期后经 BL 真实导入模块 02（收藏条目无坐标，BL 自动解析补齐）。
+   */
+  const handleAddToTrip = (
     e: React.MouseEvent,
     item: SavedItem
   ) => {
     e.stopPropagation();
-    setAddingToTripId(item.id);
-    try {
-      const result = await addToTrip(item);
-      setTripToast({
-        status: result.success ? "success" : "error",
-        message: result.success
-          ? `✓ ${item.name} added to your trip`
-          : `Failed to add ${item.name} to trip`,
-      });
-    } catch {
-      setTripToast({
-        status: "error",
-        message: `Failed to add ${item.name} to trip`,
-      });
-    } finally {
-      setAddingToTripId(null);
-      setTimeout(() => setTripToast(null), 3000);
-    }
+    setAddToTripCandidate(item);
   };
 
   /** 移除收藏（阻止冒泡，避免触发条目跳转） */
@@ -95,13 +102,25 @@ export default function FavouriteList({
     await removeItem(id);
   };
 
-  /** 点击条目 → 跳转地点详情页（以收藏名称作为搜索词重查） */
+  /** 点击条目 → 跳转地点详情页（以收藏名称作为搜索词重查）；
+   *  跳转前关闭抽屉（布局级抽屉跨页面保持，避免遮挡新页面内容） */
   const handleOpenPlace = (item: SavedItem) => {
+    setIsDrawerOpen(false);
     router.push(placeDetailPath(item.placeId, item.name));
   };
 
   return (
     <>
+      {/* 背景遮罩：抽屉打开时覆盖全屏并将背景模糊；点击遮罩
+          （即抽屉列表以外的任意区域）自动关闭收藏夹列表 */}
+      {isDrawerOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setIsDrawerOpen(false)}
+          className="fixed inset-0 z-40 cursor-pointer bg-gray-900/40 backdrop-blur-sm"
+        />
+      )}
+
       {/* 悬浮切换按钮 */}
       {!isDrawerOpen && (
         <button
@@ -177,23 +196,40 @@ export default function FavouriteList({
             <div
               key={item.id}
               onClick={() => handleOpenPlace(item)}
-              className="flex cursor-pointer gap-4 rounded-2xl border border-gray-200 p-4 transition-all duration-150 hover:bg-gray-100 active:scale-[0.99] active:bg-gray-200"
+              className="flex cursor-pointer gap-4 rounded-2xl border border-gray-200 p-4 transition-all duration-150 hover:bg-gray-100 active:scale-[0.99] active:bg-gray-200 has-[button:active]:scale-100 has-[button:active]:bg-transparent"
             >
-              {item.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={safeHttpUrl(item.thumbnailUrl)}
-                  alt={item.name}
-                  className="h-16 w-16 flex-shrink-0 rounded-2xl object-cover"
-                />
-              ) : (
-                <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-200">
-                  <ImageOff
-                    className="h-6 w-6 text-gray-400"
-                    aria-label="No image available"
-                  />
-                </div>
-              )}
+              {(() => {
+                // 图片优先级：统一图片链路结果（真实图片 + 署名）→ 旧数据
+                // thumbnailUrl 兜底（兼容历史收藏）→ ImageOff 无图占位；
+                // 两种来源的 URL 均经 safeHttpUrl 协议白名单过滤（与
+                // Recommended/Search 一致，见 safeUrl.ts 安全审计规范）
+                const imageUrl =
+                  safeHttpUrl(images[item.id]?.url) ||
+                  safeHttpUrl(item.thumbnailUrl);
+                return imageUrl ? (
+                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageUrl}
+                      alt={item.name}
+                      className="h-16 w-16 object-cover"
+                    />
+                    {/* 作者与许可署名（开源协议合规：CC BY-SA 等要求保留原作者与许可声明） */}
+                    {images[item.id]?.attribution && (
+                      <PlaceImageAttribution
+                        attribution={images[item.id].attribution}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-200">
+                    <ImageOff
+                      className="h-6 w-6 text-gray-400"
+                      aria-label="No image available"
+                    />
+                  </div>
+                );
+              })()}
               <div className="flex-1">
                 <h4 className="line-clamp-1 text-base font-semibold text-gray-800">
                   {item.name}
@@ -214,11 +250,10 @@ export default function FavouriteList({
                 </button>
                 <button
                   onClick={(e) => handleAddToTrip(e, item)}
-                  disabled={addingToTripId === item.id}
                   aria-label={`Add ${item.name} to trip`}
-                  className="cursor-pointer rounded-full bg-primary-500/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-primary-500 transition-all duration-150 hover:bg-primary-500 hover:text-white active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer rounded-full bg-primary-500/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-primary-500 transition-all duration-150 hover:bg-primary-500 hover:text-white active:scale-[0.94]"
                 >
-                  {addingToTripId === item.id ? "Adding…" : "+ Add to Trip"}
+                  + Add to Trip
                 </button>
               </div>
             </div>
@@ -242,6 +277,21 @@ export default function FavouriteList({
           </div>
         )}
       </div>
+
+      {/* 加入行程目标选择弹窗（置于抽屉容器外：transform 会改变 fixed 后代的
+          包含块，弹窗须独立于抽屉渲染才能正确全屏遮罩与居中） */}
+      <AddToTripPicker
+        item={addToTripCandidate}
+        onClose={() => setAddToTripCandidate(null)}
+        onAdded={(info) =>
+          showTripToast(
+            "success",
+            `✓ ${info.placeName} added to ${[info.tripName, info.dayTitle]
+              .filter(Boolean)
+              .join(" · ")}`
+          )
+        }
+      />
     </>
   );
 }

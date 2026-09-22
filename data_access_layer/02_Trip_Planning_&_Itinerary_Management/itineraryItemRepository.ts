@@ -3,9 +3,11 @@ export type ItineraryItemRecord = {
   itinerary_id: string;
   item_name: string;
   image_url: string | null;
-  itinerary_note: string | null;
+  itinerary_item_note: string | null;
   destination: string | null;
   reference_id: string | null;
+  lat: number | null;
+  lon: number | null;
   type: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -20,22 +22,90 @@ export type ItineraryItem = {
   note?: string;
   position?: number;
   order_index?: number;
+  destination?: string;
+  reference_id?: string;
+  lat?: number | null;
+  lon?: number | null;
+  type?: string;
+  start_time?: string;
+  end_time?: string;
 };
+
+function wasD1MutationSuccessful(result: {
+  success?: boolean;
+  meta?: {
+    changes?: number;
+  } | null;
+} | null | undefined): boolean {
+  if (!result) {
+    return false;
+  }
+
+  const changes = result.meta?.changes;
+  if (typeof changes === "number") {
+    return changes > 0;
+  }
+
+  return result.success !== false;
+}
+
+import { ensureTripSchema } from "./tripSchema";
 
 export async function getItineraryItemById(
   db: D1Database,
   itemId: string
 ): Promise<ItineraryItemRecord | null> {
-  return db
-    .prepare(
-      `SELECT
+  await ensureTripSchema(db);
+  // Dynamically include lat/lon if the columns exist
+  try {
+    const pragma = await db.prepare(`PRAGMA table_info('itinerary_items')`).all();
+    const cols = (pragma && ((pragma as any).results ?? pragma)) as any;
+    let hasLat = false;
+    let hasLon = false;
+    if (Array.isArray(cols)) {
+      for (const r of cols) {
+        const name = (r && (r.name || r.NAME || r[1])) || "";
+        if (name === "lat") hasLat = true;
+        if (name === "lon") hasLon = true;
+      }
+    }
+
+    const latSelect = hasLat ? "lat," : "NULL AS lat,";
+    const lonSelect = hasLon ? "lon," : "NULL AS lon,";
+
+    const sql = `SELECT
         item_id,
         itinerary_id,
         item_name,
         image_url,
-        itinerary_note,
+        itinerary_item_note,
         destination,
         reference_id,
+        ${latSelect}
+        ${lonSelect}
+        type,
+        start_time,
+        end_time,
+        position,
+        position AS order_index
+      FROM itinerary_items
+      WHERE item_id = ?`;
+
+    return db.prepare(sql).bind(itemId).first<ItineraryItemRecord>();
+  } catch (e) {
+    // Fallback to a conservative select without lat/lon
+    return db
+      .prepare(
+        `SELECT
+        item_id,
+        itinerary_id,
+        item_name,
+        image_url,
+        itinerary_item_note,
+        destination,
+        reference_id,
+        NULL AS lat,
+        NULL AS lon,
         type,
         start_time,
         end_time,
@@ -43,9 +113,10 @@ export async function getItineraryItemById(
         position AS order_index
       FROM itinerary_items
       WHERE item_id = ?`
-    )
-    .bind(itemId)
-    .first<ItineraryItemRecord>();
+      )
+      .bind(itemId)
+      .first<ItineraryItemRecord>();
+  }
 }
 
 export async function addItineraryItem(
@@ -57,9 +128,16 @@ export async function addItineraryItem(
   note?: string,
   position = 0,
   destination?: string,
-  itemType: string = "other"
+  itemType: string = "other",
+  referenceId?: string,
+  startTime?: string,
+  endTime?: string,
+  lat?: number | null,
+  lon?: number | null
 ): Promise<boolean> {
-  const result = await db
+  await ensureTripSchema(db);
+  // Insert without lat/lon first for maximum compatibility, then attempt to set lat/lon via UPDATE if provided and supported.
+  const insertResult = await db
     .prepare(
       `INSERT INTO itinerary_items (
         item_id,
@@ -67,10 +145,13 @@ export async function addItineraryItem(
         item_name,
         destination,
         image_url,
-        itinerary_note,
+        itinerary_item_note,
         type,
-        position
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        position,
+        reference_id,
+        start_time,
+        end_time
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       itemId,
@@ -80,18 +161,38 @@ export async function addItineraryItem(
       image ?? null,
       note ?? null,
       itemType,
-      position
+      position,
+      referenceId ?? null,
+      startTime ?? null,
+      endTime ?? null
     )
     .run();
 
-  return (result.meta?.changes ?? 0) > 0;
+  const inserted = wasD1MutationSuccessful(insertResult);
+
+  if (inserted && (typeof lat === 'number' || typeof lon === 'number')) {
+    try {
+      // Attempt to update lat/lon — if columns don't exist, this will fail and be ignored
+      await db
+        .prepare(`UPDATE itinerary_items SET lat = ?, lon = ? WHERE item_id = ?`)
+        .bind(lat ?? null, lon ?? null, itemId)
+        .run();
+    } catch (e) {
+      // ignore failures to set lat/lon on older schemas
+    }
+  }
+
+  return inserted;
 }
+
+
 
 export async function updateItineraryItem(
   db: D1Database,
   itemId: string,
   updates: Partial<ItineraryItem>
 ): Promise<boolean> {
+  await ensureTripSchema(db);
   const setClauses: string[] = [];
   const values: Array<string | number | null> = [];
 
@@ -105,7 +206,7 @@ export async function updateItineraryItem(
 
   if (typeof updates.note === "string") {
     const trimmedNote = updates.note.trim();
-    setClauses.push("itinerary_note = ?");
+    setClauses.push("itinerary_item_note = ?");
     values.push(trimmedNote.length > 0 ? trimmedNote : null);
   }
 
@@ -113,6 +214,41 @@ export async function updateItineraryItem(
     const trimmedImage = updates.image.trim();
     setClauses.push("image_url = ?");
     values.push(trimmedImage.length > 0 ? trimmedImage : null);
+  }
+
+  if (typeof updates.destination === "string") {
+    setClauses.push("destination = ?");
+    values.push(updates.destination.trim() || null);
+  }
+
+  if (typeof updates.reference_id === "string") {
+    setClauses.push("reference_id = ?");
+    values.push(updates.reference_id.trim() || null);
+  }
+
+  if (typeof updates.lat === "number") {
+    setClauses.push("lat = ?");
+    values.push(updates.lat);
+  }
+
+  if (typeof updates.lon === "number") {
+    setClauses.push("lon = ?");
+    values.push(updates.lon);
+  }
+
+  if (typeof updates.type === "string") {
+    setClauses.push("type = ?");
+    values.push(updates.type);
+  }
+
+  if (typeof updates.start_time === "string") {
+    setClauses.push("start_time = ?");
+    values.push(updates.start_time.trim() || null);
+  }
+
+  if (typeof updates.end_time === "string") {
+    setClauses.push("end_time = ?");
+    values.push(updates.end_time.trim() || null);
   }
 
   const nextPosition =
@@ -140,13 +276,14 @@ export async function updateItineraryItem(
     .bind(...values, itemId)
     .run();
 
-  return (result.meta?.changes ?? 0) > 0;
+  return wasD1MutationSuccessful(result);
 }
 
 export async function deleteItineraryItem(
   db: D1Database,
   itemId: string
 ): Promise<boolean> {
+  await ensureTripSchema(db);
   const result = await db
     .prepare(
       `DELETE FROM itinerary_items
@@ -155,23 +292,92 @@ export async function deleteItineraryItem(
     .bind(itemId)
     .run();
 
-  return (result.meta?.changes ?? 0) > 0;
+  return wasD1MutationSuccessful(result);
+}
+
+export async function compactItineraryItemPositions(
+  db: D1Database,
+  itineraryId: string
+): Promise<void> {
+  const items = await getItineraryItemsByItineraryId(db, itineraryId);
+  const updates = items.flatMap((item, index) => {
+    const position = index + 1;
+    const currentPosition = item.position ?? item.order_index;
+
+    return currentPosition === position
+      ? []
+      : [
+          db
+            .prepare(
+              `UPDATE itinerary_items
+              SET position = ?
+              WHERE item_id = ? AND itinerary_id = ?`
+            )
+            .bind(position, item.item_id, itineraryId),
+        ];
+  });
+
+  if (updates.length > 0) {
+    await db.batch(updates);
+  }
 }
 
 export async function getItineraryItemsByItineraryId(
   db: D1Database,
   itineraryId: string
 ): Promise<ItineraryItemRecord[]> {
-  const result = await db
-    .prepare(
-      `SELECT
+  await ensureTripSchema(db);
+  // Dynamically include lat/lon when selecting by itinerary
+  try {
+    const pragma = await db.prepare(`PRAGMA table_info('itinerary_items')`).all();
+    const cols = (pragma && ((pragma as any).results ?? pragma)) as any;
+    let hasLat = false;
+    let hasLon = false;
+    if (Array.isArray(cols)) {
+      for (const r of cols) {
+        const name = (r && (r.name || r.NAME || r[1])) || "";
+        if (name === "lat") hasLat = true;
+        if (name === "lon") hasLon = true;
+      }
+    }
+
+    const latSelect = hasLat ? "lat," : "NULL AS lat,";
+    const lonSelect = hasLon ? "lon," : "NULL AS lon,";
+
+    const sql = `SELECT
         item_id,
         itinerary_id,
         item_name,
         image_url,
-        itinerary_note,
+        itinerary_item_note,
         destination,
         reference_id,
+        ${latSelect}
+        ${lonSelect}
+        type,
+        start_time,
+        end_time,
+        position,
+        position AS order_index
+      FROM itinerary_items
+      WHERE itinerary_id = ?
+      ORDER BY position ASC, item_id ASC`;
+
+    const result = await db.prepare(sql).bind(itineraryId).all<ItineraryItemRecord>();
+    return result.results ?? [];
+  } catch (e) {
+    const result = await db
+      .prepare(
+        `SELECT
+        item_id,
+        itinerary_id,
+        item_name,
+        image_url,
+        itinerary_item_note,
+        destination,
+        reference_id,
+        NULL AS lat,
+        NULL AS lon,
         type,
         start_time,
         end_time,
@@ -180,11 +386,12 @@ export async function getItineraryItemsByItineraryId(
       FROM itinerary_items
       WHERE itinerary_id = ?
       ORDER BY position ASC, item_id ASC`
-    )
-    .bind(itineraryId)
-    .all<ItineraryItemRecord>();
+      )
+      .bind(itineraryId)
+      .all<ItineraryItemRecord>();
 
-  return result.results ?? [];
+    return result.results ?? [];
+  }
 }
 
 export async function getItineraryItemsByDayId(

@@ -7,15 +7,15 @@ import {
   type CreateItineraryInput,
   type ItineraryRecord,
   type UpdateItineraryInput as ItineraryRepositoryUpdateInput,
-} from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
+} from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/itineraryRepository";
 import {
   getTripById,
   type TripRecord,
-} from "../../data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
+} from "@/data_access_layer/02_Trip_Planning_&_Itinerary_Management/tripRepository";
 import {
   hasMalaysiaBlocklistMatch,
   normalizeText,
-} from "./textValidation";
+} from "@/business_logic_layer/02_Trip_Planning_&_Itinerary_Management/textValidation";
 
 const MAX_ITINERARY_TITLE_LENGTH = 60;
 
@@ -27,12 +27,12 @@ export type ItineraryServiceInput = {
 };
 
 type ItineraryServiceSuccess = {
-  ok: true;
+  success: true;
   itinerary: ItineraryRecord;
 };
 
 type ItineraryServiceFailure = {
-  ok: false;
+  success: false;
   status: number;
   message: string;
 };
@@ -52,11 +52,11 @@ export type UpdateItineraryInput = {
 };
 
 type DeleteItinerarySuccess = {
-  ok: true;
+  success: true;
 };
 
 type UpdateItinerarySuccess = {
-  ok: true;
+  success: true;
   itinerary: ItineraryRecord;
 };
 
@@ -84,16 +84,16 @@ function isDateWithinTripWindow(date: string, trip: TripRecord) {
   return date >= trip.start_date && date <= trip.end_date;
 }
 
-function validateMalaysiaScope(note: string | null) {
-  if (note && hasMalaysiaBlocklistMatch(note)) {
+function validateMalaysiaScope(title: string) {
+  if (title && hasMalaysiaBlocklistMatch(title)) {
     return {
-      ok: false as const,
+      success: false as const,
       status: 400,
-      message: "Itinerary note must stay within Malaysia",
+      message: "Itinerary must stay within Malaysia",
     };
   }
 
-  return { ok: true as const };
+  return { success: true as const };
 }
 
 export function getItinerarySeedDate(
@@ -131,7 +131,7 @@ function validateCreateItineraryPayload(
   trip: TripRecord | null,
   input: ItineraryServiceInput
 ):
-  | { ok: true; tripId: string; normalized: CreateItineraryInput }
+  | { success: true; tripId: string; normalized: CreateItineraryInput }
   | ItineraryServiceFailure {
   const tripId = normalizeText(input.tripId);
   const title = normalizeText(input.title);
@@ -140,7 +140,7 @@ function validateCreateItineraryPayload(
 
   if (!tripId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Trip ID is required",
     };
@@ -148,7 +148,7 @@ function validateCreateItineraryPayload(
 
   if (!title) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary title is required",
     };
@@ -156,7 +156,7 @@ function validateCreateItineraryPayload(
 
   if (title.length > MAX_ITINERARY_TITLE_LENGTH) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary title must be 60 characters or fewer",
     };
@@ -164,7 +164,7 @@ function validateCreateItineraryPayload(
 
   if (!date) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary date is required",
     };
@@ -172,22 +172,20 @@ function validateCreateItineraryPayload(
 
   if (!isValidIsoDate(date)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid date!",
     };
   }
 
-  if (note) {
-    const malaysiaScopeValidation = validateMalaysiaScope(note);
-    if (!malaysiaScopeValidation.ok) {
-      return malaysiaScopeValidation;
-    }
+  const malaysiaScopeValidation = validateMalaysiaScope(title);
+  if (!malaysiaScopeValidation.success) {
+    return malaysiaScopeValidation;
   }
 
   if (!trip) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Trip not found",
     };
@@ -195,7 +193,7 @@ function validateCreateItineraryPayload(
 
   if (!trip.start_date || !trip.end_date) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Trip dates are required",
     };
@@ -203,14 +201,14 @@ function validateCreateItineraryPayload(
 
   if (!isDateWithinTripWindow(date, trip)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid date!",
     };
   }
 
   return {
-    ok: true,
+    success: true,
     tripId,
     normalized: {
       tripId,
@@ -227,7 +225,7 @@ function validateUpdateItineraryPayload(
   input: UpdateItineraryInput
 ):
   | {
-      ok: true;
+      success: true;
       itineraryId: string;
       normalized: ItineraryRepositoryUpdateInput;
     }
@@ -240,7 +238,7 @@ function validateUpdateItineraryPayload(
 
   if (!itineraryId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary ID is required",
     };
@@ -248,7 +246,7 @@ function validateUpdateItineraryPayload(
 
   if (!existingItinerary) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary not found",
     };
@@ -256,7 +254,7 @@ function validateUpdateItineraryPayload(
 
   if (!title) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary title is required",
     };
@@ -264,7 +262,7 @@ function validateUpdateItineraryPayload(
 
   if (title.length > MAX_ITINERARY_TITLE_LENGTH) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary title must be 60 characters or fewer",
     };
@@ -272,7 +270,7 @@ function validateUpdateItineraryPayload(
 
   if (!date) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary date is required",
     };
@@ -280,22 +278,28 @@ function validateUpdateItineraryPayload(
 
   if (!isValidIsoDate(date)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid date!",
     };
   }
 
-  if (note) {
-    const malaysiaScopeValidation = validateMalaysiaScope(note);
-    if (!malaysiaScopeValidation.ok) {
+  if (hasNoteUpdate) {
+    const malaysiaScopeValidation = validateMalaysiaScope(title);
+    if (!malaysiaScopeValidation.success) {
+      return malaysiaScopeValidation;
+    }
+  } else {
+    // Validate title regardless of note update
+    const malaysiaScopeValidation = validateMalaysiaScope(title);
+    if (!malaysiaScopeValidation.success) {
       return malaysiaScopeValidation;
     }
   }
 
   if (!trip || !trip.start_date || !trip.end_date) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid date!",
     };
@@ -303,7 +307,7 @@ function validateUpdateItineraryPayload(
 
   if (!isDateWithinTripWindow(date, trip)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid date!",
     };
@@ -319,7 +323,7 @@ function validateUpdateItineraryPayload(
   }
 
   return {
-    ok: true,
+    success: true,
     itineraryId,
     normalized,
   };
@@ -333,7 +337,7 @@ export async function createItinerary(
 
   if (!tripId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Trip ID is required",
     };
@@ -342,7 +346,7 @@ export async function createItinerary(
   const trip = await getTripById(db, tripId);
   const validation = validateCreateItineraryPayload(trip ?? null, input);
 
-  if (!validation.ok) {
+  if (!validation.success) {
     return validation;
   }
 
@@ -350,8 +354,17 @@ export async function createItinerary(
     db,
     validation.normalized
   );
+
+  // notify listeners that an itinerary changed for this trip
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(itinerary.trip_id);
+  } catch (e) {
+    // ignore
+  }
+
   return {
-    ok: true,
+    success: true,
     itinerary,
   };
 }
@@ -377,7 +390,7 @@ export async function deleteItinerary(
 
   if (!itineraryId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary ID is required",
     };
@@ -386,7 +399,7 @@ export async function deleteItinerary(
   const existingItinerary = await getItineraryById(db, itineraryId);
   if (!existingItinerary) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary not found",
     };
@@ -395,13 +408,20 @@ export async function deleteItinerary(
   const wasDeleted = await deleteItineraryInRepository(db, itineraryId);
   if (!wasDeleted) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary not found",
     };
   }
 
-  return { ok: true };
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(existingItinerary.trip_id);
+  } catch (e) {
+    // ignore
+  }
+
+  return { success: true };
 }
 
 export async function updateItinerary(
@@ -416,7 +436,7 @@ export async function updateItinerary(
 
   if (!tripId) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary ID is required",
     };
@@ -425,7 +445,7 @@ export async function updateItinerary(
   const existingItinerary = await getItineraryById(db, tripId);
   if (!existingItinerary) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary not found",
     };
@@ -433,7 +453,7 @@ export async function updateItinerary(
 
   if (!title) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary title is required",
     };
@@ -441,7 +461,7 @@ export async function updateItinerary(
 
   if (title.length > MAX_ITINERARY_TITLE_LENGTH) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary title must be 60 characters or fewer",
     };
@@ -449,7 +469,7 @@ export async function updateItinerary(
 
   if (!date) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Itinerary date is required",
     };
@@ -457,23 +477,21 @@ export async function updateItinerary(
 
   if (!isValidIsoDate(date)) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid date!",
     };
   }
 
-  if (note) {
-    const malaysiaScopeValidation = validateMalaysiaScope(note);
-    if (!malaysiaScopeValidation.ok) {
-      return malaysiaScopeValidation;
-    }
+  const malaysiaScopeValidation = validateMalaysiaScope(title);
+  if (!malaysiaScopeValidation.success) {
+    return malaysiaScopeValidation;
   }
 
   const trip = await getTripById(db, existingItinerary.trip_id);
   if (!trip || !trip.start_date || !trip.end_date) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid date!",
     };
@@ -481,25 +499,38 @@ export async function updateItinerary(
 
   if (date < trip.start_date || date > trip.end_date) {
     return {
-      ok: false,
+      success: false,
       status: 400,
       message: "Invalid date!",
     };
   }
 
-  const wasUpdated = await updateItineraryInRepository(
+  const itineraries = await getItinerariesByTripId(
     db,
-    tripId,
-    {
-      title,
-      date,
-      ...(hasNoteUpdate ? { note: note ?? null } : {}),
-    }
+    existingItinerary.trip_id
   );
+  if (
+    itineraries.some(
+      (itinerary) =>
+        itinerary.itinerary_id !== tripId && itinerary.date === date
+    )
+  ) {
+    return {
+      success: false,
+      status: 409,
+      message: "An itinerary day already exists for that date",
+    };
+  }
+
+  const wasUpdated = await updateItineraryInRepository(db, tripId, {
+    title,
+    date,
+    ...(hasNoteUpdate ? { note: note ?? null } : {}),
+  });
 
   if (!wasUpdated) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary not found",
     };
@@ -508,14 +539,21 @@ export async function updateItinerary(
   const itinerary = await getItineraryById(db, tripId);
   if (!itinerary) {
     return {
-      ok: false,
+      success: false,
       status: 404,
       message: "Itinerary not found",
     };
   }
 
+  try {
+    const events = await import("./events");
+    events.triggerItineraryChanged(itinerary.trip_id);
+  } catch (e) {
+    // ignore
+  }
+
   return {
-    ok: true,
+    success: true,
     itinerary,
   };
 }

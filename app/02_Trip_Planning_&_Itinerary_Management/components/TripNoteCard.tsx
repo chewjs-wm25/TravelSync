@@ -54,7 +54,7 @@ export function TripNoteCard({ note, onSaveNote }: TripNoteCardProps) {
                 void handleSaveNote(draftNote);
               }}
               disabled={isSaving}
-              className="rounded-xl bg-[#ff6b6b] px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="rounded-xl bg-[#ff6b6b] px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? "Saving..." : "Save"}
             </button>
@@ -67,7 +67,7 @@ export function TripNoteCard({ note, onSaveNote }: TripNoteCardProps) {
                 }
               }}
               disabled={isSaving}
-              className="rounded-xl border border-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl border border-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
@@ -79,7 +79,7 @@ export function TripNoteCard({ note, onSaveNote }: TripNoteCardProps) {
               void handleSaveNote("");
             }}
             disabled={isSaving}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Clear Note"
             title="Clear Note"
           >
@@ -101,7 +101,7 @@ export function TripNoteCard({ note, onSaveNote }: TripNoteCardProps) {
           <button
             type="button"
             onClick={handleOpenNoteField}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 active:scale-90"
             aria-label="Add Note"
             title="Add Note"
           >
@@ -117,7 +117,7 @@ export function TripNoteCard({ note, onSaveNote }: TripNoteCardProps) {
             value={draftNote}
             onChange={(event) => setDraftNote(event.target.value)}
             placeholder="Write your trip notes here..."
-            className="w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-800 focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-800 focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50"
             disabled={isSaving}
           />
         </div>
@@ -130,7 +130,7 @@ export function TripNoteCard({ note, onSaveNote }: TripNoteCardProps) {
             <button
               type="button"
               onClick={handleOpenNoteField}
-              className="text-xs font-medium text-[#ff6b6b] hover:underline"
+              className="-my-1 rounded-md px-2 py-1 text-xs font-medium text-[#ff6b6b] transition-colors hover:bg-[#ff6b6b]/10 hover:underline active:opacity-70"
             >
               Edit
             </button>

@@ -15,7 +15,7 @@ import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared
 
 export default function ItineraryPermissionDemo() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const addItem = useCollabStore((s) => s.addItem);
@@ -90,7 +90,7 @@ export default function ItineraryPermissionDemo() {
             <select
               value={day}
               onChange={(e) => setDay(Number(e.target.value))}
-              className="w-24 appearance-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-primary-500"
+              className="w-24 appearance-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-primary-500 active:scale-95"
             >
               {[1, 2, 3, 4, 5].map((d) => (
                 <option key={d} value={d}>
@@ -123,12 +123,12 @@ export default function ItineraryPermissionDemo() {
               <div className="space-y-2">
                 {grouped[d].map((item) => (
                   <div
-                    key={item.id}
+                    key={item.itemId}
                     className="group flex items-start justify-between gap-3 rounded-xl border border-gray-100 px-4 py-3 transition hover:border-gray-200"
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-800">
-                        {item.title}
+                        {item.name}
                       </p>
                       {item.note && (
                         <p className="mt-0.5 text-xs text-gray-500">
@@ -138,9 +138,9 @@ export default function ItineraryPermissionDemo() {
                     </div>
                     {canEdit && (
                       <button
-                        onClick={() => handleRemove(item.id, item.title)}
-                        className="text-gray-300 transition hover:text-error"
-                        aria-label={`Delete ${item.title}`}
+                        onClick={() => handleRemove(item.itemId, item.name)}
+                        className="text-gray-300 transition hover:text-error active:scale-90"
+                        aria-label={`Delete ${item.name}`}
                       >
                         <Trash2 size={16} />
                       </button>

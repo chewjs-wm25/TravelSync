@@ -11,6 +11,7 @@ import type {
   Vehicle,
   SavedRoute,
   VehicleType,
+  VehicleCategory,
   OptimizationMode,
 } from './useTripNavigationStore';
 import {
@@ -76,7 +77,7 @@ export async function generateRoute(
  * 
  * Called by: Module 2 (Trip Planning) - to save generated routes as itinerary items
  */
-export function saveRoute(name: string): SavedRoute | null {
+export async function saveRoute(name: string): Promise<SavedRoute | null> {
   const store = useTripNavigationStore.getState();
   
   if (!store.origin || !store.destination) {
@@ -84,7 +85,7 @@ export function saveRoute(name: string): SavedRoute | null {
     return null;
   }
 
-  store.saveRoute(name);
+  await store.saveRoute(name);
   
   // Return the last saved route
   return store.savedRoutes[0] || null;
@@ -227,8 +228,8 @@ export function exportToGoogleMaps(origin: Stop, destination: Stop): string {
  * Export route to Waze
  * Called by: Module 2 (Trip Planning) - to navigate with Waze
  */
-export function exportToWaze(destination: Stop): string {
-  return getWazeUrl(destination);
+export function exportToWaze(destination: Stop, origin?: Stop): string {
+  return getWazeUrl(destination, origin);
 }
 
 // ============================================
@@ -242,5 +243,6 @@ export type {
   Vehicle,
   SavedRoute,
   VehicleType,
+  VehicleCategory,
   OptimizationMode,
 };

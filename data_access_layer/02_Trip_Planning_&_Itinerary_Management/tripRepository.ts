@@ -5,6 +5,8 @@ export type TripRecord = {
   start_date: string | null;
   end_date: string | null;
   trip_note: string | null;
+  image_url: string | null;
+  locations_count?: number;
 };
 
 export type CreateTripInput = {
@@ -13,6 +15,7 @@ export type CreateTripInput = {
   startDate: string | null;
   endDate: string | null;
   tripNote: string | null;
+  imageUrl: string | null;
 };
 
 export type UpdateTripInput = {
@@ -20,12 +23,16 @@ export type UpdateTripInput = {
   startDate: string | null;
   endDate: string | null;
   tripNote: string | null;
+  imageUrl: string | null;
 };
+
+import { ensureTripSchema } from "./tripSchema";
 
 export async function insertTrip(
   db: D1Database,
   input: CreateTripInput
 ): Promise<TripRecord> {
+  await ensureTripSchema(db);
   const tripId = crypto.randomUUID();
 
   await db
@@ -36,8 +43,9 @@ export async function insertTrip(
         trip_name,
         start_date,
         end_date,
-        trip_note
-      ) VALUES (?, ?, ?, ?, ?, ?)`
+        trip_note,
+        image_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       tripId,
@@ -45,7 +53,8 @@ export async function insertTrip(
       input.tripName,
       input.startDate,
       input.endDate,
-      input.tripNote
+      input.tripNote,
+      input.imageUrl
     )
     .run();
 
@@ -56,10 +65,12 @@ export async function insertTrip(
     start_date: input.startDate,
     end_date: input.endDate,
     trip_note: input.tripNote,
+    image_url: input.imageUrl,
   };
 }
 
 export async function listTripsByUser(db: D1Database, userId: string) {
+  await ensureTripSchema(db);
   const result = await db
     .prepare(
       `SELECT
@@ -68,7 +79,15 @@ export async function listTripsByUser(db: D1Database, userId: string) {
         trip_name,
         start_date,
         end_date,
-        trip_note
+        trip_note,
+        image_url,
+        (
+          SELECT COUNT(*)
+          FROM itinerary_items
+          INNER JOIN itineraries
+            ON itineraries.itinerary_id = itinerary_items.itinerary_id
+          WHERE itineraries.trip_id = trips.trip_id
+        ) AS locations_count
       FROM trips
       WHERE user_id = ?
       ORDER BY
@@ -83,6 +102,7 @@ export async function listTripsByUser(db: D1Database, userId: string) {
 }
 
 export async function getTripById(db: D1Database, tripId: string) {
+  await ensureTripSchema(db);
   return db
     .prepare(
       `SELECT
@@ -91,7 +111,15 @@ export async function getTripById(db: D1Database, tripId: string) {
         trip_name,
         start_date,
         end_date,
-        trip_note
+        trip_note,
+        image_url,
+        (
+          SELECT COUNT(*)
+          FROM itinerary_items
+          INNER JOIN itineraries
+            ON itineraries.itinerary_id = itinerary_items.itinerary_id
+          WHERE itineraries.trip_id = trips.trip_id
+        ) AS locations_count
       FROM trips
       WHERE trip_id = ?`
     )
@@ -100,6 +128,7 @@ export async function getTripById(db: D1Database, tripId: string) {
 }
 
 export async function deleteTripById(db: D1Database, tripId: string) {
+  await ensureTripSchema(db);
   await db
     .prepare(
       `DELETE FROM trips
@@ -114,13 +143,14 @@ export async function updateTrip(
   tripId: string,
   data: UpdateTripInput
 ): Promise<TripRecord | null> {
+  await ensureTripSchema(db);
   const updateResult = await db
     .prepare(
       `UPDATE trips
-      SET trip_name = ?, start_date = ?, end_date = ?, trip_note = ?
+      SET trip_name = ?, start_date = ?, end_date = ?, trip_note = ?, image_url = ?
       WHERE trip_id = ?`
     )
-    .bind(data.tripName, data.startDate, data.endDate, data.tripNote, tripId)
+    .bind(data.tripName, data.startDate, data.endDate, data.tripNote, data.imageUrl, tripId)
     .run();
 
   if (updateResult.meta.changes === 0) {
@@ -135,7 +165,15 @@ export async function updateTrip(
         trip_name,
         start_date,
         end_date,
-        trip_note
+        trip_note,
+        image_url,
+        (
+          SELECT COUNT(*)
+          FROM itinerary_items
+          INNER JOIN itineraries
+            ON itineraries.itinerary_id = itinerary_items.itinerary_id
+          WHERE itineraries.trip_id = trips.trip_id
+        ) AS locations_count
       FROM trips
       WHERE trip_id = ?`
     )

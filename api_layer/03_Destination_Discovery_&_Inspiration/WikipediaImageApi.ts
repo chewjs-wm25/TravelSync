@@ -45,6 +45,8 @@
 import {
   extractFileNameFromThumbUrl,
   isNonPlaceImageTitle,
+  placeNameMatchScore,
+  titleContainsPlaceName,
 } from "./WikimediaImageFilters";
 import {
   wikimediaFileMetaApi,
@@ -204,9 +206,24 @@ export class WikipediaImageApi {
     return Object.values(pages)
       .sort((a, b) => (a.index ?? 0) - (b.index ?? 0)) // 保持搜索相关性顺序
       .flatMap((page) => {
+        const title = page.title ?? "";
         const candidate = this.pickCandidate(page);
-        return candidate ? [candidate] : [];
-      });
+        if (
+          !candidate ||
+          (!titleContainsPlaceName(title, placeName) &&
+            !titleContainsPlaceName(candidate.fileName, placeName))
+        ) {
+          return [];
+        }
+        return [{
+          ...candidate,
+          score:
+            placeNameMatchScore(title, placeName) * 2 +
+            placeNameMatchScore(candidate.fileName, placeName),
+        }];
+      })
+      .sort((a, b) => b.score - a.score)
+      .map(({ fileName, thumbUrl }) => ({ fileName, thumbUrl }));
   }
 
   /**

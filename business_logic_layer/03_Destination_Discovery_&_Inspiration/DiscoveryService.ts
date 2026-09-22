@@ -22,7 +22,7 @@
  *     统一图片链路（与 Search&Filter 同一封装、同一缓存）；
  *   - 灵感合辑 → InspirationsService（Wikivoyage 主题自动发现与内容聚合）；
  *   - 筛选字典 → DiscoveryExternalApi（暂无免费数据源，mock 占位）。
- *   - 节日活动 → Cloudflare D1（parsed_events.json 经 DEV 按钮同步，Data Access 层读取）。
+ *   - 节日活动 → Cloudflare D1（malaysia.travel 官网爬虫经服务端同步，Data Access 层读取）。
  *
  * 依赖方向：Business Logic → API Layer（GeoapifyGeocodingApi / DiscoveryExternalApi）
  *                Business Logic → Data Access Layer（FavoritesRepository）
@@ -70,6 +70,7 @@ import type {
   PlaceImageResult,
   PoiItem,
   SearchFilters,
+  StateInfo,
   SuggestionItem,
 } from "./types";
 
@@ -490,18 +491,60 @@ function normalizeSearchText(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+const OFFICIAL_NAME_GENERIC_WORDS = new Set([
+  "and", "the", "golf", "club", "country", "hotel", "resort", "centre",
+  "center", "malaysia", "sdn", "bhd", "berhad", "company", "corporation",
+]);
+
+function officialMatchWords(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3);
+}
+
+/** Conservative runtime match for legacy records that have not been enriched. */
+function pickTrustedOfficialDetail(
+  item: OfficialQualityRatingEntity,
+  candidates: GeoapifyPlaceDto[]
+): GeoapifyPlaceDto | null {
+  const distinctive = officialMatchWords(item.companyName).filter(
+    (word) => !OFFICIAL_NAME_GENERIC_WORDS.has(word)
+  );
+  if (distinctive.length === 0) return null;
+  const addressWords = new Set(officialMatchWords(item.companyAddress));
+  return (
+    candidates
+      .map((candidate) => {
+        const candidateName = new Set(officialMatchWords(candidate.name));
+        const candidateAddress = new Set(officialMatchWords(candidate.formatted));
+        const nameMatches = distinctive.filter((word) => candidateName.has(word)).length;
+        const addressMatches = [...addressWords].filter((word) => candidateAddress.has(word)).length;
+        return { candidate, nameMatches, addressMatches };
+      })
+      .filter(({ candidate, nameMatches, addressMatches }) =>
+        nameMatches > 0 &&
+        (addressMatches >= 2 || (candidate.confidence ?? 0) >= 0.7)
+      )
+      .sort(
+        (a, b) =>
+          b.nameMatches * 4 + b.addressMatches -
+          (a.nameMatches * 4 + a.addressMatches)
+      )[0]?.candidate ?? null
+  );
+}
+
 /**
  * 地点图片缓存的 sessionStorage 键（跨页面导航复用结果，避免重复消耗免费额度）。
- * v5：统一图片链路（v5，见 getPlaceImage）新增 Wikivoyage 首环节、并携带
- * 作者/许可署名信息（attribution，开源协议展示合规），v4 及更早缓存（旧值
- * 格式无署名、且旧"确定无图"结果会阻挡新环节）整体失效、重新查询；
- * 旧键在读取时顺手清除。
- * v5 值格式：值为 PlaceImageCacheEntry 的 JSON 序列化（wikimedia url +
+ * v6 applies strict place-name relevance checks and invalidates permissive v5
+ * image matches. Values remain PlaceImageCacheEntry JSON (wikimedia url +
  * attribution / mapillary imageId + attribution / "" 无图）。
  */
-const PLACE_IMAGE_CACHE_KEY = "module03-place-image-cache-v5";
-/** 旧版缓存键（v1–v4 可能含脏"无图"结果与旧值格式，读取时顺手清除） */
+const PLACE_IMAGE_CACHE_KEY = "module03-place-image-cache-v6";
+/** Older browser caches may contain permissive or stale image decisions. */
 const LEGACY_PLACE_IMAGE_CACHE_KEYS = [
+  "module03-place-image-cache-v5",
   "module03-place-image-cache-v4",
   "module03-place-image-cache-v3",
   "module03-place-image-cache-v2",
@@ -520,7 +563,7 @@ const MAPILLARY_URL_TTL_MS = 60 * 60 * 1000;
  * 命中的区域中心，需大半径覆盖附近地标；精确坐标也统一使用
  * （geosearch 按距离排序取首图，仍相对相关；文件坐标逐条马来西亚校验）。
  */
-const RECOMMENDED_GEOSEARCH_RADIUS_METERS = 5000;
+const GEOSEARCH_RADIUS_STAGES_METERS = [300, 1000] as const;
 
 /**
  * Mapillary 图片的固定署名（Mapillary 服务条款：图片为 CC BY-SA 4.0，
@@ -569,13 +612,29 @@ export class DiscoveryService {
   }
 
   /**
+   * 州/省信息（供模块 02 创建旅行时选择州/省；字段遵循 guideline §5 坐标标准）。
+   * 数据源：api_layer DiscoveryExternalApi.fetchStateInfo（当前为静态候选占位，
+   * 未来替换真实 API 时签名不变）；浏览器端 BL 直接编排，不依赖后端服务。
+   */
+  async getStateInfo(): Promise<StateInfo[]> {
+    const dto = await this.externalApi.fetchStateInfo();
+    return dto.map(({ stateId, name, lat, lon, imageUrl }) => ({
+      stateId,
+      name,
+      lat,
+      lon,
+      imageUrl,
+    }));
+  }
+
+  /**
    * 灵感合辑：已迁至 InspirationsService（Wikivoyage 主题自动发现），
    * 调用方（Presentation hooks）改经 inspirationsService 获取。
    */
 
   /**
    * 节日活动流（活动 + 周边住宿/餐饮推荐）。
-   * 数据源：Cloudflare D1 中 parsed_events.json 同步的官方活动（经 Route API 读取）。
+   * 数据源：Cloudflare D1 中 malaysia.travel 官网爬取同步的官方活动（经 Route API 读取）。
    */
   async getEventFeed(): Promise<EventFeedItem[]> {
     const items = await this.eventRepo.listAll();
@@ -731,6 +790,12 @@ export class DiscoveryService {
     placeId: string,
     queryText: string
   ): Promise<PlaceDetail | null> {
+    if (placeId.startsWith("json-")) {
+      return this.getQualityRatedDetailByJsonId(
+        placeId.slice("json-".length),
+        queryText
+      );
+    }
     const rated = await this.findQualityRatedByPlaceId(placeId);
     if (rated) return this.toQualityRatedPlaceDetail(rated);
 
@@ -752,6 +817,132 @@ export class DiscoveryService {
     return place
       ? { ...toPlaceDetail(place), qualityBadge: badgeMap.get(place.placeId) }
       : null;
+  }
+
+  /**
+   * Resolve Recommended Places by their stable official-record identifier.
+   * Existing json-* favourites therefore remain valid even when no external
+   * provider place id was captured. Geoapify enriches the view when available;
+   * the official record is always the final display fallback.
+   */
+  private async getQualityRatedDetailByJsonId(
+    jsonId: string,
+    queryText: string
+  ): Promise<PlaceDetail | null> {
+    let item: OfficialQualityRatingEntity | undefined;
+    try {
+      item = (await this.qualityRatingRepo.listAll()).find(
+        (candidate) => candidate.jsonId === jsonId
+      );
+    } catch {
+      return null;
+    }
+    if (!item) return null;
+
+    const complete = this.toQualityRatedPlaceDetail(item);
+    if (complete) return complete;
+
+    try {
+      const query =
+        `${item.companyName} ${item.companyAddress}`.trim() || queryText.trim();
+      const best = pickTrustedOfficialDetail(
+        item,
+        await this.geocodingApi.searchPlaces(query, DETAIL_SEARCH_LIMIT)
+      );
+      if (best) {
+        return {
+          ...toPlaceDetail(best),
+          id: `json-${item.jsonId}`,
+          qualityBadge: awardCategoryToBadge(item.awardCategory),
+          ratingDuration: item.duration,
+          phone: item.companyPhone ?? undefined,
+          formatted: item.companyAddress || best.formatted,
+        };
+      }
+    } catch {
+      // Enrichment is optional; continue with authoritative MOTAC fields.
+    }
+
+    return {
+      ...toQualityRatedPoiItem(item, false),
+      id: `json-${item.jsonId}`,
+      placeId: `json-${item.jsonId}`,
+      formatted: item.companyAddress,
+      country: item.country ?? "Malaysia",
+      countryCode: item.countryCode ?? "my",
+      lat: item.lat ?? undefined,
+      lon: item.lon ?? undefined,
+    };
+  }
+
+  /**
+   * 解析"加入行程"（模块 02）所需坐标——模块 02 的 importPlaces 强制要求
+   * 每条地点坐标有效，本方法在目标地点坐标缺失时补全（AddToTripService 调用）。
+   * 解析优先级（全部路径均不抛异常，尽力而为）：
+   *   1. 入参已带有限 lat/lon → 直接复用（不发起任何请求）；
+   *   2. placeId 形如 "json-{jsonId}"（Recommended Places / 收藏来源）→
+   *      在官方评级 D1 数据中按 jsonId 查找，实体坐标有限则复用
+   *      （sync 时 Nominatim/Geoapify 补全的经纬度，见 QualityRatingSyncService）；
+   *   3. 其余非空 placeId（Geoapify / wikidata）→ getPlaceDetail 两级策略
+   *      （官方评级 place_id 直查 / 名称搜索匹配），坐标有限则复用；
+   *   4. 兜底：以地点名做 Geoapify 名称搜索（强制马来西亚限定）取首个有效坐标。
+   * 全部路径失败返回 null——调用方应如实反馈"无法定位坐标"，不得向模块 02
+   * 发送坐标无效的导入（否则 importPlaces 整体返回失败）。
+   */
+  async resolveImportCoordinates(
+    placeId: string | null | undefined,
+    placeName: string,
+    lat?: number | null,
+    lon?: number | null
+  ): Promise<{ lat: number; lon: number } | null> {
+    const isFinitePair = (a?: number | null, b?: number | null): boolean =>
+      typeof a === "number" &&
+      Number.isFinite(a) &&
+      typeof b === "number" &&
+      Number.isFinite(b);
+
+    // 1. 已带有效坐标：直接复用，不做任何网络请求
+    if (isFinitePair(lat, lon)) {
+      return { lat: lat as number, lon: lon as number };
+    }
+
+    const name = (placeName ?? "").trim();
+    if (!name) return null;
+    const trimmedPlaceId = (placeId ?? "").trim();
+
+    // 2. 官方评级（json-{jsonId}）来源：D1 实体坐标优先
+    if (trimmedPlaceId.startsWith("json-")) {
+      const jsonId = trimmedPlaceId.slice("json-".length);
+      try {
+        const items = await this.qualityRatingRepo.listAll();
+        const matched = items.find((item) => item.jsonId === jsonId);
+        if (matched && isFinitePair(matched.lat, matched.lon)) {
+          return { lat: matched.lat as number, lon: matched.lon as number };
+        }
+      } catch {
+        // D1 读取失败：继续走 Geoapify 名称搜索兜底
+      }
+    } else if (trimmedPlaceId) {
+      // 3. 其余 place_id（Geoapify / wikidata）：getPlaceDetail 两级策略
+      try {
+        const detail = await this.getPlaceDetail(trimmedPlaceId, name);
+        if (detail && isFinitePair(detail.lat, detail.lon)) {
+          return { lat: detail.lat as number, lon: detail.lon as number };
+        }
+      } catch {
+        // 瞬时失败：继续走名称搜索兜底
+      }
+    }
+
+    // 4. 兜底：地点名 Geoapify 名称搜索（马来西亚限定）取首个有效坐标
+    try {
+      const results = await this.searchPlaceDetails(name);
+      const found = results.find((p) => isFinitePair(p.lat, p.lon));
+      if (found) return { lat: found.lat as number, lon: found.lon as number };
+    } catch {
+      // 忽略：交由调用方反馈"无法定位坐标"
+    }
+    return null;
   }
 
   /**
@@ -881,6 +1072,8 @@ export class DiscoveryService {
   ): Promise<PlaceImageResult | null> {
     const cacheKey = placeId.trim() || placeName.trim();
     if (!cacheKey) return null;
+    const hasTrustedCoordinates =
+      lat != null && lon != null && !placeId.startsWith("json-");
 
     // 1. 内存短期 URL 缓存（wikimedia 长期 / mapillary 1 小时）
     const cached = this.getImageUrlCache().get(cacheKey);
@@ -942,18 +1135,23 @@ export class DiscoveryService {
 
       // 6. Wikimedia Commons Geosearch（前端直连，仅当经纬度齐全且上一步无图）：
       //    按经纬度搜索图片（API 层强制：入口坐标须在马来西亚 bbox 内、
-      //    半径上限 5000m、逐文件坐标/标题过滤、标题含地点名者优先）
+      //    分级小半径、逐文件坐标/标题过滤，并要求地点辨识词命中）
       let geosearchDeterminate = true;
-      if (!result && lat != null && lon != null) {
+      if (!result && hasTrustedCoordinates) {
         try {
-          const geosearchImage =
-            await this.wikimediaGeosearchClient.findImageByCoords({
-              lat,
-              lon,
-              radiusMeters: RECOMMENDED_GEOSEARCH_RADIUS_METERS,
-              placeName,
-            });
-          if (geosearchImage) result = this.wikimediaResult(geosearchImage);
+          for (const radiusMeters of GEOSEARCH_RADIUS_STAGES_METERS) {
+            const geosearchImage =
+              await this.wikimediaGeosearchClient.findImageByCoords({
+                lat: lat as number,
+                lon: lon as number,
+                radiusMeters,
+                placeName,
+              });
+            if (geosearchImage) {
+              result = this.wikimediaResult(geosearchImage);
+              break;
+            }
+          }
         } catch {
           geosearchDeterminate = false; // 瞬时失败：不得据此缓存"无图"
         }
@@ -964,9 +1162,12 @@ export class DiscoveryService {
       //    （客户端 + 服务端双层马来西亚 bbox 校验，见 MapillaryApi / Route API；
       //    固定署名 Mapillary contributors, CC BY-SA 4.0）
       let mapillaryDeterminate = true;
-      if (!result && lat != null && lon != null) {
+      if (!result && hasTrustedCoordinates) {
         try {
-          const foundId = await this.mapillaryClient.findImageId(lat, lon);
+          const foundId = await this.mapillaryClient.findImageId(
+            lat as number,
+            lon as number
+          );
           if (foundId) {
             mapillaryImageId = foundId;
             const url = await this.mapillaryClient.getImageUrl(foundId);
@@ -1095,7 +1296,7 @@ export class DiscoveryService {
   }
 
   /**
-   * 清空全部地点图片缓存（DEV 工具，供 DEV-ACCOUNT-STATE 页面按钮调用）：
+   * 清空全部地点图片缓存（Admin Panel 工具，供 Admin Panel 页面按钮调用）：
    *   1. Cloudflare KV（经 Route API 逐键删除，仅本模块键前缀范围）；
    *   2. 浏览器 sessionStorage 各版本缓存键（v1/v2/v3）；
    *   3. 内存引用/URL 短期缓存与进行中请求表。

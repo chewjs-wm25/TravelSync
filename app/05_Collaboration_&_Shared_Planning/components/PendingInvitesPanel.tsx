@@ -4,15 +4,11 @@ import { useState } from "react";
 import {
   Mail,
   Hourglass,
-  X,
   Check,
   Copy,
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import {
-  can,
-} from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/RolePermissions";
 import {
   daysRemaining,
   formatDate,
@@ -22,22 +18,23 @@ import {
   type CollabInvite,
 } from "@/business_logic_layer/05_Collaboration_&_Shared_Planning/store/CollabStore";
 
-export default function PendingInvitesPanel() {
+interface PendingInvitesPanelProps {
+  isOwner: boolean;
+}
+
+export default function PendingInvitesPanel({ isOwner }: PendingInvitesPanelProps) {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
-  const currentUserId = useCollabStore((s) => s.currentUserId);
   const cancelInvite = useCollabStore((s) => s.cancelInvite);
-  const acceptInvite = useCollabStore((s) => s.acceptInvite);
-  const rejectInvite = useCollabStore((s) => s.rejectInvite);
   const expirePendingInvites = useCollabStore((s) => s.expirePendingInvites);
 
-  const me = trip?.members.find((m) => m.id === currentUserId);
-  const isOwner = can(me?.role ?? "Viewer", "cancelInvite");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   if (!trip) return null;
+
+  if (!isOwner) return null;
 
   const invites = trip.invites;
   const pending = invites.filter((i) => i.status === "pending");
@@ -77,7 +74,7 @@ export default function PendingInvitesPanel() {
         {pending.length > 0 && (
           <button
             onClick={simulateExpiry}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:border-warning hover:text-warning"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:border-warning hover:text-warning active:scale-95"
             title="Demo: skip ahead 30 days to show auto-expiry"
           >
             <RefreshCw size={13} />
@@ -129,7 +126,7 @@ export default function PendingInvitesPanel() {
 
                   <button
                     onClick={() => copyLink(invite)}
-                    className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-50"
+                    className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-50 active:scale-95"
                     title="Copy invite link (demo)"
                   >
                     {copiedId === invite.id ? (
@@ -141,41 +138,16 @@ export default function PendingInvitesPanel() {
                   </button>
 
                   <button
-                    onClick={() => {
-                      acceptInvite(invite.id);
-                      showToast(`${invite.email} accepted the invitation`);
+                    onClick={async () => {
+                      await cancelInvite(invite.id);
+                      showToast(`Invitation to ${invite.email} cancelled (link invalidated)`);
                     }}
-                    className="flex items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success transition hover:bg-success/20"
-                    title="Demo: simulate the invitee accepting"
+                    className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50/60 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-100/70 active:scale-95"
+                    title="Cancel this invitation (invalidates the link permanently)"
                   >
-                    <Check size={13} />
-                    Accept
+                    <Trash2 size={13} />
+                    Cancel invite
                   </button>
-                  <button
-                    onClick={() => {
-                      rejectInvite(invite.id);
-                      showToast(`${invite.email} declined the invitation`);
-                    }}
-                    className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-50"
-                    title="Demo: simulate the invitee declining"
-                  >
-                    <X size={13} />
-                    Decline
-                  </button>
-
-                  {isOwner && (
-                    <button
-                      onClick={() => {
-                        cancelInvite(invite.id);
-                        showToast(`Invitation to ${invite.email} cancelled`);
-                      }}
-                      className="flex items-center gap-1.5 rounded-md border border-error/30 bg-error/5 px-2.5 py-1 text-xs font-semibold text-error transition hover:bg-error/10"
-                      title="Cancel this invitation"
-                    >
-                      <Trash2 size={13} />
-                      Cancel
-                    </button>
-                  )}
                 </div>
               </div>
             );
@@ -208,7 +180,7 @@ export default function PendingInvitesPanel() {
                     ? "Accepted"
                     : invite.status === "rejected"
                       ? "Declined"
-                      : "Expired (auto-removed)"}
+                      : "Cancelled / Expired"}
                 </span>
               </div>
             ))}

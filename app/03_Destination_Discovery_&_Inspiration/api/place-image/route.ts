@@ -1,5 +1,5 @@
 /**
- * app/03_Destination_Discovery_&_Inspiration/api/discovery/place-image/route.ts — 模块 03 地点图片缓存 Route API（薄传输桥）
+ * app/03_Destination_Discovery_&_Inspiration/api/place-image/route.ts — 模块 03 地点图片缓存 Route API（薄传输桥）
  *
  * 职责（单一）：HTTP 传输层。
  *   - 解析 / 校验请求参数；
@@ -12,7 +12,7 @@
  *   - PUT（写入缓存）为正常用户流程，要求登录会话（401）；
  *   - DELETE（清空全部缓存）为危险操作，要求管理员会话（401/403）。
  *
- * 值语义（与仓储一致，v3 来源引用格式）：
+ * 值语义（与仓储一致，v5 来源引用格式）：
  *   - GET 返回 { entry }：entry 为 null = 未缓存；{source:"none"} = 确定无图；
  *     {source:"wikimedia",url} = 永久 URL；{source:"mapillary",imageId} = 图片 id
  *     （URL 有时效，用 id 换取新 URL，不得缓存 URL）；
@@ -27,7 +27,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { CloudflareKvPlaceImageCacheRepository } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
 import type { PlaceImageCacheEntry } from "@/data_access_layer/03_Destination_Discovery_&_Inspiration/PlaceImageCacheRepository";
-import { requireAdmin, requireUser } from "@/app/DEV-ACCOUNT-STATE/api/session";
+import { requireAdmin, requireUser } from "@/business_logic_layer/01_User_&_Account_Management/sessionHelper";
 
 /** 仅允许 http/https 协议的绝对 URL（防 javascript:、data: 等异常协议） */
 const HTTP_URL_PATTERN = /^https?:\/\/\S+$/i;
@@ -56,18 +56,18 @@ function isValidEntry(entry: unknown): entry is PlaceImageCacheEntry {
   return false;
 }
 
-/** GET /api/discovery/place-image?placeId=xxx → { entry: PlaceImageCacheEntry | null }（公开读） */
+/** GET /03_Destination_Discovery_&_Inspiration/api/place-image?placeId=xxx → { entry: PlaceImageCacheEntry | null }（公开读） */
 export async function GET(request: Request) {
   const placeId = new URL(request.url).searchParams.get("placeId")?.trim();
   if (!placeId) {
-    return Response.json({ error: "placeId is required" }, { status: 400 });
+    return Response.json({ message: "placeId is required" }, { status: 400 });
   }
   const repo = await placeImageCacheRepo();
   const entry = await repo.get(placeId);
   return Response.json({ entry });
 }
 
-/** PUT /api/discovery/place-image  body: { placeId, entry } → 写入缓存（登录用户） */
+/** PUT /03_Destination_Discovery_&_Inspiration/api/place-image  body: { placeId, entry } → 写入缓存（登录用户） */
 export async function PUT(request: Request) {
   const auth = await requireUser(request);
   if (!auth.ok) return auth.response;
@@ -78,12 +78,12 @@ export async function PUT(request: Request) {
   } | null;
   const placeId = typeof body?.placeId === "string" ? body.placeId.trim() : "";
   if (!placeId) {
-    return Response.json({ error: "placeId is required" }, { status: 400 });
+    return Response.json({ message: "placeId is required" }, { status: 400 });
   }
   if (!isValidEntry(body?.entry)) {
     return Response.json(
       {
-        error:
+        message:
           "entry must be {source:'none'} | {source:'wikimedia',url(http/https)} | {source:'mapillary',imageId}",
       },
       { status: 400 }
@@ -91,10 +91,10 @@ export async function PUT(request: Request) {
   }
   const repo = await placeImageCacheRepo();
   await repo.put(placeId, body.entry);
-  return Response.json({ ok: true });
+  return Response.json({ success: true });
 }
 
-/** DELETE /api/discovery/place-image → 清空全部地点图片缓存，返回 { cleared }（管理员） */
+/** DELETE /03_Destination_Discovery_&_Inspiration/api/place-image → 清空全部地点图片缓存，返回 { cleared }（管理员） */
 export async function DELETE(request: Request) {
   const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;

@@ -3,14 +3,14 @@
 > - 所属模块：03 Destination Discovery & Inspiration
 > - 所属 Layer：API Layer
 > - 源文件：`api_layer/03_Destination_Discovery_&_Inspiration/MapillaryApi.ts`
-> - 对接的外部服务：Mapillary Graph API（经本地代理端点 `/api/discovery/mapillary` 转发；图片搜索 GET /images、图片详情 GET /{image_id}）
+> - 对接的外部服务：Mapillary Graph API（经本地代理端点 `/03_Destination_Discovery_&_Inspiration/api/mapillary` 转发；图片搜索 GET /images、图片详情 GET /{image_id}）
 
 ## 责任
 
-本文件是模块 03 的 Mapillary 外部 API 客户端，职责单一：仅负责与本地代理端点 `/api/discovery/mapillary` 交流（按经纬度搜索图片 id、按 id 获取图片 URL），不包含业务规则、不触碰本地持久化、不编排跨模块流程。Mapillary 提供全球街景图，本客户端将其作为地点图片的**兜底来源**（如地点在 Wikipedia/Wikivoyage/Commons 找不到配图时）。
+本文件是模块 03 的 Mapillary 外部 API 客户端，职责单一：仅负责与本地代理端点 `/03_Destination_Discovery_&_Inspiration/api/mapillary` 交流（按经纬度搜索图片 id、按 id 获取图片 URL），不包含业务规则、不触碰本地持久化、不编排跨模块流程。Mapillary 提供全球街景图，本客户端将其作为地点图片的**兜底来源**（如地点在 Wikipedia/Wikivoyage/Commons 找不到配图时）。
 
 关键设计（安全、免费额度与范围限制）：
-- **token 不暴露前端**：本客户端不直连 Mapillary，只与本地代理端点通信，由服务端持有 `MAPILLARY_ACCESS_TOKEN`（非 `NEXT_PUBLIC`）并转发到 `graph.mapillary.com`（见 `app/api/discovery/mapillary/route.ts`）；
+- **token 不暴露前端**：本客户端不直连 Mapillary，只与本地代理端点通信，由服务端持有 `MAPILLARY_ACCESS_TOKEN`（非 `NEXT_PUBLIC`）并转发到 `graph.mapillary.com`（见 `app/03_Destination_Discovery_&_Inspiration/api/mapillary/route.ts`）；
 - **免费额度**：Mapillary 免费注册获取 access token（免费 API，无需信用卡，符合项目约束）；
 - **范围限制在马来西亚（双层）**：客户端（本文件）`findImageId` 入口校验坐标必须位于马来西亚 bbox 内（`isInMalaysiaBounds`），不在 → 直接返回 `null`，不发起请求；服务端代理端点（Route API）强校验 bbox 完全落在马来西亚 bbox 内，否则 400 拒绝——前端无法绕过；
 - **紧范围 bbox**：Mapillary v4 免费 API 的图片搜索仅返回 id（无内容分类字段），无法按"地点/景点"语义过滤；以地点周边 ±0.002°（约 ±220m）紧范围 bbox 保证返回图片属于该地点（街景图作为兜底来源）；
@@ -46,7 +46,7 @@
 - 类型：类
 - 传入：无
 - 传出：客户端实例
-- 用处：Mapillary 客户端。持有字段：`proxyEndpoint = "/api/discovery/mapillary"`（本地代理端点，服务端持有 token 并转发）。
+- 用处：Mapillary 客户端。持有字段：`proxyEndpoint = "/03_Destination_Discovery_&_Inspiration/api/mapillary"`（本地代理端点，服务端持有 token 并转发）。
 
 #### `findImageId(lat: number, lon: number)`
 - 类型：方法（async）

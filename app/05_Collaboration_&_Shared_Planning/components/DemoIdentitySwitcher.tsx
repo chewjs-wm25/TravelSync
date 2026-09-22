@@ -10,7 +10,7 @@ import { useCollabStore } from "@/business_logic_layer/05_Collaboration_&_Shared
  */
 export default function DemoIdentitySwitcher() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
   const currentUserId = useCollabStore((s) => s.currentUserId);
   const setCurrentUser = useCollabStore((s) => s.setCurrentUser);

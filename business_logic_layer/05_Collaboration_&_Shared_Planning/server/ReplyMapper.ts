@@ -17,20 +17,25 @@ type ChatRow = {
   id: number;
   user_id: string;
   username: string;
+  full_name?: string | null;
   profile_picture: string | null;
   text: string;
   created_at: string;
 };
 
+const ONLINE_THRESHOLD_MS = 5000;
+
 /** DB 协作者 → UI CollabMember */
 export function mapMember(row: MemberRow): CollabMember {
+  const lastSeen = row.last_seen ? Date.parse(row.last_seen) : 0;
+  const online = lastSeen > 0 && Date.now() - lastSeen < ONLINE_THRESHOLD_MS;
   return {
     id: row.user_id,
-    name: row.username,
+    name: row.full_name || row.username,
     email: row.email,
     role: row.role as CollabRole,
     avatar: row.profile_picture ?? "",
-    online: true,
+    online,
   };
 }
 
@@ -51,24 +56,27 @@ export function mapInvite(row: InviteWithSender): CollabInvite {
 /** DB 明细 → UI ItineraryItem（day 来自所在 Itinerary，itineraryId 作为 day 组键） */
 export function mapItem(row: ItemRow, itineraryDayMap: Record<string, number>): ItineraryItem {
   return {
-    id: row.ItemID,
+    itemId: row.ItemID,
     day: itineraryDayMap[row.ItineraryID] ?? 1,
-    title: row.ItemName,
+    name: row.ItemName,
     note: row.ItineraryNote ?? undefined,
   };
 }
 
 /** DB 评论 → UI CollabComment */
 export function mapChat(row: ChatRow, currentUserId: string): CollabComment {
+  let time = row.created_at;
+  if (time && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(time)) {
+    time = time.replace(" ", "T") + "Z";
+  } else if (time && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(time)) {
+    time += "Z";
+  }
   return {
     id: String(row.id),
     authorId: row.user_id,
-    authorName: row.username,
+    authorName: row.full_name || row.username,
     avatar: row.profile_picture ?? "",
-    time: new Date(row.created_at).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
+    time: time || new Date().toISOString(),
     text: row.text,
     own: row.user_id === currentUserId,
   };
@@ -78,7 +86,7 @@ export function mapChat(row: ChatRow, currentUserId: string): CollabComment {
 export function mapActivity(row: ActivityWithUser): ActivityEntry {
   return {
     id: String(row.id),
-    actor: row.username,
+    actor: (row as { full_name?: string }).full_name || row.username,
     action: row.action,
     at: Date.parse(row.created_at),
   };

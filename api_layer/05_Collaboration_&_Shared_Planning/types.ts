@@ -25,10 +25,13 @@ export interface CollabInvite {
 }
 
 export interface ItineraryItem {
-  id: string;
+  itemId: string;
+  placeId?: string | null;
+  name: string;
   day: number;
-  title: string;
   note?: string;
+  lat?: number | null;
+  lon?: number | null;
 }
 
 export interface CollabComment {
@@ -48,22 +51,134 @@ export interface ActivityEntry {
   at: number;
 }
 
-export interface CollabTrip {
+export interface TripLiker {
   id: string;
   name: string;
-  dates: string;
-  region: string;
+  avatar: string;
+}
+
+export interface TripLikeInfo {
+  count: number;
+  likedByMe: boolean;
+  likers: TripLiker[];
+}
+
+export interface CollabTrip {
+  tripId: string;
+  tripName: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  region?: string;
+  tripNote?: string | null;
   members: CollabMember[];
   invites: CollabInvite[];
   items: ItineraryItem[];
   comments: CollabComment[];
   activity: ActivityEntry[];
+  likes?: TripLikeInfo;
 }
 
-export type InviteResult = { ok: boolean; message?: string; invite?: CollabInvite };
+export type InviteResult = { success: boolean; message?: string; invite?: CollabInvite };
 
 export interface BootstrapResponse {
-  ok: boolean;
+  success: boolean;
   trip: CollabTrip;
   meUserId: string;
 }
+
+/** 导出行程的单项明细 */
+export interface ExportedTripItem {
+  itemId?: string;
+  name: string;
+  type?: string;
+  destination?: string | null;
+  note?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  position?: number;
+  lat?: number | null;
+  lon?: number | null;
+  imageUrl?: string | null;
+  referenceId?: string | null;
+}
+
+/** 导出行程的单日日程 */
+export interface ExportedItineraryDay {
+  itineraryId?: string;
+  title: string;
+  date: string;
+  note?: string | null;
+  items: ExportedTripItem[];
+}
+
+/** 标准 TravelSync 行程导出 JSON 格式 */
+export interface ExportedTripPlan {
+  version: "1.0";
+  app: "TravelSync";
+  exportedAt: string;
+  trip: {
+    tripId?: string;
+    tripName: string;
+    region?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    tripNote?: string | null;
+    imageUrl?: string | null;
+    itineraries: ExportedItineraryDay[];
+  };
+}
+
+/** 导入行程请求体 */
+export interface ImportTripPayload {
+  tripName: string;
+  region?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  tripNote?: string | null;
+  imageUrl?: string | null;
+  isShared?: boolean;
+  itineraries: {
+    title: string;
+    date: string;
+    note?: string | null;
+    items: ExportedTripItem[];
+  }[];
+}
+
+/** 导入行程响应体 */
+export interface ImportTripResult {
+  success: boolean;
+  tripId?: string;
+  tripName?: string;
+  message?: string;
+}
+
+/** 行程分享码信息 */
+export interface PlanShareKeyInfo {
+  shareKey: string;
+  tripId: string;
+  tripName: string;
+  createdAt: string;
+  expiresAt?: string | null;
+  useCount?: number;
+}
+
+/** 生成/获取行程分享码响应 */
+export interface CreatePlanShareKeyResult {
+  success: boolean;
+  shareKey?: string;
+  tripName?: string;
+  createdAt?: string;
+  expiresAt?: string | null;
+  message?: string;
+}
+
+/** 通过分享码获取行程计划响应 */
+export interface GetPlanByShareKeyResult {
+  success: boolean;
+  shareKey?: string;
+  tripName?: string;
+  plan?: ImportTripPayload;
+  exportedAt?: string;
+  message?: string;
+}

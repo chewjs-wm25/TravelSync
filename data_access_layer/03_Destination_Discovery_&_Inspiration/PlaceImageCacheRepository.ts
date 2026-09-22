@@ -5,11 +5,8 @@
  *   - 提供以 place id 为键的地点图片缓存读写接口（Cloudflare KV 实现）；
  *   - 不包含业务判断（缓存策略由 Business Logic Layer 编排）。
  *
- * 键设计：`module03:place-image:v5:{placeId}` —— 图片与 place id 一一关联，
- *         键前缀用于隔离键空间；v5 前缀使 v4 及更早缓存（旧值格式无署名
- *         信息，且旧查询链的"确定无图"结果会阻挡新增的 Wikivoyage 环节）
- *         整体失效——图片链路（v5）新增 Wikivoyage 首环节并携带作者/许可
- *         署名信息，必须升键重新查询。
+ * Key design: `module03:place-image:v6:{placeId}`. The v6 namespace isolates
+ * strict image-relevance decisions from permissive v5 cache entries.
  *
  * 值语义（v5，来源引用格式，供上层决定缓存策略）：
  *   - 缓存值为 PlaceImageCacheEntry 的 JSON 序列化字符串：
@@ -37,7 +34,7 @@
  */
 
 /** KV 键前缀（隔离键空间，图片与 place id 关联） */
-export const PLACE_IMAGE_CACHE_KEY_PREFIX = "module03:place-image:v5:";
+export const PLACE_IMAGE_CACHE_KEY_PREFIX = "module03:place-image:v6:";
 
 /** 由 place id 生成 KV 键 */
 export function placeImageCacheKey(placeId: string): string {

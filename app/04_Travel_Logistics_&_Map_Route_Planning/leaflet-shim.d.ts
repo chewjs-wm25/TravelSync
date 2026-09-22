@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 declare module 'leaflet' {
   export type LatLngExpression = [number, number] | { lat: number; lng: number };
 

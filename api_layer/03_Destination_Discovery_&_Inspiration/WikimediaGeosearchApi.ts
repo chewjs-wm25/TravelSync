@@ -41,6 +41,7 @@
 import { isInMalaysiaBounds } from "./MalaysiaBounds";
 import {
   isNonPlaceImageTitle,
+  placeNameMatchScore,
   titleContainsPlaceName,
 } from "./WikimediaImageFilters";
 import {
@@ -194,8 +195,7 @@ export class WikimediaGeosearchApi {
    *   1. 文件坐标必须位于马来西亚 bbox 内（圆形搜索在边境附近可能越界；
    *      坐标缺失的文件无法确认在马来西亚 → 不通过）；
    *   2. 文件标题必须通过黑名单过滤（排除 logo/flag/map 等非地点图）；
-   *   3. 若提供 placeName：优先选择标题含地点名关键词的文件，
-   *      无匹配则回退到第一个通过上述过滤的文件。
+   *   3. placeName is required to contribute a distinctive title match.
    * 全部不过滤 → 返回 null（确定无图，可安全缓存）。
    */
   private pickImage(
@@ -225,14 +225,18 @@ export class WikimediaGeosearchApi {
     }
     if (passed.length === 0) return null;
 
-    // 4. 地点名关键词优先：标题含地点名关键词的文件优先，无匹配取第一个
+    // Strict policy: never substitute an arbitrary nearby file.
     if (placeName?.trim()) {
-      const preferred = passed.find((item) =>
-        titleContainsPlaceName(item.title, placeName)
-      );
+      const preferred = passed
+        .filter((item) => titleContainsPlaceName(item.title, placeName))
+        .sort(
+          (a, b) =>
+            placeNameMatchScore(b.title, placeName) -
+            placeNameMatchScore(a.title, placeName)
+        )[0];
       if (preferred) return preferred.file;
     }
-    return passed[0].file;
+    return null;
   }
 }
 

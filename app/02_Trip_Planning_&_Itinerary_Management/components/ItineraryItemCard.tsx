@@ -7,32 +7,49 @@ import { ItemNoteEditor } from "./ItemNoteEditor";
 export type ItineraryItem = {
   id: string;
   name: string;
-  image: string;
+  image?: string;
+  imageUrl?: string;
   note?: string;
   position?: number;
   order_index?: number;
   isEditingItem?: boolean;
+  start_time?: string;
+  end_time?: string;
+  /** Coordinates for Module 04 route calculation */
+  lat?: number;
+  lon?: number;
 };
 
 type ItineraryItemCardProps = {
   item: ItineraryItem;
+  previousEndTime?: string;
+  travelTimeMinutes?: number;
+  nextStartTime?: string;
+  nextTravelTimeMinutes?: number;
   onDelete: () => void | Promise<void>;
   onToggleEdit: () => void;
   onSaveItem: (payload: {
     name: string;
     note: string;
     position?: number;
+    start_time?: string;
+    end_time?: string;
   }) => void | Promise<void>;
 };
 
 export function ItineraryItemCard({
   item,
+  previousEndTime,
+  travelTimeMinutes,
+  nextStartTime,
+  nextTravelTimeMinutes,
   onDelete,
   onToggleEdit,
   onSaveItem,
 }: ItineraryItemCardProps) {
   const resolvedImage =
     item.image ||
+    item.imageUrl ||
     "https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&w=400&q=80";
   const resolvedPosition = item.position ?? item.order_index;
 
@@ -45,8 +62,15 @@ export function ItineraryItemCard({
               {item.name}
             </span>
             {typeof resolvedPosition === "number" ? (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-gray-500 uppercase">
                 #{resolvedPosition}
+              </span>
+            ) : null}
+            {item.start_time || item.end_time ? (
+              <span className="ml-2 text-xs text-gray-600">
+                {item.start_time ? `${item.start_time}` : ""}
+                {item.start_time && item.end_time ? " – " : ""}
+                {item.end_time ? `${item.end_time}` : ""}
               </span>
             ) : null}
           </div>
@@ -57,7 +81,8 @@ export function ItineraryItemCard({
             type="button"
             onClick={onToggleEdit}
             title="Edit Item"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            aria-label="Edit item"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 active:scale-90"
           >
             <svg
               className="h-4 w-4"
@@ -80,7 +105,8 @@ export function ItineraryItemCard({
               void onDelete();
             }}
             title="Delete Item"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600"
+            aria-label="Delete item"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 active:scale-90"
           >
             <svg
               className="h-4 w-4"
@@ -103,6 +129,7 @@ export function ItineraryItemCard({
               alt={item.name}
               width={80}
               height={56}
+              unoptimized
               className="h-full w-full object-cover"
             />
           </div>
@@ -114,6 +141,12 @@ export function ItineraryItemCard({
           initialName={item.name}
           initialNote={item.note ?? ""}
           initialPosition={resolvedPosition}
+          initialStartTime={item.start_time}
+          initialEndTime={item.end_time}
+          previousEndTime={previousEndTime}
+          nextStartTime={nextStartTime}
+          travelTimeMinutes={travelTimeMinutes}
+          nextTravelTimeMinutes={nextTravelTimeMinutes}
           onSaveItem={onSaveItem}
           onCancel={onToggleEdit}
         />
@@ -132,7 +165,7 @@ export function ItineraryItemCard({
                 position: resolvedPosition,
               })
             }
-            className="flex h-5 w-5 items-center justify-center rounded text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex h-6 w-6 items-center justify-center rounded text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 active:scale-90"
             title="Delete note"
             aria-label="Delete note"
           >

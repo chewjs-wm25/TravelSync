@@ -21,9 +21,9 @@
 ```
 SearchResults（本页核心组件）
   ├─ useSearchAndFilter()        → discoveryService.getFilterOptions / getSuggestions（筛选候选项 + 联想）
-  ├─ discoveryService.searchPlaceDetails(q)   → Route API /api/discovery/geocode?type=search → Geoapify
+  ├─ discoveryService.searchPlaceDetails(q)   → Route API /03_Destination_Discovery_&_Inspiration/api/geocode?type=search → Geoapify
   ├─ discoveryService.filterPlaceDetails(allPlaces, filters) → BL 层纯计算（不重复请求）
-  ├─ useFavorites()              → favoritesService.getSavedItems / togglePoiFavourite → Route API /favorites → D1
+  ├─ useFavorites()              → favoritesService.getSavedItems / togglePoiFavourite → Route API /03_Destination_Discovery_&_Inspiration/api/favourites → D1
   └─ usePlaceImages(places)      → discoveryService.getPlaceImage（图片查询链 + 缓存）
 ```
 URL 状态流：`URL → 本地状态`（挂载/前进后退/从详情页返回恢复）与 `本地状态 → URL`（`router.replace`，筛选即时可分享）。
@@ -49,7 +49,7 @@ URL 状态流：`URL → 本地状态`（挂载/前进后退/从详情页返回�
 | 搜索结果本身为空 | 空态文案「No results found for “{q}”」+ 建议换关键词（如 “Batu Caves” / “Penang”） |
 | 图片加载中/无图 | 卡片图片区显示 `ImageOff` 图标（加载中先显示占位渐变底） |
 | 联想请求失败 | hooks 清空建议（不打扰用户），搜索仍可正常提交 |
-| 收藏切换 | 星星按钮 `preventDefault` + `stopPropagation`，不触发卡片跳转 |
+| 收藏切换 | 星星按钮 `preventDefault` + `stopPropagation`，不触发卡片跳转；成功后 hooks 广播收藏变更事件（`module03:favourites-changed`），页面星标与全局收藏夹浮层（布局）自动刷新 |
 
 ## 依赖
 
@@ -60,6 +60,7 @@ URL 状态流：`URL → 本地状态`（挂载/前进后退/从详情页返回�
 | `../favouriteList`（`StarIcon`） | 收藏星星图标（heroicons outline star） |
 | `../hooks`（`useFavorites`、`usePlaceImages`、`useSearchAndFilter`） | 收藏状态、图片懒加载、搜索筛选状态 |
 | `../placeImageAttribution` | 图片作者与许可署名展示（开源协议合规） |
+| `../safeUrl` | 外部 URL 协议白名单（`safeHttpUrl`，渲染结果卡 `<img src>` 前过滤，防存储型 XSS） |
 | `../../../business_logic_layer/03_Destination_Discovery_&_Inspiration/DiscoveryService` | `discoveryService.searchPlaceDetails` / `filterPlaceDetails`（仅记录 import，未打开源文件） |
 | `../../../business_logic_layer/03_Destination_Discovery_&_Inspiration/types`（仅类型） | `PlaceDetail`、`SearchFilters`、`activeType`（仅记录 import） |
 | 外部库：`react`、`next/navigation`（`useRouter`/`useSearchParams`）、`next/link`、`lucide-react`（`ImageOff`） | UI 与路由能力 |

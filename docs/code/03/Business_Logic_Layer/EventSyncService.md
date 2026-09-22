@@ -7,13 +7,13 @@
 
 ## 责任
 
-模块 03 节日/活动**同步**业务逻辑（DEV 工具链路）。职责（单一）：
+模块 03 节日/活动**同步**业务逻辑（Admin Panel 工具链路）。职责（单一）：
 
 - 编排"parsed_events.json 硬编码数据 → 写入 Cloudflare D1"全流程；
 - **幂等策略**：按 id（title 生成的 slug）upsert，重复执行仅覆盖更新；
 - 无外部 API 依赖（Event 数据为官方爬取结果，无需补全）。
 
-注意：本服务不负责活动展示（展示走 `DiscoveryService.getEventFeed`），只负责把硬编码 JSON 数据同步进 D1（浏览器端经 Route API 写入），供 DEV-ACCOUNT-STATE 页面按钮调用。
+注意：本服务不负责活动展示（展示走 `DiscoveryService.getEventFeed`），只负责把硬编码 JSON 数据同步进 D1（浏览器端经 Route API 写入），供 Admin Panel 页面按钮调用。
 
 ## 依赖
 

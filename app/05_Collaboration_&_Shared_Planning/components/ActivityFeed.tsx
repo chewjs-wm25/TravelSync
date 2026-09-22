@@ -16,7 +16,7 @@ function timeAgo(at: number): string {
 
 export default function ActivityFeed() {
   const trip = useCollabStore((s) =>
-    s.trips.find((t) => t.id === s.activeTripId) ?? s.trips[0]
+    s.trips.find((t) => t.tripId === s.activeTripId) ?? s.trips[0]
   );
   if (!trip) return null;
 

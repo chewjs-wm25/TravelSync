@@ -2,16 +2,24 @@
 
 import { useState } from "react";
 
-type ItemEditPayload = {
+export type ItemEditPayload = {
   name: string;
   note: string;
   position?: number;
+  start_time?: string;
+  end_time?: string;
 };
 
-type ItemNoteEditorProps = {
+export type ItemNoteEditorProps = {
   initialName: string;
   initialNote: string;
   initialPosition?: number;
+  initialStartTime?: string;
+  initialEndTime?: string;
+  previousEndTime?: string;
+  nextStartTime?: string;
+  travelTimeMinutes?: number;
+  nextTravelTimeMinutes?: number;
   onSaveItem: (payload: ItemEditPayload) => void | Promise<void>;
   onCancel: () => void;
 };
@@ -20,6 +28,12 @@ export function ItemNoteEditor({
   initialName,
   initialNote,
   initialPosition,
+  initialStartTime,
+  initialEndTime,
+  previousEndTime,
+  nextStartTime,
+  travelTimeMinutes,
+  nextTravelTimeMinutes,
   onSaveItem,
   onCancel,
 }: ItemNoteEditorProps) {
@@ -28,6 +42,8 @@ export function ItemNoteEditor({
   const [tempPosition, setTempPosition] = useState(
     initialPosition?.toString() ?? ""
   );
+  const [tempStartTime, setTempStartTime] = useState(initialStartTime ?? "");
+  const [tempEndTime, setTempEndTime] = useState(initialEndTime ?? "");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -40,25 +56,78 @@ export function ItemNoteEditor({
 
     const trimmedPosition = tempPosition.trim();
     let parsedPosition: number | undefined;
-
     if (trimmedPosition.length > 0) {
       const nextPosition = Number.parseInt(trimmedPosition, 10);
       if (!Number.isInteger(nextPosition) || nextPosition <= 0) {
         setErrorMessage("Position must be a positive integer");
         return;
       }
-
       parsedPosition = nextPosition;
+    }
+
+    // Validate optional start/end time format HH:MM
+    const timeRegex = /^\d{2}:\d{2}$/;
+    if (tempStartTime && !timeRegex.test(tempStartTime)) {
+      setErrorMessage("Start time must be in HH:MM format");
+      return;
+    }
+    if (tempEndTime && !timeRegex.test(tempEndTime)) {
+      setErrorMessage("End time must be in HH:MM format");
+      return;
+    }
+    if (tempStartTime && previousEndTime) {
+      const [previousHours, previousMinutes] = previousEndTime
+        .split(":")
+        .map(Number);
+      const [startHours, startMinutes] = tempStartTime.split(":").map(Number);
+      const previousEndWithTravel =
+        previousHours * 60 + previousMinutes + (travelTimeMinutes ?? 0);
+      const startTimeInMinutes = startHours * 60 + startMinutes;
+
+      if (startTimeInMinutes < previousEndWithTravel) {
+        const totalMinutes = Math.round(previousEndWithTravel);
+        const requiredHours = Math.floor(totalMinutes / 60) % 24;
+        const requiredMinutes = totalMinutes % 60;
+        const requiredStartTime = `${String(requiredHours).padStart(2, "0")}:${String(requiredMinutes).padStart(2, "0")}`;
+        setErrorMessage(
+          travelTimeMinutes
+            ? `Start time must be at or after ${requiredStartTime} to allow ${Math.round(travelTimeMinutes)} minutes of travel`
+            : `Start time cannot be earlier than previous item end time (${previousEndTime})`
+        );
+        return;
+      }
+    }
+
+    if (tempEndTime && nextStartTime) {
+      const [endHours, endMinutes] = tempEndTime.split(":").map(Number);
+      const [nextHours, nextMinutes] = nextStartTime.split(":").map(Number);
+      const endWithTravel =
+        endHours * 60 + endMinutes + (nextTravelTimeMinutes ?? 0);
+      const nextStartInMinutes = nextHours * 60 + nextMinutes;
+
+      if (endWithTravel > nextStartInMinutes) {
+        const requiredNextMinutes = Math.round(endWithTravel);
+        const requiredHours = Math.floor(requiredNextMinutes / 60) % 24;
+        const requiredMinutes = requiredNextMinutes % 60;
+        const requiredNextStart = `${String(requiredHours).padStart(2, "0")}:${String(requiredMinutes).padStart(2, "0")}`;
+        setErrorMessage(
+          nextTravelTimeMinutes
+            ? `Next item must start at or after ${requiredNextStart} to allow ${Math.round(nextTravelTimeMinutes)} minutes of travel`
+            : `Next item cannot start before this item ends (${tempEndTime})`
+        );
+        return;
+      }
     }
 
     setErrorMessage(null);
     setIsSaving(true);
-
     try {
       await onSaveItem({
         name: trimmedName,
         note: tempNote,
         position: parsedPosition,
+        start_time: tempStartTime,
+        end_time: tempEndTime,
       });
     } finally {
       setIsSaving(false);
@@ -77,7 +146,7 @@ export function ItemNoteEditor({
             setErrorMessage(null);
           }}
           placeholder="Enter item name"
-          className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+          className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
           disabled={isSaving}
         />
       </label>
@@ -95,7 +164,7 @@ export function ItemNoteEditor({
               setErrorMessage(null);
             }}
             placeholder="1"
-            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
             disabled={isSaving}
           />
         </label>
@@ -107,7 +176,37 @@ export function ItemNoteEditor({
             value={tempNote}
             onChange={(event) => setTempNote(event.target.value)}
             placeholder="Add a note for this place..."
-            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b]"
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
+            disabled={isSaving}
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block space-y-1 text-xs font-semibold text-gray-700">
+          <span>Start Time</span>
+          <input
+            type="time"
+            value={tempStartTime}
+            onChange={(e) => {
+              setTempStartTime(e.target.value);
+              setErrorMessage(null);
+            }}
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
+            disabled={isSaving}
+          />
+        </label>
+
+        <label className="block space-y-1 text-xs font-semibold text-gray-700">
+          <span>End Time</span>
+          <input
+            type="time"
+            value={tempEndTime}
+            onChange={(e) => {
+              setTempEndTime(e.target.value);
+              setErrorMessage(null);
+            }}
+            className="w-full rounded-lg border border-gray-200 p-2 text-xs text-gray-800 outline-none focus:border-[#ff6b6b] focus:ring-2 focus:ring-[#ff6b6b]/20 disabled:cursor-not-allowed disabled:bg-gray-50"
             disabled={isSaving}
           />
         </label>
@@ -121,7 +220,7 @@ export function ItemNoteEditor({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg px-2.5 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isSaving}
         >
           Cancel
@@ -132,7 +231,7 @@ export function ItemNoteEditor({
             void handleSave();
           }}
           disabled={isSaving}
-          className="rounded-lg bg-[#ff6b6b] px-3 py-1 text-xs font-semibold text-white hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="rounded-lg bg-[#ff6b6b] px-3 py-1 text-xs font-semibold text-white transition-all duration-150 hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSaving ? "Saving..." : "Save Item"}
         </button>

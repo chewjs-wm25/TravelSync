@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { updateTripAction } from "@/app/02_Trip_Planning_&_Itinerary_Management/api/tripApi";
 
 type TripRecord = {
   trip_id: string;
@@ -9,6 +10,7 @@ type TripRecord = {
   start_date: string | null;
   end_date: string | null;
   trip_note: string | null;
+  image_url: string | null;
 };
 
 type EditTripModalProps = {
@@ -25,7 +27,8 @@ export default function EditTripModal({
   onSuccess,
 }: EditTripModalProps) {
   const [tripName, setTripName] = useState("");
-  const [tripNote, setTripNote] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isDragActive, setIsDragActive] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,7 +42,7 @@ export default function EditTripModal({
 
     const timerId = window.setTimeout(() => {
       setTripName(trip.trip_name);
-      setTripNote(trip.trip_note ?? "");
+      setImageUrl(trip.image_url ?? "");
       setStartDate(trip.start_date ?? "");
       setEndDate(trip.end_date ?? "");
       setErrorMessage("");
@@ -62,6 +65,30 @@ export default function EditTripModal({
     };
   }, [isOpen]);
 
+  const handleImageFile = (file?: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("Please choose an image file for the trip card.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      setImageUrl(result);
+      setErrorMessage("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleImageFile(event.target.files?.[0]);
+    event.target.value = "";
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -73,32 +100,17 @@ export default function EditTripModal({
     setErrorMessage("");
 
     try {
-      const response = await fetch(
-        "/02_Trip_Planning_&_Itinerary_Management/api/trip",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tripId: trip.trip_id,
-            userId: trip.user_id,
-            tripName,
-            tripNote,
-            startDate,
-            endDate,
-          }),
-        }
-      );
+      await updateTripAction({
+        tripId: trip.trip_id,
+        userId: trip.user_id,
+        tripName,
+        tripNote: trip.trip_note ?? undefined,
+        imageUrl: imageUrl || null,
+        startDate: startDate || null,
+        endDate: endDate || null,
+      });
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to update trip");
-      }
-
+      // reflect changes via callback
       onSuccess();
       onClose();
     } catch (error) {
@@ -142,7 +154,7 @@ export default function EditTripModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-900"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 active:scale-90"
               aria-label="Close modal"
             >
               <svg
@@ -179,17 +191,71 @@ export default function EditTripModal({
               />
             </label>
 
-            <label className="space-y-2 md:col-span-2">
+            <label
+              className={`cursor-pointer space-y-2 rounded-2xl border-2 border-dashed p-4 transition md:col-span-2 ${
+                isDragActive
+                  ? "border-[#ff6b6b] bg-[#fff5f5]"
+                  : "border-gray-200 bg-gray-50 hover:border-[#ff6b6b]/50 hover:bg-[#fff7f4]"
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragActive(true);
+              }}
+              onDragLeave={() => setIsDragActive(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragActive(false);
+                handleImageFile(event.dataTransfer.files?.[0]);
+              }}
+            >
               <span className="text-sm font-semibold text-gray-700">
-                Destination / Note
+                Trip Card Image
               </span>
-              <textarea
-                value={tripNote}
-                onChange={(event) => setTripNote(event.target.value)}
-                rows={4}
-                placeholder="Short summary, destination ideas, or Malaysia travel context"
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition outline-none focus:border-[#ff6b6b] focus:ring-4 focus:ring-[#ff6b6b]/10"
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageInputChange}
+                className="hidden"
               />
+
+              <div className="mt-3 flex flex-col items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-6 text-center">
+                {imageUrl ? (
+                  <>
+                    <img
+                      src={imageUrl}
+                      alt="Trip preview"
+                      className="h-32 w-full rounded-xl object-cover"
+                    />
+                    <div className="text-sm font-medium text-gray-700">
+                      Image selected. Drag a new file here or click to replace it.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#ff6b6b]/10 text-[#ff6b6b]">
+                      <svg
+                        className="h-6 w-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16a4 4 0 01-.88-7.9A5.5 5.5 0 0117.5 8H17a4 4 0 110 8H7zm0 0l3-3m0 0l3 3m-3-3v9"
+                        />
+                      </svg>
+                    </div>
+                    <div className="text-sm font-medium text-gray-700">
+                      Drag and drop an image here
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      or click to browse from your device
+                    </div>
+                  </>
+                )}
+              </div>
             </label>
 
             <label className="space-y-2">
@@ -234,7 +300,7 @@ export default function EditTripModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95 disabled:opacity-60"
               disabled={isSubmitting}
             >
               Cancel
@@ -242,7 +308,7 @@ export default function EditTripModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-full bg-[#ff6b6b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center justify-center rounded-full bg-[#ff6b6b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#ff6b6b]/20 transition hover:bg-[#ff5252] active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? "Updating Trip..." : "Update Trip"}
             </button>

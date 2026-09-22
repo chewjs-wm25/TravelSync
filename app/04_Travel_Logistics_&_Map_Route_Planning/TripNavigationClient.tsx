@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect */
+
 import { useEffect, useState, type ComponentType } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -25,6 +27,8 @@ import {
   fetchSuggestions,
   type PlaceSuggestion,
 } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/nominatimApi";
+import type { PublicTransportLeg } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi";
+import { getPublicTransportSpeed } from "@/api_layer/04_Travel_Logistics_&_Map_Route_Planning/publicTransportApi";
 import RouteAnalysisClient from "./RouteAnalysisClient";
 import SavedRoutesClient from "./SavedRoutesClient";
 import ExportRouteClient from "./ExportRouteClient";
@@ -44,10 +48,36 @@ const defaultMarkerIcon = L.icon({
 L.Marker.prototype.options.icon = defaultMarkerIcon;
 
 const vehicleOptions: Array<{ value: VehicleType; label: string }> = [
-  { value: "car", label: "Car" },
+  { value: "car", label: "Car/Motorcycle" },
   { value: "walk", label: "Walk" },
   { value: "public transport", label: "Public Transport" },
 ];
+
+const publicTransportOptions: Array<{ label: string; mode: Exclude<PublicTransportLeg["mode"], "walking"> }> = [
+  { label: "Train", mode: "train" },
+  { label: "MRT", mode: "mrt" },
+  { label: "LRT", mode: "lrt" },
+  { label: "Monorail", mode: "monorail" },
+  { label: "BRT", mode: "brt" },
+  { label: "Bus", mode: "bus" },
+];
+
+const getDistanceKm = (points: Array<{ lat: number; lng: number }>) =>
+  points.slice(1).reduce((distance, point, index) => {
+    const previous = points[index];
+    const latitudeDistance = (point.lat - previous.lat) * 111;
+    const longitudeDistance =
+      (point.lng - previous.lng) * 111 * Math.cos((point.lat * Math.PI) / 180);
+    return distance + Math.hypot(latitudeDistance, longitudeDistance);
+  }, 0);
+
+const formatDuration = (minutes: number) => {
+  const totalMinutes = Math.max(0, Math.round(minutes));
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  return `${totalMinutes} min / ${hours} hr${remainingMinutes ? ` ${remainingMinutes} min` : ''}`;
+};
 
 function AutoZoomToRoute({
   routeCoordinates,
@@ -100,8 +130,8 @@ export default function TripNavigationClient() {
     origin,
     destination,
     generatedRoute,
+    routeAlternatives,
     summary,
-    savedRoutes,
     routePickerOpen,
     activeField,
     optimizationMode,
@@ -109,11 +139,18 @@ export default function TripNavigationClient() {
     setRoutePickerOpen,
     setActiveField,
     setRouteLocation,
-    generateRoute,
     applyOptimization,
-    loadSavedRoute,
     saveRoute,
-    deleteSavedRoute,
+    publicTransportStops,
+    publicTransportLegs,
+    availableTransitModes,
+    preferredTransitMode,
+    setPreferredTransitMode,
+    isRouteLoading,
+    vehicles,
+    selectedVehicleId,
+    setSelectedVehicleId,
+    selectRoute,
   } = useTripNavigationStore();
 
   const [routeName, setRouteName] = useState("");
@@ -150,11 +187,32 @@ export default function TripNavigationClient() {
     },
   }[vehicleType];
 
-  const optimizationLabel = {
+  const optimizationLabel = vehicleType === "car" ? {
     fastest: 'Fastest route with priority on time',
-    shortest: 'Shortest route with the straightest path',
+    shortest: 'Shortest route with priority on total distance',
     cheapest: 'Cheapest route with cost-saving detours',
-  }[optimizationMode];
+  }[optimizationMode] : null;
+
+  const transitDetails = publicTransportLegs.map((leg) => {
+    const distanceKm = getDistanceKm(leg.points);
+    const minutes = Math.max(
+      1,
+      Number(((distanceKm / getPublicTransportSpeed(leg.mode)) * 60).toFixed(1))
+    );
+    const stopCount = publicTransportStops.filter((stop) =>
+      leg.points.some((point) => point.lat === stop.lat && point.lng === stop.lng)
+    ).length;
+    const cost = leg.mode === "walking"
+      ? 0
+      : leg.mode === "bus"
+        ? 1
+        : (leg.mode === 'lrt' || leg.mode === 'mrt')
+          ? 2.5
+          : Math.max(1, stopCount - 1) * 0.5;
+
+    return { leg, minutes, cost };
+  });
+  const transitFare = transitDetails.reduce((total, detail) => total + detail.cost, 0);
 
   useEffect(() => {
     setOriginInput(origin?.name ?? "");
@@ -165,6 +223,11 @@ export default function TripNavigationClient() {
   }, [destination?.name]);
 
   useEffect(() => {
+    if (!activeField) {
+      setSuggestions([]);
+      return;
+    }
+
     const query = activeField === "origin" ? originInput : destinationInput;
     if (!query.trim()) {
       setSuggestions([]);
@@ -217,6 +280,7 @@ export default function TripNavigationClient() {
       setDestinationInput(stop.name);
     }
     setSuggestions([]);
+    setActiveField(null);
   };
 
   const handleSave = () => {
@@ -237,7 +301,7 @@ export default function TripNavigationClient() {
           <button
             key={tab.key}
             onClick={() => setActiveSection(tab.key as typeof activeSection)}
-            className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+            className={`rounded-full px-3 py-2 text-sm font-semibold transition active:scale-95 ${
               activeSection === tab.key
                 ? "bg-primary-500 text-white shadow-sm"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -291,19 +355,65 @@ export default function TripNavigationClient() {
                 <Popup>{destination.name}</Popup>
               </Marker>
             )}
-            {routeCoordinates.length > 1 && (
-              <Polyline
-                positions={routeCoordinates}
-                pathOptions={{
-                  color: routeStyle.color,
-                  weight: routeStyle.weight,
-                  dashArray: routeStyle.dashArray,
-                }}
-              />
+            {vehicleType === "public transport" && publicTransportStops.slice(1, -1).map((stop) => (
+              <Marker key={stop.id} position={[stop.lat, stop.lng]}>
+                <Popup>
+                  <p className="font-semibold">{stop.name}</p>
+                  {(stop.departureTime || stop.arrivalTime) && (
+                    <p>{stop.departureTime ? `Departs ${stop.departureTime}` : `Arrives ${stop.arrivalTime}`}</p>
+                  )}
+                </Popup>
+              </Marker>
+            ))}
+            {vehicleType === "public transport" && publicTransportLegs.length > 0 ? (
+              publicTransportLegs.map((leg) => (
+                <Polyline
+                  key={`${leg.mode}-${leg.name}`}
+                  positions={leg.points.map((point) => [point.lat, point.lng] as LatLngExpression)}
+                  pathOptions={{
+                    color: leg.mode === "walking" ? "#16a34a" : leg.mode === "lrt" ? "#dc2626" : leg.mode === "mrt" ? "#7c3aed" : leg.mode === "monorail" ? "#0891b2" : leg.mode === "brt" ? "#ea580c" : "#2563eb",
+                    weight: 5,
+                    dashArray: leg.mode === "walking" ? "5, 8" : undefined,
+                  }}
+                />
+              ))
+            ) : routeCoordinates.length > 1 && (
+              <>
+                {routeAlternatives.map((alternative, index) => (
+                  <Polyline
+                    key={`route-alternative-${index}`}
+                    positions={alternative.points.map((point) => [point.lat, point.lng] as LatLngExpression)}
+                    pathOptions={{ color: "#94a3b8", weight: 4, opacity: 0.65 }}
+                    eventHandlers={{ click: () => selectRoute(alternative) }}
+                  />
+                ))}
+                <Polyline
+                  positions={routeCoordinates}
+                  pathOptions={{
+                    color: routeStyle.color,
+                    weight: 6,
+                    dashArray: routeStyle.dashArray,
+                  }}
+                />
+              </>
             )}
           </AnyMapContainer>
 
-          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1000] max-w-[390px] rounded-3xl border border-gray-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
+          {vehicleType === "public transport" && publicTransportLegs.length > 0 && (
+            <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-2xl border border-gray-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur">
+              <p className="font-semibold text-gray-800">Transit route</p>
+              <div className="mt-2 flex flex-wrap gap-3 text-gray-600">
+                {publicTransportLegs.map((leg) => (
+                  <span key={`${leg.mode}-${leg.name}-legend`} className="flex items-center gap-1">
+                    <span className={`h-2 w-5 rounded-full ${leg.mode === "walking" ? "bg-green-600" : leg.mode === "lrt" ? "bg-red-600" : leg.mode === "mrt" ? "bg-violet-600" : leg.mode === "monorail" ? "bg-cyan-600" : leg.mode === "brt" ? "bg-orange-600" : "bg-blue-600"}`} />
+                    {leg.mode === "walking" ? "Walking" : leg.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className={`pointer-events-none absolute inset-x-4 top-4 z-[1000] max-w-[390px] rounded-3xl border border-gray-200 bg-white/95 shadow-2xl backdrop-blur ${routePickerOpen ? "p-4" : "p-2"}`}>
             <div className="pointer-events-auto">
               <div className="flex items-center justify-between">
                 <div>
@@ -316,7 +426,7 @@ export default function TripNavigationClient() {
                 </div>
                 <button
                   onClick={() => setRoutePickerOpen(!routePickerOpen)}
-                  className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-500"
+                  className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-50 active:scale-95"
                 >
                   {routePickerOpen ? "Hide" : "Show"}
                 </button>
@@ -340,14 +450,14 @@ export default function TripNavigationClient() {
                       />
                     </div>
                     {activeField === "origin" && suggestions.length > 0 && (
-                      <ul className="shadow-base mt-2 rounded-2xl border border-gray-200 bg-white p-2 text-sm">
+                      <ul className="shadow-base mt-2 max-h-40 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2 text-sm">
                         {suggestions.map((suggestion) => (
                           <li
                             key={`${suggestion.display_name}-${suggestion.lat}`}
                           >
                             <button
                               onClick={() => handleSelectSuggestion(suggestion)}
-                              className="w-full rounded-xl px-2 py-2 text-left hover:bg-gray-100"
+                              className="w-full rounded-xl px-2 py-2 text-left transition-colors hover:bg-gray-100 active:bg-gray-200"
                             >
                               {suggestion.display_name}
                             </button>
@@ -374,7 +484,7 @@ export default function TripNavigationClient() {
                     </div>
                     {activeField === "destination" &&
                       suggestions.length > 0 && (
-                        <ul className="shadow-base mt-2 rounded-2xl border border-gray-200 bg-white p-2 text-sm">
+                        <ul className="shadow-base mt-2 max-h-40 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2 text-sm">
                           {suggestions.map((suggestion) => (
                             <li
                               key={`${suggestion.display_name}-${suggestion.lat}`}
@@ -383,7 +493,7 @@ export default function TripNavigationClient() {
                                 onClick={() =>
                                   handleSelectSuggestion(suggestion)
                                 }
-                                className="w-full rounded-xl px-2 py-2 text-left hover:bg-gray-100"
+                                className="w-full rounded-xl px-2 py-2 text-left transition-colors hover:bg-gray-100 active:bg-gray-200"
                               >
                                 {suggestion.display_name}
                               </button>
@@ -398,14 +508,6 @@ export default function TripNavigationClient() {
                       ? "Searching places…"
                       : "Search suggestions come from OpenStreetMap and you can also click the map."}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={generateRoute}
-                      className="bg-primary-500 shadow-base hover:shadow-hover rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
-                    >
-                      Generate Route
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -422,7 +524,7 @@ export default function TripNavigationClient() {
               </h3>
               <button
                 onClick={() => setRoutePickerOpen(true)}
-                className="text-primary-500 text-sm font-semibold"
+                className="text-primary-500 text-sm font-semibold transition-colors hover:text-[#ff5252] hover:underline active:opacity-70"
               >
                 Edit route
               </button>
@@ -436,7 +538,7 @@ export default function TripNavigationClient() {
                 <button
                   key={option.value}
                   onClick={() => setVehicleType(option.value)}
-                  className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${
+                  className={`rounded-2xl border px-3 py-2 text-sm font-medium transition active:scale-[0.98] ${
                     vehicleType === option.value
                       ? "border-primary-500 bg-primary-500 text-white"
                       : "hover:border-primary-500 border-gray-200 bg-white text-gray-500"
@@ -447,39 +549,87 @@ export default function TripNavigationClient() {
               ))}
             </div>
 
+            <label className="mt-4 mb-2 block text-sm font-semibold text-gray-800">
+              Car / Motorcycle
+            </label>
+            <select
+              value={selectedVehicleId}
+              onChange={(event) => setSelectedVehicleId(event.target.value)}
+              className="focus:border-primary-500 w-full rounded-2xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none disabled:opacity-50"
+              disabled={vehicleType !== "car"}
+            >
+              {vehicles
+                .filter((vehicle) => vehicle.category === "car" || vehicle.category === "motorcycle")
+                .map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.category === "motorcycle" ? "Motorcycle" : "Car"} - {vehicle.name}
+                    {vehicle.isDefault ? " (Default)" : ""}
+                  </option>
+                ))}
+            </select>
+
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                onClick={() => applyOptimization("fastest")}
+                <button
+                  disabled={vehicleType !== "car"}
+                  onClick={() => applyOptimization("fastest")}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
                   optimizationMode === "fastest"
                     ? "bg-primary-500 text-white"
-                    : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                }`}
+                      : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : "active:scale-95"}`}
               >
                 ⚡ Fastest
               </button>
               <button
+                disabled={vehicleType !== "car"}
                 onClick={() => applyOptimization("shortest")}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
                   optimizationMode === "shortest"
                     ? "bg-primary-500 text-white"
                     : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                }`}
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : "active:scale-95"}`}
               >
                 📏 Shortest
               </button>
               <button
+                disabled={vehicleType !== "car"}
                 onClick={() => applyOptimization("cheapest")}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
                   optimizationMode === "cheapest"
                     ? "bg-primary-500 text-white"
                     : "hover:border-primary-500 border border-gray-200 bg-white text-gray-800"
-                }`}
+                  } ${vehicleType !== "car" ? "cursor-not-allowed opacity-40" : "active:scale-95"}`}
               >
                 💰 Cheapest
               </button>
             </div>
-            <p className="mt-4 text-sm text-gray-500">{optimizationLabel}</p>
+            {optimizationLabel && <p className="mt-4 text-sm text-gray-500">{optimizationLabel}</p>}
+            {vehicleType === "public transport" && (
+              <div className="mt-4 rounded-2xl bg-gray-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+                  Available public transport
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setPreferredTransitMode(null)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition active:scale-95 ${preferredTransitMode === null ? "bg-primary-500 text-white ring-primary-500" : "bg-white text-gray-700 ring-gray-200 hover:ring-primary-500"}`}
+                  >
+                    Recommended
+                  </button>
+                  {publicTransportOptions.map((option) => (
+                    <button
+                      key={option.mode}
+                      disabled={!availableTransitModes.includes(option.mode)}
+                      onClick={() => setPreferredTransitMode(option.mode)}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition active:scale-95 ${preferredTransitMode === option.mode ? "bg-primary-500 text-white ring-primary-500" : availableTransitModes.includes(option.mode) ? "bg-white text-gray-700 ring-gray-200 hover:ring-primary-500" : "cursor-not-allowed bg-gray-100 text-gray-400 ring-gray-200"}`}
+                      title={availableTransitModes.includes(option.mode) ? `Show ${option.label} route` : `No ${option.label} route is available for this journey`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -489,12 +639,19 @@ export default function TripNavigationClient() {
               <h3 className="text-lg font-semibold text-gray-800">
                 Route summary
               </h3>
-              <span className="text-primary-500 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold tracking-[0.2em] uppercase">
-                {optimizationMode ?? "standard"}
-              </span>
+              {vehicleType === "car" && (
+                <span className="text-primary-500 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold tracking-[0.2em] uppercase">
+                  {optimizationMode}
+                </span>
+              )}
             </div>
 
-            <div className="mt-4 space-y-3 text-sm text-gray-500">
+              <div className="mt-4 space-y-3 text-sm text-gray-500">
+                {isRouteLoading && (
+                  <p className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
+                    {vehicleType === "car" ? `Updating ${optimizationMode} route...` : "Updating route..."}
+                  </p>
+                )}
               <div className="flex items-center justify-between">
                 <span>Total distance</span>
                 <span className="font-semibold text-gray-800">
@@ -504,22 +661,60 @@ export default function TripNavigationClient() {
               <div className="flex items-center justify-between">
                 <span>Total time</span>
                 <span className="font-semibold text-gray-800">
-                  {summary.timeMinutes} min
+                  {formatDuration(summary.timeMinutes)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Fuel needed</span>
+                <span>{summary.energyKwh > 0 ? "Energy needed" : "Fuel needed"}</span>
                 <span className="font-semibold text-gray-800">
-                  {summary.fuelLiters.toFixed(1)} L
+                  {summary.energyKwh > 0 ? `${summary.energyKwh.toFixed(1)} kWh` : `${summary.fuelLiters.toFixed(1)} L`}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Fuel cost</span>
+                <span>{vehicleType === "public transport" ? "Transit fare" : summary.energyKwh > 0 ? "Electricity cost" : "Fuel cost"}</span>
                 <span className="font-semibold text-gray-800">
-                  RM {summary.fuelCost.toFixed(2)}
+                  RM {(vehicleType === "public transport" ? transitFare : summary.energyKwh > 0 ? summary.energyCost : summary.fuelCost).toFixed(2)}
                 </span>
               </div>
             </div>
+
+            {vehicleType === "public transport" && transitDetails.length > 0 && (
+              <div className="mt-5 border-t border-gray-200 pt-4">
+                <p className="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                  Transport details
+                </p>
+                <ul className="mt-3 space-y-2 text-sm text-gray-600">
+                  {transitDetails.map(({ leg, minutes, cost }) => (
+                    <li key={`${leg.mode}-${leg.name}`} className="flex items-start justify-between gap-3">
+                      <span>
+                        <span className="font-semibold text-gray-800">{leg.name}</span>
+                        <span className="block text-xs text-gray-500">
+                          {leg.mode === "walking" ? "Walking" : leg.mode.toUpperCase()}
+                        </span>
+                      </span>
+                      <span className="whitespace-nowrap font-semibold text-gray-800">
+                        {minutes.toFixed(1)} min · {cost === 0 ? "Free" : `RM ${cost.toFixed(2)}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                  Stops in order
+                </p>
+                <ol className="mt-2 space-y-1 text-sm text-gray-600">
+                  {publicTransportStops.map((stop, index) => (
+                    <li key={stop.id}>
+                      {index + 1}. {stop.name}
+                      {(stop.departureTime || stop.arrivalTime) && (
+                        <span className="ml-2 text-xs text-gray-500">
+                          {stop.departureTime ? `Departs ${stop.departureTime}` : `Arrives ${stop.arrivalTime}`}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
 
           <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
@@ -545,7 +740,6 @@ export default function TripNavigationClient() {
               </div>
             </div>
           </div>
-
           <div className="shadow-base rounded-3xl border border-gray-200 bg-white p-5">
             <h3 className="text-lg font-semibold text-gray-800">Save route</h3>
             <input
@@ -556,7 +750,7 @@ export default function TripNavigationClient() {
             />
             <button
               onClick={handleSave}
-              className="bg-secondary-500 hover:shadow-hover mt-3 w-full rounded-2xl px-4 py-2 text-sm font-semibold text-white transition"
+              className="mt-3 w-full rounded-2xl bg-secondary-500 px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:shadow-hover active:scale-95"
             >
               Save Route
             </button>

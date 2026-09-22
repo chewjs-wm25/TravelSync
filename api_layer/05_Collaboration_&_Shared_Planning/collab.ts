@@ -5,14 +5,21 @@ import type {
   CollabComment,
   ItineraryItem,
   BootstrapResponse,
+  CollabRole,
+  ImportTripPayload,
+  ImportTripResult,
+  ExportedTripPlan,
+  CreatePlanShareKeyResult,
+  GetPlanByShareKeyResult,
 } from "./types";
 
 const BASE = "/05_Collaboration_&_Shared_Planning/api/collab";
 
-function headers(userId?: string): HeadersInit {
+function headers(userId?: string, tripId?: string): HeadersInit {
   return {
     "Content-Type": "application/json",
     ...(userId ? { "x-demo-user-id": userId } : {}),
+    ...(tripId ? { "x-trip-id": tripId } : {}),
   };
 }
 
@@ -22,11 +29,50 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   return data;
 }
 
+/** SSE 事件类型 */
+export type SSEEvent =
+  | { type: "connected"; userId: string; tripId: string; timestamp: number }
+  | { type: "member_joined"; member: { id: string; name: string; email: string; role: string; avatar: string } }
+  | { type: "member_left"; userId: string }
+  | { type: "member_removed"; userId: string }
+  | { type: "role_changed"; userId: string; role: string }
+  | { type: "invite_created"; invite: { id: string; email: string; role: string; status: string; invitedBy: string } }
+  | { type: "invite_cancelled"; inviteId: string }
+  | { type: "item_added"; item: { itemId: string; day: number; name: string; note?: string } }
+  | { type: "item_removed"; itemId: string }
+  | { type: "comment_added"; comment: { id: string; authorId: string; authorName: string; avatar: string; time: string; text: string } }
+  | { type: "activity"; entry: { id: string; actor: string; action: string; at: number } }
+  | { type: "trip_liked"; tripId: string; liked: boolean; count: number; likers: { id: string; name: string; avatar: string }[]; actor: { id: string; name: string } }
+  | { type: "heartbeat"; timestamp: number };
+
+/** SSE 订阅返回的清理函数 */
+export type Unsubscribe = () => void;
+
 export const collabApi = {
-  /** 一次拉全行程状态（挂载时用） */
-  bootstrap(userId?: string): Promise<BootstrapResponse> {
-    return request<BootstrapResponse>(`${BASE}/bootstrap`, {
-      headers: headers(userId),
+  /** 一次拉全行程状态（挂载时用，支持多 Tab 的 tripId） */
+  bootstrap(userId?: string, tripId?: string): Promise<BootstrapResponse> {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request<BootstrapResponse>(`${BASE}/bootstrap${qs}`, {
+      headers: headers(userId, tripId),
+    });
+  },
+
+  /** Control Center：我的 Plan + 我加入的 Share Plan + 收到的邀请 */
+  listControlCenter(userId: string): Promise<{
+    success: boolean;
+    owned: import("@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/TripShareService").TripShareSummary[];
+    joined: import("@/business_logic_layer/05_Collaboration_&_Shared_Planning/server/TripShareService").TripShareSummary[];
+    pendingInvitations: import("@/data_access_layer/05_Collaboration_&_Shared_Planning/InviteRepo").ReceivedInviteWithDetails[];
+  }> {
+    return request(`${BASE}/trips`, { headers: headers(userId) });
+  },
+
+  /** 切换共享（Owner 专用，private 立即踢出） */
+  toggleShare(userId: string, tripId: string, isShared: boolean): Promise<{ success: boolean; isShared: boolean; removedMembers?: number; expiredInvites?: number; message?: string }> {
+    return request(`${BASE}/trips/${encodeURIComponent(tripId)}/share`, {
+      method: "PATCH",
+      headers: headers(userId, tripId),
+      body: JSON.stringify({ isShared }),
     });
   },
 
@@ -34,64 +80,80 @@ export const collabApi = {
   async invite(
     userId: string,
     email: string,
-    role: InviteRole
+    role: InviteRole,
+    tripId?: string
   ): Promise<InviteResult> {
-    const data = await request<{ ok: boolean; message?: string; invite?: CollabInvite }>(
+    const data = await request<{ success: boolean; message?: string; invite?: CollabInvite }>(
       `${BASE}/invites`,
       {
         method: "POST",
-        headers: headers(userId),
-        body: JSON.stringify({ email, role }),
+        headers: headers(userId, tripId),
+        body: JSON.stringify({ email, role, tripId }),
       }
     );
-    return data.ok
-      ? { ok: true, invite: data.invite }
-      : { ok: false, message: data.message ?? "Could not send invite." };
+    return data.success
+      ? { success: true, invite: data.invite }
+      : { success: false, message: data.message ?? "Could not send invite." };
   },
 
   /** 取消邀请 */
-  cancelInvite(userId: string, inviteId: string): Promise<{ ok: boolean }> {
-    return request(`${BASE}/invites/${inviteId}`, {
+  cancelInvite(userId: string, inviteId: string, tripId?: string): Promise<{ success: boolean }> {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request(`${BASE}/invites/${encodeURIComponent(inviteId)}${qs}`, {
       method: "DELETE",
-      headers: headers(userId),
+      headers: headers(userId, tripId),
     });
   },
 
   /** 接受 / 拒绝邀请 */
-  updateInvite(inviteId: string, status: "accepted" | "rejected", userId?: string) {
-    const qs = userId ? `?userId=${encodeURIComponent(userId)}` : "";
-    return request(`${BASE}/invites/${inviteId}/status${qs}`, {
-      method: "PATCH",
-      headers: headers(),
-      body: JSON.stringify({ status }),
-    });
+  updateInvite(
+    inviteId: string,
+    status: "accepted" | "rejected",
+    userId?: string,
+    tripId?: string
+  ): Promise<{ success: boolean; tripId?: string; message?: string; error?: string }> {
+    const params = new URLSearchParams();
+    if (userId) params.set("userId", userId);
+    if (tripId) params.set("tripId", tripId);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return request<{ success: boolean; tripId?: string; message?: string; error?: string }>(
+      `${BASE}/invites/${encodeURIComponent(inviteId)}/status${qs}`,
+      {
+        method: "PATCH",
+        headers: headers(userId, tripId),
+        body: JSON.stringify({ status, userId }),
+      }
+    );
   },
 
   /** 模拟 30 天过期 */
-  expireInvites(): Promise<{ ok: boolean; expired: number }> {
+  expireInvites(): Promise<{ success: boolean; expired: number }> {
     return request(`${BASE}/invites/expire`, { method: "POST", headers: headers() });
   },
 
   /** 改角色 */
-  changeRole(userId: string, memberUserId: string, role: "Editor" | "Viewer") {
-    return request(`${BASE}/members/${memberUserId}`, {
+  changeRole(userId: string, memberUserId: string, role: "Editor" | "Viewer", tripId?: string) {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request(`${BASE}/members/${encodeURIComponent(memberUserId)}${qs}`, {
       method: "PATCH",
-      headers: headers(userId),
-      body: JSON.stringify({ role }),
+      headers: headers(userId, tripId),
+      body: JSON.stringify({ role, tripId }),
     });
   },
 
   /** 移除成员 */
-  removeMember(userId: string, memberUserId: string) {
-    return request(`${BASE}/members/${memberUserId}`, {
+  removeMember(userId: string, memberUserId: string, tripId?: string) {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request(`${BASE}/members/${encodeURIComponent(memberUserId)}${qs}`, {
       method: "DELETE",
-      headers: headers(userId),
+      headers: headers(userId, tripId),
     });
   },
 
   /** 退出行程 */
-  leaveTrip(userId: string) {
-    return request(`${BASE}/members/leave`, { method: "DELETE", headers: headers(userId) });
+  leaveTrip(userId: string, tripId?: string) {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request(`${BASE}/members/leave${qs}`, { method: "DELETE", headers: headers(userId, tripId) });
   },
 
   /** 新增明细 */
@@ -99,34 +161,96 @@ export const collabApi = {
     userId: string,
     day: number,
     title: string,
-    note?: string
-  ): Promise<{ ok: boolean; item?: ItineraryItem }> {
+    note?: string,
+    tripId?: string
+  ): Promise<{ success: boolean; item?: ItineraryItem }> {
     return request(`${BASE}/items`, {
       method: "POST",
-      headers: headers(userId),
-      body: JSON.stringify({ day, title, note }),
+      headers: headers(userId, tripId),
+      body: JSON.stringify({ day, title, note, tripId }),
     });
   },
 
   /** 删除明细 */
-  removeItem(userId: string, itemId: string) {
-    return request(`${BASE}/items/${itemId}`, {
+  removeItem(userId: string, itemId: string, tripId?: string) {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request(`${BASE}/items/${encodeURIComponent(itemId)}${qs}`, {
       method: "DELETE",
-      headers: headers(userId),
+      headers: headers(userId, tripId),
     });
   },
 
   /** 发评论 */
-  addComment(userId: string, text: string) {
+  addComment(userId: string, text: string, tripId?: string) {
     return request(`${BASE}/messages`, {
       method: "POST",
-      headers: headers(userId),
-      body: JSON.stringify({ text }),
+      headers: headers(userId, tripId),
+      body: JSON.stringify({ text, tripId }),
     });
   },
 
   /** 拉评论 */
-  getComments(userId: string): Promise<{ ok: boolean; comments: CollabComment[] }> {
-    return request(`${BASE}/messages`, { headers: headers(userId) });
+  getComments(userId: string, tripId?: string): Promise<{ success: boolean; comments: CollabComment[] }> {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request(`${BASE}/messages${qs}`, { headers: headers(userId, tripId) });
+  },
+
+  /** 获取行程点赞信息 */
+  getLikes(tripId?: string, userId?: string): Promise<{ success: boolean; tripId: string; count: number; likedByMe: boolean; likers: { id: string; name: string; avatar: string }[] }> {
+    const qs = tripId ? `?tripId=${encodeURIComponent(tripId)}` : "";
+    return request(`${BASE}/likes${qs}`, { headers: headers(userId, tripId) });
+  },
+
+  /** 点赞 / 取消点赞 */
+  toggleLike(tripId?: string, userId?: string): Promise<{ success: boolean; tripId: string; liked: boolean; count: number; likers: { id: string; name: string; avatar: string }[] }> {
+    return request(`${BASE}/likes`, {
+      method: "POST",
+      headers: headers(userId, tripId),
+      body: JSON.stringify({ tripId }),
+    });
+  },
+
+  /** 导入行程：创建新 Trip 并写入全部日程与明细 */
+  importTrip(userId: string, payload: ImportTripPayload): Promise<ImportTripResult> {
+    return request<ImportTripResult>(`${BASE}/import`, {
+      method: "POST",
+      headers: headers(userId),
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /** 获取完整行程导出数据 */
+  getTripExport(tripId: string, userId?: string): Promise<{ success: boolean; data?: ExportedTripPlan; message?: string }> {
+    return request<{ success: boolean; data?: ExportedTripPlan; message?: string }>(
+      `${BASE}/trips/${encodeURIComponent(tripId)}/export`,
+      { headers: headers(userId, tripId) }
+    );
+  },
+
+  /** 生成或获取行程专属免文件分享码 (Share Key / Token) */
+  createPlanShareKey(tripId: string, userId?: string): Promise<CreatePlanShareKeyResult> {
+    return request<CreatePlanShareKeyResult>(
+      `${BASE}/trips/${encodeURIComponent(tripId)}/share-key`,
+      {
+        method: "POST",
+        headers: headers(userId, tripId),
+      }
+    );
+  },
+
+  /** 通过分享码解析并获取待导入的行程结构 */
+  getPlanByShareKey(shareKey: string, userId?: string): Promise<GetPlanByShareKeyResult> {
+    return request<GetPlanByShareKeyResult>(
+      `${BASE}/share-key/${encodeURIComponent(shareKey.trim())}`,
+      {
+        method: "GET",
+        headers: headers(userId),
+      }
+    );
+  },
+
+  /** 订阅 SSE 实时事件（Cloudflare Workers Serverless 环境下已由静默轮询接管，返回空清理函数） */
+  subscribeToEvents(_userId: string, _onEvent: (event: SSEEvent) => void, _tripId?: string): Unsubscribe {
+    return () => {};
   },
 };
